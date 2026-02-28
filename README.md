@@ -1,4 +1,4 @@
-# ClawHQ
+# ClawHQ.tech
 
 Managed OpenClaw hosting with bundled AI models. Your agents, built and managed for you.
 
