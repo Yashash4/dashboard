@@ -7,15 +7,14 @@ const PricingSection = () => {
   const tiers = [
     {
       name: "Starter",
+      tagline: "For individuals & small teams",
       price: annual ? "$599" : "$59",
       period: annual ? "/year" : "/mo",
       badge: null,
       cta: "Get Started",
-      ctaHref: "#",
-      highlight: false,
+      ctaStyle: "border border-border text-foreground hover:bg-secondary",
       specs: [
-        "2 vCPU cores · 8 GB RAM",
-        "100 GB NVMe · 8 TB bandwidth",
+        "2 vCPU · 8 GB RAM · 100 GB NVMe",
         "Kimi K2.5 + MiniMax M2.5 + 1 more",
         "128K context window",
         "All messaging channels",
@@ -26,34 +25,33 @@ const PricingSection = () => {
     },
     {
       name: "Pro",
+      tagline: "For power users & growing teams",
       price: annual ? "$1,299" : "$129",
       period: annual ? "/year" : "/mo",
       badge: "Coming Soon",
-      cta: "Pre-book at $109/mo",
-      ctaHref: "#",
-      highlight: true,
+      cta: "Pre-book — $109/mo",
+      ctaStyle: "bg-primary text-primary-foreground hover:brightness-110",
       specs: [
-        "8 vCPU cores · 32 GB RAM",
-        "400 GB NVMe · 32 TB bandwidth",
-        "All Starter models + more",
+        "8 vCPU · 32 GB RAM · 400 GB NVMe",
+        "All Starter models + expanded list",
         "Full context window (no cap)",
         "Agent control dashboard",
         "Chat with agents from dashboard",
-        "5× rate limits",
+        "5× higher rate limits",
         "Priority support",
       ],
     },
     {
       name: "Enterprise",
+      tagline: "Custom-built for your business",
       price: "$999+",
       period: "/mo",
       badge: null,
       cta: "Talk to Us",
-      ctaHref: "#",
-      highlight: false,
+      ctaStyle: "border border-border text-foreground hover:bg-secondary",
       specs: [
-        "Custom infrastructure",
-        "Custom agents built for you",
+        "Custom infrastructure & specs",
+        "Custom agents for your use case",
         "Custom planner agents",
         "Custom integrations & workflows",
         "25× rate limits",
@@ -65,77 +63,76 @@ const PricingSection = () => {
   ];
 
   return (
-    <section id="pricing" className="py-24">
+    <section id="pricing" className="py-28 noise-bg">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold">
-            Simple, <span className="text-gradient">transparent</span> pricing
+        <div className="text-center mb-14">
+          <span className="text-xs font-mono text-primary tracking-widest uppercase">Pricing</span>
+          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
+            Simple pricing. No surprises.
           </h2>
-          <p className="mt-4 text-muted-foreground">
-            No hidden fees. No surprise bills. Cancel anytime.
+          <p className="mt-3 text-sm text-muted-foreground">
+            No hidden fees. Cancel anytime. Annual saves ~15%.
           </p>
 
           {/* Toggle */}
-          <div className="mt-8 inline-flex items-center gap-3 bg-secondary rounded-lg p-1">
+          <div className="mt-8 inline-flex items-center bg-secondary rounded-lg p-1">
             <button
               onClick={() => setAnnual(false)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                !annual ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              className={`px-4 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                !annual ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setAnnual(true)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                annual ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              className={`px-4 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                annual ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Annual <span className="text-xs opacity-75">Save ~15%</span>
+              Annual
             </button>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden max-w-4xl mx-auto">
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className={`relative rounded-xl p-8 flex flex-col ${
-                tier.highlight
-                  ? "bg-card border-2 border-primary glow-primary"
-                  : "bg-card border border-border"
-              }`}
+              className="relative bg-card p-8 flex flex-col"
             >
               {tier.badge && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">
+                <span className="absolute top-4 right-4 bg-primary/10 text-primary text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
                   {tier.badge}
                 </span>
               )}
 
-              <h3 className="text-xl font-bold">{tier.name}</h3>
-              <div className="mt-4 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold">{tier.price}</span>
-                <span className="text-muted-foreground text-sm">{tier.period}</span>
+              <div>
+                <h3 className="text-lg font-bold tracking-tight">{tier.name}</h3>
+                <p className="text-xs text-muted-foreground mt-1">{tier.tagline}</p>
               </div>
 
-              <ul className="mt-8 space-y-3 flex-1">
+              <div className="mt-6 flex items-baseline gap-1">
+                <span className="text-3xl font-bold tracking-tight">{tier.price}</span>
+                <span className="text-muted-foreground text-xs">{tier.period}</span>
+              </div>
+
+              <div className="line-gradient my-6" />
+
+              <ul className="space-y-3 flex-1">
                 {tier.specs.map((spec) => (
-                  <li key={spec} className="flex items-start gap-2 text-sm text-secondary-foreground">
-                    <Check size={16} className="text-primary mt-0.5 shrink-0" />
+                  <li key={spec} className="flex items-start gap-2.5 text-[13px] text-secondary-foreground">
+                    <Check size={14} className="text-primary mt-0.5 shrink-0" />
                     <span>{spec}</span>
                   </li>
                 ))}
               </ul>
 
               <a
-                href={tier.ctaHref}
-                className={`mt-8 flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-opacity hover:opacity-90 ${
-                  tier.highlight
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-secondary text-foreground border border-border"
-                }`}
+                href="#"
+                className={`mt-8 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-200 ${tier.ctaStyle}`}
               >
-                {tier.cta} <ArrowRight size={16} />
+                {tier.cta} <ArrowRight size={14} />
               </a>
             </div>
           ))}
