@@ -38,17 +38,22 @@ const faqs = [
 
 const FAQSection = () => {
   return (
-    <section id="faq" className="py-28">
-      <div className="container mx-auto px-4">
+    <section id="faq" className="py-28 bg-black border-t border-white/[0.06]">
+      <div className="container mx-auto px-4 lg:px-8">
         <div className="grid lg:grid-cols-[1fr_1.5fr] gap-16 max-w-4xl mx-auto">
           <div>
+            <div className="flex items-center gap-2 mb-4 opacity-60">
+              <div className="w-8 h-px bg-white" />
+              <span className="text-white text-[10px] font-mono tracking-wider">007</span>
+              <div className="w-16 h-px bg-white" />
+            </div>
             <span className="text-xs font-mono text-primary tracking-widest uppercase">FAQ</span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight">
+            <h2 className="mt-3 text-3xl font-bold tracking-tight font-mono">
               Common
               <br />
               questions.
             </h2>
-            <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
+            <p className="mt-4 text-sm text-white/50 leading-relaxed font-mono">
               Can't find what you're looking for?{" "}
               <a href="mailto:hello@clawhq.tech" className="text-primary hover:underline">
                 Reach out
@@ -62,12 +67,12 @@ const FAQSection = () => {
               <AccordionItem
                 key={i}
                 value={`faq-${i}`}
-                className="border border-border rounded-lg px-5 bg-card"
+                className="border border-white/10 px-5 bg-white/[0.02]"
               >
-                <AccordionTrigger className="text-left text-[13px] font-medium hover:no-underline py-4">
+                <AccordionTrigger className="text-left text-[13px] font-mono hover:no-underline py-4">
                   {faq.q}
                 </AccordionTrigger>
-                <AccordionContent className="text-[13px] text-muted-foreground leading-relaxed pb-4">
+                <AccordionContent className="text-[13px] text-white/50 leading-relaxed pb-4 font-mono">
                   {faq.a}
                 </AccordionContent>
               </AccordionItem>

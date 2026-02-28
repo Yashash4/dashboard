@@ -35,26 +35,31 @@ const features = [
 
 const FeaturesSection = () => {
   return (
-    <section id="features" className="py-28 noise-bg">
-      <div className="container mx-auto px-4">
+    <section id="features" className="py-28 bg-black border-t border-white/[0.06]">
+      <div className="container mx-auto px-4 lg:px-8">
         <div className="max-w-2xl mb-16">
+          <div className="flex items-center gap-2 mb-4 opacity-60">
+            <div className="w-8 h-px bg-white" />
+            <span className="text-white text-[10px] font-mono tracking-wider">002</span>
+            <div className="w-16 h-px bg-white" />
+          </div>
           <span className="text-xs font-mono text-primary tracking-widest uppercase">What's included</span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight">
-            Everything you need to run AI agents.
+          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight font-mono">
+            Everything you need.
             <br />
-            <span className="text-muted-foreground">Nothing you don't.</span>
+            <span className="text-white/40">Nothing you don't.</span>
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border rounded-xl overflow-hidden">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/10">
           {features.map((f) => (
             <div
               key={f.title}
-              className="bg-card p-8 group hover:bg-secondary/50 transition-colors duration-300"
+              className="bg-black p-8 group hover:bg-white/[0.03] transition-colors duration-300"
             >
               <f.icon size={20} className="text-primary mb-5" strokeWidth={1.5} />
-              <h3 className="text-base font-semibold mb-2.5 tracking-tight">{f.title}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+              <h3 className="text-base font-semibold mb-2.5 tracking-tight font-mono">{f.title}</h3>
+              <p className="text-sm text-white/50 leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>

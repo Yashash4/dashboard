@@ -11,14 +11,13 @@ const Navbar = () => {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/70 backdrop-blur-xl">
-      <div className="line-gradient" />
-      <div className="container mx-auto flex items-center justify-between py-4 px-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
+      <div className="container mx-auto flex items-center justify-between py-4 px-4 lg:px-8">
         <a href="#" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+          <div className="w-7 h-7 bg-primary flex items-center justify-center">
             <span className="text-primary-foreground text-xs font-bold font-mono">C</span>
           </div>
-          <span className="text-foreground text-base font-semibold tracking-tight" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <span className="text-white text-base font-semibold tracking-widest font-mono uppercase">
             ClawHQ
           </span>
         </a>
@@ -28,21 +27,21 @@ const Navbar = () => {
             <a
               key={link.label}
               href={link.href}
-              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-200"
+              className="text-[11px] text-white/50 hover:text-white transition-colors duration-200 font-mono tracking-wider uppercase"
             >
               {link.label}
             </a>
           ))}
           <a
             href="#pricing"
-            className="text-[13px] font-medium border border-border text-foreground px-4 py-1.5 rounded-md hover:bg-secondary transition-colors duration-200"
+            className="text-[11px] font-mono tracking-wider border border-white/30 text-white px-4 py-1.5 hover:bg-white hover:text-black transition-colors duration-200 uppercase"
           >
             Dashboard
           </a>
         </div>
 
         <button
-          className="md:hidden text-foreground"
+          className="md:hidden text-white"
           onClick={() => setMobileOpen(!mobileOpen)}
           aria-label="Toggle menu"
         >
@@ -51,12 +50,12 @@ const Navbar = () => {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden bg-background/95 backdrop-blur-xl border-t border-border px-4 pb-4">
+        <div className="md:hidden bg-black/95 backdrop-blur-xl border-t border-white/10 px-4 pb-4">
           {links.map((link) => (
             <a
               key={link.label}
               href={link.href}
-              className="block py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="block py-3 text-sm text-white/50 hover:text-white transition-colors font-mono tracking-wider uppercase"
               onClick={() => setMobileOpen(false)}
             >
               {link.label}
@@ -64,7 +63,7 @@ const Navbar = () => {
           ))}
           <a
             href="#pricing"
-            className="block mt-2 text-center border border-border text-foreground px-5 py-2 rounded-md text-sm font-medium"
+            className="block mt-2 text-center border border-white/30 text-white px-5 py-2 text-sm font-mono tracking-wider uppercase"
             onClick={() => setMobileOpen(false)}
           >
             Dashboard
