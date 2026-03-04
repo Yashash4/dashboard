@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-// Dashboard pages that get rewritten from /path → /dashboard/path on app subdomain
+// Clean paths that get rewritten to /dashboard/* internally
 const DASHBOARD_PATHS = [
   "/vps",
   "/models",
@@ -12,25 +12,17 @@ const DASHBOARD_PATHS = [
   "/account",
 ];
 
-function isAppSubdomain(host: string) {
-  return host.startsWith("app.");
-}
-
 export async function middleware(request: NextRequest) {
-  const host = request.headers.get("host") || "";
   const path = request.nextUrl.pathname;
-  const appSubdomain = isAppSubdomain(host);
 
-  // Determine the effective path (after subdomain rewrite)
+  // Rewrite clean URLs to /dashboard/* internally
   let effectivePath = path;
-  if (appSubdomain) {
-    const needsRewrite =
-      path === "/" ||
-      DASHBOARD_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  const needsRewrite =
+    path === "/" ||
+    DASHBOARD_PATHS.some((p) => path === p || path.startsWith(p + "/"));
 
-    if (needsRewrite) {
-      effectivePath = path === "/" ? "/dashboard" : `/dashboard${path}`;
-    }
+  if (needsRewrite) {
+    effectivePath = path === "/" ? "/dashboard" : `/dashboard${path}`;
   }
 
   let supabaseResponse = NextResponse.next({ request });
@@ -64,7 +56,7 @@ export async function middleware(request: NextRequest) {
   // Logged-in users trying to access auth pages → redirect to home
   if ((path === "/login" || path === "/register") && user) {
     const url = request.nextUrl.clone();
-    url.pathname = appSubdomain ? "/" : "/dashboard";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
@@ -91,12 +83,12 @@ export async function middleware(request: NextRequest) {
 
     if (!profile || profile.role !== "admin") {
       const url = request.nextUrl.clone();
-      url.pathname = appSubdomain ? "/" : "/dashboard";
+      url.pathname = "/";
       return NextResponse.redirect(url);
     }
   }
 
-  // Rewrite clean subdomain URLs to /dashboard/* internally
+  // Rewrite clean URLs to /dashboard/* internally
   if (effectivePath !== path) {
     const url = request.nextUrl.clone();
     url.pathname = effectivePath;
