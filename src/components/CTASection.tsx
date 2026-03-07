@@ -20,7 +20,7 @@ const CTASection = () => {
         {/* Decoration */}
         <div className="flex items-center gap-4 mb-6 justify-center">
           <div className="h-px w-12 bg-white/20" />
-          <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">009</span>
+          <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">010</span>
           <div className="h-px w-12 bg-white/20" />
         </div>
 

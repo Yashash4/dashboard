@@ -13,7 +13,7 @@ const features = [
   {
     icon: Brain,
     title: "AI Model Hub",
-    desc: "Access 500+ AI models. Switch models instantly. No API keys needed.",
+    desc: "Access 500+ open-source AI models — Llama, Mistral, Qwen, and more. Switch instantly, no API keys needed.",
     span: "col-span-1",
   },
   {

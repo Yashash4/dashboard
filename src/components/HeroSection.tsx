@@ -57,7 +57,7 @@ const HeroSection = () => {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="text-base lg:text-lg text-white/60 mb-10 max-w-2xl mx-auto leading-relaxed"
           >
-            Dedicated VPS, bundled AI models, every messaging channel.
+            Dedicated VPS, 500+ open-source AI models, every messaging channel.
             No API keys. No config. We handle everything so you can focus on building.
           </motion.p>
 

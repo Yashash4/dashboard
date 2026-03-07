@@ -4,6 +4,7 @@ import SocialProofSection from "@/components/SocialProofSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import HowItWorksSection from "@/components/HowItWorksSection";
 import ArchitectureSection from "@/components/ArchitectureSection";
+import ComparisonSection from "@/components/ComparisonSection";
 import SpecsSection from "@/components/SpecsSection";
 import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
@@ -20,6 +21,7 @@ export default function Home() {
       <FeaturesSection />
       <HowItWorksSection />
       <ArchitectureSection />
+      <ComparisonSection />
       <SpecsSection />
       <PricingSection />
       <TestimonialsSection />

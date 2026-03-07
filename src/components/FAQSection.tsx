@@ -71,7 +71,7 @@ const FAQSection = () => {
           <div>
             <div className="flex items-center gap-4 mb-4">
               <div className="h-px w-12 bg-white/20" />
-              <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">008</span>
+              <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">009</span>
             </div>
             <h2 className="text-4xl md:text-5xl font-bold font-[family-name:var(--font-space-grotesk)] mb-6">
               Frequently asked questions
