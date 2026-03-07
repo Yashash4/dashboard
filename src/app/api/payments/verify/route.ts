@@ -87,17 +87,33 @@ async function fulfill(admin: any, userId: string, meta: Record<string, any>) {
     case "subscription_new":
     case "subscription_upgrade": {
       if (meta.plan) {
+        const now = new Date();
+        const billingCycle = meta.billing_cycle || "monthly";
+        const expiresAt = new Date(now);
+        if (billingCycle === "annual") {
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        } else {
+          expiresAt.setMonth(expiresAt.getMonth() + 1);
+        }
+
         await admin.from("subscriptions").upsert(
           {
             user_id: userId,
             plan: meta.plan,
-            billing_cycle: meta.billing_cycle || "monthly",
+            billing_cycle: billingCycle,
             price: meta.amount || 0,
             status: "active",
-            started_at: new Date().toISOString(),
+            started_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
           },
           { onConflict: "user_id" }
         );
+
+        // Reset model change counter on new/renewed subscription
+        await admin
+          .from("models")
+          .update({ changes_this_month: 0 })
+          .eq("user_id", userId);
       }
       break;
     }

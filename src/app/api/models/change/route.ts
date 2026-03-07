@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   // Get user's current model config
   const { data: modelConfig } = await admin
     .from("models")
-    .select("id, current_model, changes_this_month")
+    .select("id, current_model, changes_this_month, last_change_at")
     .eq("user_id", user.id)
     .single();
 
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   // Get subscription to check plan + billing date
   const { data: subscription } = await admin
     .from("subscriptions")
-    .select("plan, expires_at")
+    .select("plan, expires_at, started_at")
     .eq("user_id", user.id)
     .single();
 
@@ -79,6 +79,23 @@ export async function POST(request: NextRequest) {
       { error: "No active subscription" },
       { status: 400 }
     );
+  }
+
+  // Lazy reset: if billing cycle renewed since last change, reset counter
+  if (modelConfig.last_change_at && subscription.expires_at) {
+    const lastChange = new Date(modelConfig.last_change_at);
+    const expiresAt = new Date(subscription.expires_at);
+    // Calculate current cycle start (expires_at minus one billing period)
+    const cycleStart = new Date(expiresAt);
+    cycleStart.setMonth(cycleStart.getMonth() - 1);
+
+    if (lastChange < cycleStart) {
+      await admin
+        .from("models")
+        .update({ changes_this_month: 0 })
+        .eq("id", modelConfig.id);
+      modelConfig.changes_this_month = 0;
+    }
   }
 
   // Check change limit based on plan
