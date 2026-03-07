@@ -74,7 +74,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Root path: logged in → dashboard, not logged in → landing page
-  if (path === "/" && user) {
+  // ?landing=true bypasses redirect so logged-in users can preview the landing page
+  if (path === "/" && user && !request.nextUrl.searchParams.has("landing")) {
     effectivePath = "/dashboard";
   }
 
