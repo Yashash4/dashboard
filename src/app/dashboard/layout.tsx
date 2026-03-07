@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
+import { NavigationProgress } from "@/components/dashboard/navigation-progress";
 import { UserProvider } from "@/lib/user-context";
 import {
   SidebarProvider,
@@ -54,6 +55,7 @@ export default async function DashboardLayout({
         plan,
       }}
     >
+      <NavigationProgress />
       <SidebarProvider>
         <AppSidebar user={user} plan={plan} />
         <SidebarInset>

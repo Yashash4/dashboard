@@ -88,6 +88,23 @@ const PLANS = [
     ],
   },
   {
+    name: "ultra",
+    label: "Ultra",
+    price: "$350",
+    annual: "$3,499/yr",
+    features: [
+      "16 vCPU, 64GB RAM, 800GB storage",
+      "5X credits — full context window",
+      "Mission Control command center",
+      "Agent Squad Builder & orchestration",
+      "Cost & token dashboard",
+      "End-to-end tracing & debugging",
+      "Workflow builder & automation",
+      "RBAC workspaces & approvals",
+      "Advanced API access & webhooks",
+    ],
+  },
+  {
     name: "enterprise",
     label: "Enterprise",
     price: "$999+",
@@ -203,7 +220,7 @@ export function BillingOverview({
       {/* Plan Comparison */}
       <div>
         <h2 className="text-lg font-semibold mb-4">Plans</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {PLANS.map((plan) => {
             const isCurrent = subscription.plan === plan.name;
 

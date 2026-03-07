@@ -209,6 +209,7 @@ export function AdminSubscriptionEditor({ userId, subscription }: Props) {
               <SelectContent>
                 <SelectItem value="starter">Starter</SelectItem>
                 <SelectItem value="pro">Pro</SelectItem>
+                <SelectItem value="ultra">Ultra</SelectItem>
                 <SelectItem value="enterprise">Enterprise</SelectItem>
               </SelectContent>
             </Select>

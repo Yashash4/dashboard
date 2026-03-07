@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -21,9 +22,19 @@ import {
   ScrollText,
   ShieldCheck,
   LogOut,
+  Radar,
+  KanbanSquare,
+  UsersRound,
+  Activity,
+  Timer,
+  FileText,
+  TrendingUp,
+  Key,
+  ClipboardList,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase";
+import { hasAccess, PLAN_CONFIG, type Plan } from "@/lib/tier";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -53,6 +64,22 @@ const customerNav = [
   { title: "Account", href: "/account", icon: UserIcon },
 ];
 
+const proNav = [
+  { title: "Logs", href: "/logs", icon: FileText },
+  { title: "Analytics", href: "/analytics", icon: TrendingUp },
+  { title: "Team", href: "/team", icon: UsersRound },
+  { title: "API Access", href: "/api-access", icon: Key },
+  { title: "Audit Log", href: "/audit-log", icon: ClipboardList },
+];
+
+const ultraNav = [
+  { title: "Mission Control", href: "/mission-control", icon: Radar },
+  { title: "Tasks", href: "/mission-control/tasks", icon: KanbanSquare },
+  { title: "Agents", href: "/mission-control/agents", icon: UsersRound },
+  { title: "Events", href: "/mission-control/events", icon: Activity },
+  { title: "Sessions", href: "/mission-control/sessions", icon: Timer },
+];
+
 const adminNav = [
   { title: "Stats", href: "/admin", icon: BarChart3 },
   { title: "Customers", href: "/admin/customers", icon: Users },
@@ -74,12 +101,19 @@ interface AppSidebarProps {
 export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+
+  // Clear pending when navigation completes
+  useEffect(() => {
+    setPendingPath(null);
+  }, [pathname]);
 
   const isActive = (href: string) => {
+    const checkPath = pendingPath || pathname;
     if (href === "/" || href === "/admin") {
-      return pathname === href;
+      return checkPath === href;
     }
-    return pathname.startsWith(href);
+    return checkPath.startsWith(href);
   };
 
   const handleLogout = async () => {
@@ -105,11 +139,8 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
           </Link>
           <span
             className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 ${
-              plan === "pro"
-                ? "bg-primary/15 text-primary border border-primary/30"
-                : plan === "enterprise"
-                  ? "bg-yellow-500/15 text-yellow-500 border border-yellow-500/30"
-                  : "bg-sidebar-foreground/10 text-sidebar-foreground/60 border border-sidebar-foreground/20"
+              PLAN_CONFIG[plan as Plan]?.badgeClass ||
+              PLAN_CONFIG.starter.badgeClass
             }`}
           >
             {plan}
@@ -129,7 +160,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href}>
+                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -139,6 +170,60 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {hasAccess(plan, "pro") && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Pro Tools</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {proNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.href)}
+                        tooltip={item.title}
+                      >
+                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
+
+        {hasAccess(plan, "ultra") && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Command Center</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {ultraNav.map((item) => (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(item.href)}
+                        tooltip={item.title}
+                      >
+                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
 
         {user.role === "admin" && (
           <>
@@ -154,7 +239,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                         isActive={isActive(item.href)}
                         tooltip={item.title}
                       >
-                        <Link href={item.href}>
+                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
                           <item.icon />
                           <span>{item.title}</span>
                         </Link>

@@ -14,6 +14,12 @@ const DASHBOARD_PATHS = [
   "/monitoring",
   "/openclaw",
   "/store",
+  "/mission-control",
+  "/logs",
+  "/analytics",
+  "/team",
+  "/api-access",
+  "/audit-log",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -146,5 +152,11 @@ export const config = {
     "/monitoring/:path*",
     "/openclaw/:path*",
     "/store/:path*",
+    "/mission-control/:path*",
+    "/logs/:path*",
+    "/analytics/:path*",
+    "/team/:path*",
+    "/api-access/:path*",
+    "/audit-log/:path*",
   ],
 };
