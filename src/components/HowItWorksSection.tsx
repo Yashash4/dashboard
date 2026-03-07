@@ -1,56 +1,185 @@
+"use client";
+
+import React from "react";
+import { motion } from "framer-motion";
+import { CreditCard, Server, MessageSquare, Rocket } from "lucide-react";
+
 const steps = [
   {
-    num: "01",
-    title: "Choose your plan",
-    desc: "Starter, Pro, or Enterprise. Pick what fits — upgrade anytime.",
+    number: "01",
+    title: "Choose Your Plan",
+    icon: CreditCard,
+    description: "Pick Starter, Pro, or Ultra. Pay monthly or yearly.",
   },
   {
-    num: "02",
-    title: "We build your server",
-    desc: "Dedicated VPS, Docker, OpenClaw, AI models — deployed within 24 hours.",
+    number: "02",
+    title: "We Build Your Server",
+    icon: Server,
+    description: "VPS provisioned, OpenClaw installed, DNS configured. Automatic.",
   },
   {
-    num: "03",
-    title: "Connect your channels",
-    desc: "Tell us which channels your customers use. We configure all of them.",
+    number: "03",
+    title: "Connect Your Channels",
+    icon: MessageSquare,
+    description: "Link WhatsApp, Telegram, Slack — any messaging platform.",
   },
   {
-    num: "04",
-    title: "Start using your agents",
-    desc: "Everything's live. Dashboard, agents, channels. No config on your end.",
+    number: "04",
+    title: "Deploy Your Agents",
+    icon: Rocket,
+    description: "Start deploying AI agents immediately. No infrastructure to manage.",
   },
 ];
 
-const HowItWorksSection = () => {
-  return (
-    <section id="how-it-works" className="py-28 bg-black border-t border-white/[0.06]">
-      <div className="container mx-auto px-4 lg:px-8">
-        <div className="max-w-2xl mb-16">
-          <div className="flex items-center gap-2 mb-4 opacity-60">
-            <div className="w-8 h-px bg-white" />
-            <span className="text-white text-[10px] font-mono tracking-wider">004</span>
-            <div className="w-16 h-px bg-white" />
-          </div>
-          <span className="text-xs font-mono text-primary tracking-widest uppercase">How it works</span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-            From signup to live agents
-            <br />
-            <span className="text-white/40">in under 24 hours.</span>
-          </h2>
-        </div>
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.15,
+    },
+  },
+};
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-px bg-white/10 max-w-4xl">
-          {steps.map((step) => (
-            <div key={step.num} className="bg-black p-8">
-              <span className="font-mono text-xs text-primary">{step.num}</span>
-              <h3 className="mt-3 text-base font-semibold tracking-tight font-mono">{step.title}</h3>
-              <p className="mt-2 text-sm text-white/50 leading-relaxed">{step.desc}</p>
-            </div>
-          ))}
-        </div>
+const stepVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeOut" as const,
+    },
+  },
+};
+
+export function HowItWorksSection() {
+  return (
+    <section
+      id="how-it-works"
+      className="relative py-24 md:py-32 bg-background overflow-hidden"
+    >
+      <div className="container mx-auto px-4 md:px-6 max-w-7xl">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16 md:mb-20"
+        >
+          <div className="inline-block mb-4">
+            <span className="text-primary font-mono text-sm tracking-widest">
+              003
+            </span>
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white font-heading mb-4">
+            From signup to deployed in 5 minutes
+          </h2>
+        </motion.div>
+
+        {/* Desktop Timeline */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          className="hidden lg:block relative"
+        >
+          {/* Connecting Line */}
+          <div className="absolute top-16 left-0 right-0 h-[2px] bg-white/10">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+          </div>
+
+          {/* Steps */}
+          <div className="grid grid-cols-4 gap-8 relative">
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.number}
+                variants={stepVariants}
+                className="relative"
+              >
+                {/* Step Circle */}
+                <div className="flex justify-center mb-8">
+                  <div className="relative">
+                    <div className="w-32 h-32 rounded-full border-2 border-primary bg-background flex items-center justify-center relative z-10">
+                      <step.icon className="w-12 h-12 text-primary" />
+                    </div>
+                    {/* Connecting Dots */}
+                    {index < steps.length - 1 && (
+                      <div className="absolute top-1/2 -right-8 w-16 h-[2px] border-t-2 border-dashed border-white/20" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Step Content */}
+                <div className="text-center space-y-3">
+                  <div className="font-mono text-primary text-2xl font-bold">
+                    {step.number}
+                  </div>
+                  <h3 className="text-xl font-semibold text-white font-heading">
+                    {step.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Mobile/Tablet Timeline */}
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-100px" }}
+          className="lg:hidden relative"
+        >
+          {/* Vertical Connecting Line */}
+          <div className="absolute left-8 top-0 bottom-0 w-[2px] bg-white/10">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
+          </div>
+
+          {/* Steps */}
+          <div className="space-y-12 relative">
+            {steps.map((step, index) => (
+              <motion.div
+                key={step.number}
+                variants={stepVariants}
+                className="relative flex gap-6 items-start"
+              >
+                {/* Step Circle */}
+                <div className="flex-shrink-0">
+                  <div className="w-16 h-16 rounded-full border-2 border-primary bg-background flex items-center justify-center relative z-10">
+                    <step.icon className="w-7 h-7 text-primary" />
+                  </div>
+                  {/* Connecting Line Segment */}
+                  {index < steps.length - 1 && (
+                    <div className="absolute left-8 top-16 w-[2px] h-12 border-l-2 border-dashed border-white/20" />
+                  )}
+                </div>
+
+                {/* Step Content */}
+                <div className="flex-1 pt-2 space-y-2">
+                  <div className="font-mono text-primary text-xl font-bold">
+                    {step.number}
+                  </div>
+                  <h3 className="text-lg md:text-xl font-semibold text-white font-heading">
+                    {step.title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    {step.description}
+                  </p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </section>
   );
-};
+}
 
 export default HowItWorksSection;

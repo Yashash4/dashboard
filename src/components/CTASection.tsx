@@ -1,40 +1,81 @@
-import { ArrowRight } from "lucide-react";
+"use client";
+
+import React from "react";
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 const CTASection = () => {
   return (
-    <section className="py-28 bg-black border-t border-white/[0.06]">
-      <div className="container mx-auto px-4 lg:px-8 text-center">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-2 mb-4 opacity-60 justify-center">
-            <div className="w-8 h-px bg-white" />
-            <span className="text-white text-[10px] font-mono tracking-wider">008</span>
-            <div className="w-8 h-px bg-white" />
-          </div>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight font-mono">
-            Stop managing infrastructure.
-            <br />
-            <span className="text-primary">Start deploying agents.</span>
-          </h2>
-          <p className="mt-6 text-sm text-white/50 max-w-md mx-auto leading-relaxed font-mono">
-            Join the first wave of ClawHQ customers. Dedicated server, bundled AI models, every channel — live within 24 hours.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a
-              href="#pricing"
-              className="inline-flex items-center gap-2.5 bg-primary text-primary-foreground px-7 py-3.5 text-sm font-mono tracking-wider hover:brightness-110 transition-all duration-200"
-            >
-              GET STARTED — $59/MO
-              <ArrowRight size={16} />
-            </a>
-            <a
-              href="mailto:hello@clawhq.tech"
-              className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors font-mono tracking-wider"
-            >
-              CONTACT SALES
-              <ArrowRight size={14} />
-            </a>
-          </div>
+    <section className="py-24 px-6 relative overflow-hidden" style={{ backgroundColor: "hsl(var(--background))" }}>
+      {/* Gradient Background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(circle at center, hsla(var(--primary) / 0.05) 0%, transparent 70%)",
+        }}
+      />
+
+      <div className="max-w-4xl mx-auto text-center relative z-10">
+        {/* Decoration */}
+        <div className="flex items-center gap-4 mb-6 justify-center">
+          <div className="h-px w-12 bg-white/20" />
+          <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">009</span>
+          <div className="h-px w-12 bg-white/20" />
         </div>
+
+        {/* Headline */}
+        <motion.h2
+          className="text-4xl md:text-5xl lg:text-6xl font-bold font-[family-name:var(--font-space-grotesk)] mb-6"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
+          Start deploying in 5 minutes
+        </motion.h2>
+
+        {/* Subtext */}
+        <motion.p
+          className="text-lg text-white/60 mb-10 max-w-2xl mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          Join developers who chose to build, not manage infrastructure.
+        </motion.p>
+
+        {/* CTA Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <Link
+            href="/register"
+            className="inline-block bg-primary text-black font-semibold px-8 py-4 text-lg hover:bg-primary/90 transition-colors"
+            style={{ borderRadius: 0 }}
+          >
+            Get Started — $59/mo
+          </Link>
+        </motion.div>
+
+        {/* Trust Signals */}
+        <motion.div
+          className="flex flex-wrap items-center justify-center gap-4 md:gap-6 mt-8 text-sm text-white/50"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <span>No credit card required</span>
+          <span className="hidden md:inline text-white/20">·</span>
+          <span>Cancel anytime</span>
+          <span className="hidden md:inline text-white/20">·</span>
+          <span>5-minute setup</span>
+        </motion.div>
       </div>
     </section>
   );

@@ -1,5 +1,7 @@
 "use client";
 
+import React from "react";
+import { motion } from "framer-motion";
 import {
   Accordion,
   AccordionContent,
@@ -7,79 +9,104 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-const faqs = [
-  {
-    q: "What AI models are included?",
-    a: "Starter includes Kimi K2.5, MiniMax M2.5, and one rotating model. Pro includes all Starter models with full context windows. Models can change or expand anytime as we add support.",
-  },
-  {
-    q: "Can I use my own API keys?",
-    a: "Yes — OpenClaw supports BYOK (Bring Your Own Key). But with ClawHQ, you don't need to. Models are bundled with your plan at no extra cost.",
-  },
-  {
-    q: "What messaging channels are supported?",
-    a: "WhatsApp, Telegram, Discord, Slack, Signal, Microsoft Teams, and more. Tell us which channels you need during setup and we configure them for you.",
-  },
-  {
-    q: "How long does setup take?",
-    a: "Your dedicated server and AI agents are live within 24 hours of payment. Channels are configured based on your request.",
-  },
-  {
-    q: "What happens if I hit rate limits?",
-    a: "Our limits are soft — designed to prevent abuse, not slow down your work. If you hit a limit, requests are throttled (not blocked). We don't publish hard numbers.",
-  },
-  {
-    q: "Can I upgrade or downgrade?",
-    a: "Yes. Upgrade anytime and we'll migrate your setup seamlessly. Downgrades take effect at the next billing cycle.",
-  },
-  {
-    q: "Do you offer refunds?",
-    a: "No. But we offer full transparency — you see exactly what you get before paying. No hidden costs, no surprise bills, no bait-and-switch.",
-  },
-];
-
 const FAQSection = () => {
+  const faqs = [
+    {
+      question: "What is ClawHQ?",
+      answer:
+        "ClawHQ is a managed hosting platform for OpenClaw. We provision a dedicated VPS, install OpenClaw, configure everything, and give you a dashboard to manage your AI agents.",
+    },
+    {
+      question: "What is OpenClaw?",
+      answer:
+        "OpenClaw is an open-source AI agent framework. It lets you build, deploy, and manage autonomous AI agents that can interact across multiple messaging channels.",
+    },
+    {
+      question: "How long does setup take?",
+      answer:
+        "About 5 minutes. Choose a plan, we automatically provision your VPS, install OpenClaw, configure DNS and SSL, and you're ready to deploy agents.",
+    },
+    {
+      question: "Which AI models are supported?",
+      answer:
+        "500+ models including GPT-4, Claude, Llama, Mistral, Kimi, and more. Switch between models instantly from your dashboard.",
+    },
+    {
+      question: "Which messaging channels are supported?",
+      answer:
+        "WhatsApp, Telegram, Slack, Discord, Instagram, and more. Connect any channel from your dashboard in one click.",
+    },
+    {
+      question: "Do I get root access to my VPS?",
+      answer:
+        "Yes. You get full root SSH access to your dedicated VPS. It's your server — we just make it easy to manage.",
+    },
+    {
+      question: "Can I bring my own API keys?",
+      answer:
+        "Yes. Use our bundled AI credits or bring your own API keys from OpenAI, Anthropic, or any provider.",
+    },
+    {
+      question: "What happens if I cancel?",
+      answer:
+        "You keep access until the end of your billing period. We don't delete your data for 30 days after cancellation.",
+    },
+    {
+      question: "Is there a free trial?",
+      answer:
+        "We don't offer a free trial, but you can cancel anytime within the first 7 days for a full refund.",
+    },
+    {
+      question: "How is ClawHQ different from running OpenClaw myself?",
+      answer:
+        "We handle everything: server provisioning, DNS, SSL, updates, monitoring, and backups. You focus on building agents, not managing infrastructure.",
+    },
+  ];
+
   return (
-    <section id="faq" className="py-28 bg-black border-t border-white/[0.06]">
-      <div className="container mx-auto px-4 lg:px-8">
-        <div className="grid lg:grid-cols-[1fr_1.5fr] gap-16 max-w-4xl mx-auto">
+    <section id="faq" className="py-24 px-6" style={{ backgroundColor: "hsl(var(--background))" }}>
+      <div className="max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          {/* Left Column - Header */}
           <div>
-            <div className="flex items-center gap-2 mb-4 opacity-60">
-              <div className="w-8 h-px bg-white" />
-              <span className="text-white text-[10px] font-mono tracking-wider">007</span>
-              <div className="w-16 h-px bg-white" />
+            <div className="flex items-center gap-4 mb-4">
+              <div className="h-px w-12 bg-white/20" />
+              <span className="font-[family-name:var(--font-jetbrains-mono)] text-sm text-white/40">008</span>
             </div>
-            <span className="text-xs font-mono text-primary tracking-widest uppercase">FAQ</span>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight font-mono">
-              Common
-              <br />
-              questions.
+            <h2 className="text-4xl md:text-5xl font-bold font-[family-name:var(--font-space-grotesk)] mb-6">
+              Frequently asked questions
             </h2>
-            <p className="mt-4 text-sm text-white/50 leading-relaxed font-mono">
-              Can't find what you're looking for?{" "}
-              <a href="mailto:hello@clawhq.tech" className="text-primary hover:underline">
-                Reach out
+            <p className="text-white/60 mb-4">
+              Still have questions?{" "}
+              <a
+                href="mailto:hello@clawhq.tech"
+                className="text-primary hover:underline transition-colors"
+              >
+                hello@clawhq.tech
               </a>
-              .
             </p>
           </div>
 
-          <Accordion type="single" collapsible className="space-y-2">
-            {faqs.map((faq, i) => (
-              <AccordionItem
-                key={i}
-                value={`faq-${i}`}
-                className="border border-white/10 px-5 bg-white/[0.02]"
-              >
-                <AccordionTrigger className="text-left text-[13px] font-mono hover:no-underline py-4">
-                  {faq.q}
-                </AccordionTrigger>
-                <AccordionContent className="text-[13px] text-white/50 leading-relaxed pb-4 font-mono">
-                  {faq.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          {/* Right Column - Accordion */}
+          <div>
+            <Accordion type="single" collapsible className="space-y-4">
+              {faqs.map((faq, index) => (
+                <AccordionItem
+                  key={index}
+                  value={`faq-${index}`}
+                  className="border border-white/10 bg-white/[0.02] px-6"
+                  style={{ borderRadius: 0 }}
+                >
+                  <AccordionTrigger className="text-left text-sm font-medium hover:no-underline py-4 text-white">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-sm text-white/70 leading-relaxed pb-4">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
         </div>
       </div>
     </section>

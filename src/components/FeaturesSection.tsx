@@ -1,66 +1,113 @@
-import { Server, Bot, MessageSquare, Shield, Gauge, Headphones } from "lucide-react";
+"use client";
+
+import { motion } from "framer-motion";
+import { Server, Brain, Bot, MessageSquare, Shield, Headphones } from "lucide-react";
 
 const features = [
   {
     icon: Server,
     title: "Dedicated VPS",
-    desc: "Your own isolated server — 2-8 vCPU, 8-32 GB RAM, NVMe storage. No noisy neighbors, no shared resources.",
+    desc: "Your own virtual private server with full root access. 2-16 vCPU, 8-64GB RAM.",
+    span: "col-span-1",
+  },
+  {
+    icon: Brain,
+    title: "AI Model Hub",
+    desc: "Access 500+ AI models. Switch models instantly. No API keys needed.",
+    span: "col-span-1",
   },
   {
     icon: Bot,
-    title: "Bundled AI Models",
-    desc: "Kimi K2.5, MiniMax M2.5, and a rotating third model included. Zero API key management, zero extra bills.",
+    title: "Agent Framework",
+    desc: "Deploy autonomous AI agents that work 24/7 across all channels.",
+    span: "col-span-1",
   },
   {
     icon: MessageSquare,
-    title: "Every Channel",
-    desc: "WhatsApp, Telegram, Discord, Slack, Signal, Teams — we configure every channel your customers already use.",
+    title: "Multi-Channel",
+    desc: "WhatsApp, Telegram, Slack, Discord, Instagram — all connected.",
+    span: "col-span-1",
   },
   {
     icon: Shield,
-    title: "Managed Infra",
-    desc: "We handle security patches, Docker updates, backups, and monitoring. Your agents stay online 24/7.",
-  },
-  {
-    icon: Gauge,
-    title: "Fair Usage",
-    desc: "Soft rate limits designed to prevent abuse, not throttle your work. No published hard caps, no surprise blocks.",
+    title: "Enterprise Security",
+    desc: "Encrypted at rest and in transit. SOC 2 compliant infrastructure.",
+    span: "col-span-1",
   },
   {
     icon: Headphones,
-    title: "Real Support",
-    desc: "Dashboard tickets & email on Starter. Priority queue on Pro. White-glove with a dedicated human on Enterprise.",
+    title: "24/7 Support",
+    desc: "Priority support from engineers who know your stack.",
+    span: "col-span-2",
   },
 ];
 
 const FeaturesSection = () => {
   return (
-    <section id="features" className="py-28 bg-black border-t border-white/[0.06]">
+    <section id="features" className="py-28 bg-background border-t border-white/[0.06]">
       <div className="container mx-auto px-4 lg:px-8">
+        {/* Section Header */}
         <div className="max-w-2xl mb-16">
           <div className="flex items-center gap-2 mb-4 opacity-60">
             <div className="w-8 h-px bg-white" />
             <span className="text-white text-[10px] font-mono tracking-wider">002</span>
             <div className="w-16 h-px bg-white" />
           </div>
-          <span className="text-xs font-mono text-primary tracking-widest uppercase">What's included</span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-bold tracking-tight font-mono">
-            Everything you need.
-            <br />
-            <span className="text-white/40">Nothing you don't.</span>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
+            Everything you need to deploy AI agents
           </h2>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-white/10">
-          {features.map((f) => (
-            <div
-              key={f.title}
-              className="bg-black p-8 group hover:bg-white/[0.03] transition-colors duration-300"
+        {/* Bento Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Row 1: 2 large cards */}
+          {features.slice(0, 2).map((feature, index) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1 }}
+              className="border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors duration-300 p-8 group"
             >
-              <f.icon size={20} className="text-primary mb-5" strokeWidth={1.5} />
-              <h3 className="text-base font-semibold mb-2.5 tracking-tight font-mono">{f.title}</h3>
-              <p className="text-sm text-white/50 leading-relaxed">{f.desc}</p>
-            </div>
+              <feature.icon size={24} className="text-primary mb-5" strokeWidth={1.5} />
+              <h3 className="text-lg font-semibold mb-3 tracking-tight">{feature.title}</h3>
+              <p className="text-sm text-white/50 leading-relaxed">{feature.desc}</p>
+            </motion.div>
+          ))}
+
+          {/* Row 2: 3 small cards in a nested grid */}
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {features.slice(2, 5).map((feature, index) => (
+              <motion.div
+                key={feature.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: (index + 2) * 0.1 }}
+                className="border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors duration-300 p-8 group"
+              >
+                <feature.icon size={24} className="text-primary mb-5" strokeWidth={1.5} />
+                <h3 className="text-lg font-semibold mb-3 tracking-tight">{feature.title}</h3>
+                <p className="text-sm text-white/50 leading-relaxed">{feature.desc}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Row 3: 1 full-width card */}
+          {features.slice(5).map((feature, index) => (
+            <motion.div
+              key={feature.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: (index + 5) * 0.1 }}
+              className="md:col-span-2 border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors duration-300 p-8 group"
+            >
+              <feature.icon size={24} className="text-primary mb-5" strokeWidth={1.5} />
+              <h3 className="text-lg font-semibold mb-3 tracking-tight">{feature.title}</h3>
+              <p className="text-sm text-white/50 leading-relaxed">{feature.desc}</p>
+            </motion.div>
           ))}
         </div>
       </div>

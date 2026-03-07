@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 0%;
+    --background: 0 0% 2%;
     --foreground: 0 0% 93%;
 
     --card: 0 0% 3%;
@@ -156,6 +156,25 @@
     background-position: 0% 0%, 40% 40%, 60% 60%, 20% 20%, 80% 80%, 30% 30%, 70% 70%, 50% 50%;
     opacity: 0.3;
   }
+}
+
+/* Smooth scroll for landing page anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Logo marquee animation */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 30s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 }
 
 /* Sidebar selection indicator */
