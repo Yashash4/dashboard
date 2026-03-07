@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { configureApiKeys } from "@/lib/ssh";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -160,6 +161,9 @@ export async function POST(request: NextRequest) {
     .eq("user_id", userId)
     .eq("provider", provider.toLowerCase());
 
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "api_key_configured", entityType: "api_key", entityId: userId, details: { provider }, ip });
+
   return NextResponse.json({ success: true, configured: true, debug: result.debug });
 }
 
@@ -237,6 +241,9 @@ export async function DELETE(request: NextRequest) {
       }
     );
   }
+
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "api_key_deleted", entityType: "api_key", entityId: userId, details: { provider }, ip });
 
   return NextResponse.json({ success: true });
 }

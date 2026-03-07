@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { removeChannel } from "@/lib/ssh";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -11,6 +12,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:channel_disconnect`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const body = await request.json();
@@ -71,6 +77,9 @@ export async function POST(request: NextRequest) {
       },
       channel.channel_type
     );
+
+    // Remove encrypted credentials
+    await admin.from("channel_credentials").delete().eq("channel_id", channel.id);
 
     // Remove channel from DB
     await admin.from("channels").delete().eq("id", channel.id);

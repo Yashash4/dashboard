@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Same sanitization as ssh.ts deployAgent uses for agent folder names
 function sanitizeAgentName(name: string): string {
@@ -19,6 +20,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:chat_send`, 30, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();
@@ -89,6 +95,8 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  const analyticsStart = Date.now();
 
   try {
     // Upsert conversation in our DB (for display purposes)
@@ -239,12 +247,35 @@ export async function POST(request: NextRequest) {
       .update({ updated_at: new Date().toISOString() })
       .eq("id", conversation.id);
 
+    // Track analytics (non-blocking)
+    admin
+      .from("agent_analytics")
+      .insert({
+        user_id: user.id,
+        agent_id: agent_id,
+        metric_type: "message",
+        response_time_ms: Date.now() - analyticsStart,
+      })
+      .then(() => {});
+
     return NextResponse.json({
       response: assistantContent,
       message_id: assistantMsg?.id,
       conversation_id: conversation.id,
     });
   } catch (err) {
+    // Track error analytics (non-blocking)
+    admin
+      .from("agent_analytics")
+      .insert({
+        user_id: user.id,
+        agent_id: agent_id,
+        metric_type: "error",
+        response_time_ms: Date.now() - analyticsStart,
+        metadata: { error: err instanceof Error ? err.message : "unknown" },
+      })
+      .then(() => {});
+
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json(
         { error: "Agent took too long to respond" },

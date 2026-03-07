@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +114,9 @@ export async function DELETE(
     await admin.auth.admin.deleteUser(userId);
 
     console.log(`[admin] Deleted customer ${targetUser.email} (${userId})`);
+
+    const ip = getClientIp(_request);
+    logAudit({ adminId: user.id, action: "customer_deleted", entityType: "customer", entityId: userId, details: { email: targetUser.email }, ip });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {

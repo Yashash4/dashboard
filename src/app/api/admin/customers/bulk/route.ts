@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,9 @@ export async function POST(request: NextRequest) {
   console.log(
     `[admin] Bulk ${action}: ${count} subscriptions updated by ${user.email}`
   );
+
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "bulk_action", entityType: "customer", details: { action, count: count || userIds.length, userIds }, ip });
 
   return NextResponse.json({ success: true, count: count || userIds.length });
 }

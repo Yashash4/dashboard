@@ -14,7 +14,7 @@ export default async function ChannelsPage() {
 
   const { data: channels } = await supabase
     .from("channels")
-    .select("id, channel_type, status, configured_at")
+    .select("id, channel_type, status, configured_at, health_status, last_health_check, error_message")
     .eq("user_id", user.id)
     .order("configured_at", { ascending: false, nullsFirst: false });
 

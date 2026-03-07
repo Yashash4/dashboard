@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { configureChannel } from "@/lib/ssh";
+import { encryptCredentials, isEncryptionConfigured } from "@/lib/crypto";
+import { rateLimit } from "@/lib/rate-limit";
 
 const VALID_CHANNELS = [
   "whatsapp",
@@ -22,6 +24,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:channel_connect`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const body = await request.json();
@@ -120,6 +127,24 @@ export async function POST(request: NextRequest) {
         .select("id")
         .single();
       channelId = inserted?.id;
+    }
+
+    // Store encrypted credentials for recovery
+    if (
+      isEncryptionConfigured() &&
+      credentials &&
+      Object.keys(credentials).length > 0
+    ) {
+      const encrypted = encryptCredentials(credentials);
+      // Upsert: delete old, insert new
+      await admin
+        .from("channel_credentials")
+        .delete()
+        .eq("channel_id", channelId);
+      await admin.from("channel_credentials").insert({
+        channel_id: channelId,
+        encrypted_data: encrypted,
+      });
     }
 
     return NextResponse.json({ success: true, channel_id: channelId });

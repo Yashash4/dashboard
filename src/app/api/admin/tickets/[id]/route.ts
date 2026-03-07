@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -87,6 +88,9 @@ export async function POST(
     .update({ updated_at: new Date().toISOString() })
     .eq("id", ticketId);
 
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "ticket_replied", entityType: "ticket", entityId: ticketId, ip });
+
   return NextResponse.json({ success: true });
 }
 
@@ -151,6 +155,9 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  const ip2 = getClientIp(request);
+  logAudit({ adminId: user.id, action: "ticket_updated", entityType: "ticket", entityId: ticketId, details: updates, ip: ip2 });
 
   return NextResponse.json({ success: true });
 }

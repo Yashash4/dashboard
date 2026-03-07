@@ -17,22 +17,13 @@ import {
   Radio,
   MessageCircle,
   HelpCircle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,12 +34,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ChannelSetupWizard } from "@/components/dashboard/channel-setup-wizard";
 
 interface Channel {
   id: string;
   channel_type: string;
   status: string;
   configured_at: string | null;
+  health_status?: string | null;
+  last_health_check?: string | null;
+  error_message?: string | null;
 }
 
 interface ChannelTypeConfig {
@@ -182,12 +177,47 @@ export function ChannelManager({
   const router = useRouter();
   const [channels, setChannels] = useState(initialChannels);
   const [connectType, setConnectType] = useState<string | null>(null);
-  const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [connecting, setConnecting] = useState(false);
   const [disconnectChannel, setDisconnectChannel] = useState<Channel | null>(
     null
   );
   const [disconnecting, setDisconnecting] = useState(false);
+  const [checkingHealth, setCheckingHealth] = useState(false);
+
+  const handleHealthCheck = async () => {
+    setCheckingHealth(true);
+    try {
+      const res = await fetch("/api/channels/health", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Health check failed");
+        return;
+      }
+      // Update local channel state with health results
+      const resultMap = new Map(
+        (data.results || []).map((r: any) => [r.id, r])
+      );
+      setChannels((prev) =>
+        prev.map((ch) => {
+          const result = resultMap.get(ch.id) as any;
+          if (result) {
+            return {
+              ...ch,
+              health_status: result.health_status,
+              last_health_check: new Date().toISOString(),
+              error_message: result.error_message,
+            };
+          }
+          return ch;
+        })
+      );
+      toast.success("Health check complete");
+    } catch {
+      toast.error("Health check failed");
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
 
   const connectedCount = channels.filter(
     (c) => c.status === "connected"
@@ -200,13 +230,13 @@ export function ChannelManager({
     (t) => !connectedTypes.includes(t)
   );
 
-  const handleConnect = async () => {
+  const handleConnect = async (creds: Record<string, string>) => {
     if (!connectType) return;
     const config = CHANNEL_TYPES[connectType];
 
     // Validate all required fields
     if (config.fields.length > 0) {
-      const missing = config.fields.filter((f) => !credentials[f.key]?.trim());
+      const missing = config.fields.filter((f) => !creds[f.key]?.trim());
       if (missing.length > 0) {
         toast.error(`Please fill in: ${missing.map((f) => f.label).join(", ")}`);
         return;
@@ -220,7 +250,7 @@ export function ChannelManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channel_type: connectType,
-          credentials: config.fields.length > 0 ? credentials : {},
+          credentials: config.fields.length > 0 ? creds : {},
         }),
       });
       const data = await res.json();
@@ -261,7 +291,6 @@ export function ChannelManager({
 
       toast.success(`${config.label} connected successfully`);
       setConnectType(null);
-      setCredentials({});
     } catch {
       toast.error("Failed to connect channel");
     } finally {
@@ -300,8 +329,6 @@ export function ChannelManager({
     }
   };
 
-  const connectConfig = connectType ? CHANNEL_TYPES[connectType] : null;
-
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -312,16 +339,24 @@ export function ChannelManager({
               <MessageSquare className="h-5 w-5 text-muted-foreground" />
               <CardTitle className="text-lg">My Channels</CardTitle>
             </div>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">
                 Connected:{" "}
                 <strong className="text-foreground">{connectedCount}</strong>
               </span>
-              <span>&middot;</span>
-              <span>
-                Total:{" "}
-                <strong className="text-foreground">{channels.length}</strong>
-              </span>
+              {connectedCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleHealthCheck}
+                  disabled={checkingHealth}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-3 w-3 ${checkingHealth ? "animate-spin" : ""}`}
+                  />
+                  {checkingHealth ? "Checking..." : "Check Health"}
+                </Button>
+              )}
             </div>
           </CardHeader>
         </Card>
@@ -361,8 +396,31 @@ export function ChannelManager({
                     </Badge>
                   </div>
 
+                  {/* Health indicator */}
+                  {channel.health_status && channel.health_status !== "unknown" && (
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          channel.health_status === "healthy"
+                            ? "bg-green-500"
+                            : channel.health_status === "degraded"
+                              ? "bg-yellow-500"
+                              : "bg-red-500"
+                        }`}
+                      />
+                      <span className="text-xs text-muted-foreground capitalize">
+                        {channel.health_status}
+                      </span>
+                      {channel.error_message && (
+                        <span className="text-xs text-red-400 ml-1">
+                          — {channel.error_message}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   {channel.configured_at && (
-                    <p className="text-xs text-muted-foreground mb-4">
+                    <p className="text-xs text-muted-foreground mb-2">
                       Connected{" "}
                       {new Date(channel.configured_at).toLocaleDateString(
                         "en-US",
@@ -371,6 +429,16 @@ export function ChannelManager({
                           month: "short",
                           day: "numeric",
                         }
+                      )}
+                    </p>
+                  )}
+
+                  {channel.last_health_check && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Last checked{" "}
+                      {new Date(channel.last_health_check).toLocaleTimeString(
+                        "en-US",
+                        { hour: "2-digit", minute: "2-digit" }
                       )}
                     </p>
                   )}
@@ -419,7 +487,6 @@ export function ChannelManager({
                     className="h-auto flex-col gap-2 py-4"
                     onClick={() => {
                       setConnectType(type);
-                      setCredentials({});
                     }}
                   >
                     <Icon className="h-6 w-6" />
@@ -476,67 +543,20 @@ export function ChannelManager({
         </Card>
       )}
 
-      {/* Connect Dialog */}
-      <Dialog
-        open={!!connectType}
-        onOpenChange={(open) => {
-          if (!open) {
-            setConnectType(null);
-            setCredentials({});
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Connect {connectConfig?.label}</DialogTitle>
-            <DialogDescription>
-              {connectConfig && connectConfig.fields.length > 0
-                ? `Enter your ${connectConfig.label} credentials to connect this channel.`
-                : `Connect ${connectConfig?.label} to your instance. No credentials needed.`}
-            </DialogDescription>
-          </DialogHeader>
-
-          {connectConfig && connectConfig.fields.length > 0 && (
-            <div className="space-y-4 py-2">
-              {connectConfig.fields.map((field) => (
-                <div key={field.key} className="space-y-2">
-                  <Label htmlFor={field.key}>{field.label}</Label>
-                  <Input
-                    id={field.key}
-                    type={field.type || "text"}
-                    placeholder={field.placeholder}
-                    value={credentials[field.key] || ""}
-                    onChange={(e) =>
-                      setCredentials((prev) => ({
-                        ...prev,
-                        [field.key]: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setConnectType(null);
-                setCredentials({});
-              }}
-            >
-              Cancel
-            </Button>
-            <Button onClick={handleConnect} disabled={connecting}>
-              {connecting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Connect
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Connect Wizard */}
+      {connectType && CHANNEL_TYPES[connectType] && (
+        <ChannelSetupWizard
+          channelType={connectType}
+          channelLabel={CHANNEL_TYPES[connectType].label}
+          fields={CHANNEL_TYPES[connectType].fields}
+          open={!!connectType}
+          onOpenChange={(open) => {
+            if (!open) setConnectType(null);
+          }}
+          onConnect={handleConnect}
+          connecting={connecting}
+        />
+      )}
 
       {/* Disconnect Confirmation */}
       <AlertDialog

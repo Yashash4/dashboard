@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { updateDashboardPassword, enableBasicAuth } from "@/lib/ssh";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +118,9 @@ export async function POST(request: NextRequest) {
     .from("vps_instances")
     .update({ dashboard_password: newPassword })
     .eq("user_id", userId);
+
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "vps_password_changed", entityType: "vps", entityId: userId, ip });
 
   return NextResponse.json({ success: true, password: newPassword });
 }

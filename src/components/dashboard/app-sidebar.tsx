@@ -18,6 +18,8 @@ import {
   Users,
   Rocket,
   Ticket,
+  ScrollText,
+  ShieldCheck,
   LogOut,
 } from "lucide-react";
 
@@ -56,6 +58,8 @@ const adminNav = [
   { title: "Customers", href: "/admin/customers", icon: Users },
   { title: "Deploy", href: "/admin/deploy", icon: Rocket },
   { title: "Tickets", href: "/admin/tickets", icon: Ticket },
+  { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
+  { title: "Security", href: "/admin/security", icon: ShieldCheck },
 ];
 
 interface AppSidebarProps {

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { VPSControls } from "@/components/dashboard/vps-controls";
 import { DashboardPassword } from "@/components/dashboard/dashboard-password";
 import { UptimeDisplay } from "@/components/dashboard/uptime-display";
+import { SSLChecker } from "@/components/dashboard/ssl-checker";
 
 export default async function VpsPage() {
   const supabase = await createClient();
@@ -50,6 +51,9 @@ export default async function VpsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         <UptimeDisplay />
         <DashboardPassword />
+      </div>
+      <div className="mt-4">
+        <SSLChecker hostname={vps.hostname} />
       </div>
     </div>
   );

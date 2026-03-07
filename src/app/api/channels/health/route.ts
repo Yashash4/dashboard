@@ -1,0 +1,136 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
+import { NodeSSH } from "node-ssh";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(request: NextRequest) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+
+  // Get user's VPS
+  const { data: vps } = await admin
+    .from("vps_instances")
+    .select("ip_address, ssh_user, ssh_password, ssh_port, status")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!vps || vps.status !== "running") {
+    return NextResponse.json(
+      { error: "VPS is not running" },
+      { status: 400 }
+    );
+  }
+
+  // Get connected channels
+  const { data: channels } = await admin
+    .from("channels")
+    .select("id, channel_type, status")
+    .eq("user_id", user.id)
+    .eq("status", "connected");
+
+  if (!channels || channels.length === 0) {
+    return NextResponse.json({ results: [] });
+  }
+
+  // SSH into VPS and read OpenClaw config to check channel statuses
+  const ssh = new NodeSSH();
+  try {
+    await ssh.connect({
+      host: vps.ip_address,
+      username: vps.ssh_user,
+      password: vps.ssh_password,
+      port: vps.ssh_port || 22,
+      readyTimeout: 10000,
+    });
+
+    // Read OpenClaw config
+    const configPaths = [
+      "/root/.openclaw/openclaw.json",
+      "/home/node/.openclaw/openclaw.json",
+    ];
+
+    let config: Record<string, any> = {};
+    for (const path of configPaths) {
+      const result = await ssh.execCommand(`cat ${path} 2>/dev/null`);
+      const raw = result.stdout.trim();
+      if (raw) {
+        try {
+          const cleaned = raw
+            .replace(/\/\/.*$/gm, "")
+            .replace(/,\s*([\]}])/g, "$1");
+          config = JSON.parse(cleaned);
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+
+    const channelConfig = config.channels || {};
+
+    // Channel type to OpenClaw config key mapping
+    const configKeyMap: Record<string, string> = {
+      whatsapp: "whatsapp",
+      telegram: "telegram",
+      discord: "discord",
+      slack: "slack",
+      signal: "signal",
+      teams: "msteams",
+      webchat: "webchat",
+    };
+
+    const now = new Date().toISOString();
+    const results: { id: string; health_status: string; error_message: string | null }[] = [];
+
+    for (const channel of channels) {
+      const configKey = configKeyMap[channel.channel_type] || channel.channel_type;
+      const chConf = channelConfig[configKey];
+
+      let healthStatus = "unknown";
+      let errorMessage: string | null = null;
+
+      if (!chConf) {
+        healthStatus = "down";
+        errorMessage = "Channel not found in config";
+      } else if (chConf.enabled === false) {
+        healthStatus = "down";
+        errorMessage = "Channel is disabled in config";
+      } else {
+        healthStatus = "healthy";
+      }
+
+      // Update DB
+      await admin
+        .from("channels")
+        .update({
+          health_status: healthStatus,
+          last_health_check: now,
+          error_message: errorMessage,
+        })
+        .eq("id", channel.id);
+
+      results.push({
+        id: channel.id,
+        health_status: healthStatus,
+        error_message: errorMessage,
+      });
+    }
+
+    return NextResponse.json({ results });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Health check failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    ssh.dispose();
+  }
+}

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { AgentManager } from "@/components/dashboard/agent-manager";
+import { AgentAnalytics } from "@/components/dashboard/agent-analytics";
 
 export default async function AgentsPage() {
   const supabase = await createClient();
@@ -79,6 +80,18 @@ export default async function AgentsPage() {
         userAgents={normalizedAgents}
         plan={subscription?.plan || "starter"}
       />
+
+      {/* Usage Analytics */}
+      <div className="mt-8">
+        <AgentAnalytics
+          agents={normalizedAgents
+            .filter((ua) => ua.agents)
+            .map((ua) => ({
+              agent_id: ua.agent_id,
+              name: ua.agents?.name || "Unknown",
+            }))}
+        />
+      </div>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,9 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "vps_updated", entityType: "vps", entityId: userId, details: { fields: Object.keys(updateData) }, ip });
 
   return NextResponse.json({ success: true });
 }

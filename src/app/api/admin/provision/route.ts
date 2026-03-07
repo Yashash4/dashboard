@@ -13,6 +13,7 @@ import {
   updateStep,
   completeJob,
 } from "@/lib/provision-store";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 // Prevent Next.js from caching this route
 export const dynamic = "force-dynamic";
@@ -80,6 +81,9 @@ export async function POST(request: NextRequest) {
     subdomain,
     email,
   });
+
+  const ip_addr = getClientIp(request);
+  logAudit({ adminId: user.id, action: "vps_provisioned", entityType: "vps", entityId: userId, details: { subdomain, ip, jobId }, ip: ip_addr });
 
   return NextResponse.json({ jobId });
 }

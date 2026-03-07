@@ -96,6 +96,22 @@ export async function middleware(request: NextRequest) {
       url.pathname = "/";
       return NextResponse.redirect(url);
     }
+
+    // MFA check: if admin has TOTP enrolled, require AAL2
+    if (!path.startsWith("/admin/verify-2fa")) {
+      const { data: aal } =
+        await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+      if (
+        aal &&
+        aal.nextLevel === "aal2" &&
+        aal.currentLevel !== "aal2"
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/verify-2fa";
+        return NextResponse.redirect(url);
+      }
+    }
   }
 
   // Rewrite clean URLs to /dashboard/* internally

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,9 @@ export async function POST(
       );
     }
   }
+
+  const ip = getClientIp(request);
+  logAudit({ adminId: user.id, action: "subscription_updated", entityType: "subscription", entityId: userId, details: { plan, status, billing_cycle, price }, ip });
 
   return NextResponse.json({ success: true });
 }
