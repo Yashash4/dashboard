@@ -3,6 +3,8 @@ import { Server } from "lucide-react";
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
 import { VPSControls } from "@/components/dashboard/vps-controls";
+import { DashboardPassword } from "@/components/dashboard/dashboard-password";
+import { UptimeDisplay } from "@/components/dashboard/uptime-display";
 
 export default async function VpsPage() {
   const supabase = await createClient();
@@ -45,6 +47,10 @@ export default async function VpsPage() {
       <h1 className="text-2xl font-bold mb-1">VPS</h1>
       <p className="text-muted-foreground mb-6">Manage your VPS instance.</p>
       <VPSControls initialData={vps} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <UptimeDisplay />
+        <DashboardPassword />
+      </div>
     </div>
   );
 }

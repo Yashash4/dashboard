@@ -10,19 +10,24 @@ const DASHBOARD_PATHS = [
   "/support",
   "/billing",
   "/account",
+  "/chat",
+  "/monitoring",
+  "/openclaw",
+  "/store",
 ];
 
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Rewrite clean URLs to /dashboard/* internally
+  // Note: "/" is handled after auth check — unauthenticated users see the landing page
   let effectivePath = path;
-  const needsRewrite =
-    path === "/" ||
-    DASHBOARD_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+  const isDashboardPath = DASHBOARD_PATHS.some(
+    (p) => path === p || path.startsWith(p + "/")
+  );
 
-  if (needsRewrite) {
-    effectivePath = path === "/" ? "/dashboard" : `/dashboard${path}`;
+  if (isDashboardPath) {
+    effectivePath = `/dashboard${path}`;
   }
 
   let supabaseResponse = NextResponse.next({ request });
@@ -58,6 +63,11 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+
+  // Root path: logged in → dashboard, not logged in → landing page
+  if (path === "/" && user) {
+    effectivePath = "/dashboard";
   }
 
   // Unauthenticated users trying to access protected routes
@@ -114,5 +124,9 @@ export const config = {
     "/support/:path*",
     "/billing/:path*",
     "/account/:path*",
+    "/chat/:path*",
+    "/monitoring/:path*",
+    "/openclaw/:path*",
+    "/store/:path*",
   ],
 };

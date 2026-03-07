@@ -15,12 +15,41 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+interface TicketMessage {
+  sender_role: string;
+  created_at: string;
+}
+
 interface Ticket {
   id: string;
   subject: string;
   status: string;
   priority: string;
   created_at: string;
+  ticket_messages?: TicketMessage[];
+}
+
+function getLastReply(messages?: TicketMessage[]) {
+  if (!messages || messages.length === 0) return null;
+  const sorted = [...messages].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  return sorted[0];
+}
+
+function timeAgo(dateStr: string): string {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const diffMs = now.getTime() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 const STATUS_TABS = ["all", "open", "in_progress", "resolved", "closed"] as const;
@@ -116,6 +145,8 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
           {filtered.map((ticket) => {
             const status = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.open;
             const priority = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
+            const lastReply = getLastReply(ticket.ticket_messages);
+            const hasAdminReply = lastReply?.sender_role === "admin";
 
             return (
               <button
@@ -125,7 +156,14 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold truncate">{ticket.subject}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold truncate">{ticket.subject}</h3>
+                      {hasAdminReply && (
+                        <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0">
+                          New reply
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       <Badge className={`${status.className} text-xs`}>
                         {status.label}
@@ -140,6 +178,12 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                           day: "numeric",
                         })}
                       </span>
+                      {lastReply && (
+                        <span className="text-xs text-muted-foreground">
+                          &middot; Last reply: {lastReply.sender_role === "admin" ? "Support" : "You"},{" "}
+                          {timeAgo(lastReply.created_at)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

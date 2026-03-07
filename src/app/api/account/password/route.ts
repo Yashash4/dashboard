@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { createClient as createBrowserClient } from "@supabase/supabase-js";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -7,16 +8,44 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (!user || !user.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await request.json();
-  const { password } = body as { password?: string };
+  const { currentPassword, password } = body as {
+    currentPassword?: string;
+    password?: string;
+  };
+
+  if (!currentPassword) {
+    return NextResponse.json(
+      { error: "Current password is required" },
+      { status: 400 }
+    );
+  }
 
   if (!password || password.length < 8) {
     return NextResponse.json(
-      { error: "Password must be at least 8 characters" },
+      { error: "New password must be at least 8 characters" },
+      { status: 400 }
+    );
+  }
+
+  // Verify current password by attempting to sign in
+  const verifyClient = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { error: signInError } = await verifyClient.auth.signInWithPassword({
+    email: user.email,
+    password: currentPassword,
+  });
+
+  if (signInError) {
+    return NextResponse.json(
+      { error: "Current password is incorrect" },
       { status: 400 }
     );
   }

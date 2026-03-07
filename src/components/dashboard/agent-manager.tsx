@@ -24,12 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { AgentConfigEditor } from "./agent-config-editor";
 
 interface AgentInfo {
   id: string;
   name: string;
   description: string | null;
   category: string | null;
+  config_files: Record<string, string> | null;
 }
 
 interface UserAgent {
@@ -38,6 +40,7 @@ interface UserAgent {
   deployed: boolean;
   deployed_at: string | null;
   purchased_at: string;
+  custom_config: Record<string, string> | null;
   agents: AgentInfo;
 }
 
@@ -141,7 +144,17 @@ export function AgentManager({
             >
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-base">{agent.name}</h3>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-semibold text-base">{agent.name}</h3>
+                    <AgentConfigEditor
+                      userAgentId={ua.id}
+                      agentId={ua.agent_id}
+                      agentName={agent.name}
+                      defaultConfig={agent.config_files || {}}
+                      customConfig={ua.custom_config}
+                      deployed={ua.deployed}
+                    />
+                  </div>
                   {ua.deployed ? (
                     <Badge className="bg-green-600 text-white border-green-600 text-xs">
                       <Check className="mr-1 h-3 w-3" />

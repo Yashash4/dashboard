@@ -1,8 +1,15 @@
-export default function TicketsPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-1">Tickets</h1>
-      <p className="text-muted-foreground">Customer support tickets.</p>
-    </div>
-  );
+import { createAdminClient } from "@/lib/supabase-admin";
+import { AdminTickets } from "@/components/dashboard/admin-tickets";
+
+export default async function AdminTicketsPage() {
+  const admin = createAdminClient();
+
+  const { data: tickets } = await admin
+    .from("support_tickets")
+    .select(
+      "id, subject, status, priority, created_at, updated_at, user_id, users(name, email)"
+    )
+    .order("created_at", { ascending: false });
+
+  return <AdminTickets tickets={tickets || []} />;
 }

@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Verify user owns this agent
+  // Verify user owns this agent (include custom_config if set)
   const { data: userAgent } = await admin
     .from("user_agents")
-    .select("id, deployed, agent_id")
+    .select("id, deployed, agent_id, custom_config")
     .eq("user_id", user.id)
     .eq("agent_id", agent_id)
     .single();
@@ -83,6 +83,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Use custom config if user has customized, otherwise use default template
+    const configFiles = (userAgent.custom_config || agent.config_files) as Record<string, string>;
+
     await deployAgent(
       {
         ip_address: vps.ip_address,
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
         ssh_port: vps.ssh_port,
       },
       agent.name,
-      agent.config_files as Record<string, string>
+      configFiles
     );
 
     // Update deploy status

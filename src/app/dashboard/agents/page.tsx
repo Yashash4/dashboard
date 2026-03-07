@@ -1,7 +1,9 @@
-import { Bot } from "lucide-react";
+import Link from "next/link";
+import { Bot, ShoppingBag } from "lucide-react";
 
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AgentManager } from "@/components/dashboard/agent-manager";
 
 export default async function AgentsPage() {
@@ -16,7 +18,7 @@ export default async function AgentsPage() {
     supabase
       .from("user_agents")
       .select(
-        "id, agent_id, deployed, deployed_at, purchased_at, agents(id, name, description, category)"
+        "id, agent_id, deployed, deployed_at, purchased_at, custom_config, agents(id, name, description, category, config_files)"
       )
       .eq("user_id", user.id)
       .order("purchased_at", { ascending: false }),
@@ -43,10 +45,15 @@ export default async function AgentsPage() {
             <div className="text-center py-8">
               <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">No Agents Yet</h2>
-              <p className="text-muted-foreground">
-                Your purchased agents will appear here once you add them to your
-                plan.
+              <p className="text-muted-foreground mb-4">
+                Browse the store to find and add agents.
               </p>
+              <Button variant="outline" asChild>
+                <Link href="/store">
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  Browse Store
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -56,8 +63,18 @@ export default async function AgentsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">Agents</h1>
-      <p className="text-muted-foreground mb-6">Manage your AI agents.</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Agents</h1>
+          <p className="text-muted-foreground">Manage your AI agents.</p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/store">
+            <ShoppingBag className="mr-2 h-4 w-4" />
+            Browse Store
+          </Link>
+        </Button>
+      </div>
       <AgentManager
         userAgents={normalizedAgents}
         plan={subscription?.plan || "starter"}

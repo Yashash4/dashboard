@@ -8,6 +8,9 @@ import {
   Brain,
   Bot,
   MessageSquare,
+  MessageCircle,
+  ShoppingBag,
+  Globe,
   HelpCircle,
   CreditCard,
   User as UserIcon,
@@ -39,7 +42,10 @@ const customerNav = [
   { title: "VPS", href: "/vps", icon: Server },
   { title: "Models", href: "/models", icon: Brain },
   { title: "Agents", href: "/agents", icon: Bot },
+  { title: "Store", href: "/store", icon: ShoppingBag },
+  { title: "Chat", href: "/chat", icon: MessageCircle },
   { title: "Channels", href: "/channels", icon: MessageSquare },
+  { title: "OpenClaw", href: "/openclaw", icon: Globe },
   { title: "Support", href: "/support", icon: HelpCircle },
   { title: "Billing", href: "/billing", icon: CreditCard },
   { title: "Account", href: "/account", icon: UserIcon },
@@ -58,9 +64,10 @@ interface AppSidebarProps {
     email: string;
     role: string;
   };
+  plan?: string;
 }
 
-export function AppSidebar({ user }: AppSidebarProps) {
+export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -81,16 +88,29 @@ export function AppSidebar({ user }: AppSidebarProps) {
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground text-xs font-bold font-mono">
-              C
+        <div className="flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-7 h-7 bg-primary flex items-center justify-center">
+              <span className="text-primary-foreground text-xs font-bold font-mono">
+                C
+              </span>
+            </div>
+            <span className="text-sidebar-foreground text-base font-semibold tracking-widest font-mono uppercase">
+              ClawHQ
             </span>
-          </div>
-          <span className="text-sidebar-foreground text-base font-semibold tracking-widest font-mono uppercase">
-            ClawHQ
+          </Link>
+          <span
+            className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 ${
+              plan === "pro"
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : plan === "enterprise"
+                  ? "bg-yellow-500/15 text-yellow-500 border border-yellow-500/30"
+                  : "bg-sidebar-foreground/10 text-sidebar-foreground/60 border border-sidebar-foreground/20"
+            }`}
+          >
+            {plan}
           </span>
-        </Link>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>

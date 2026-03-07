@@ -11,7 +11,7 @@ export default async function SupportPage() {
 
   const { data: tickets } = await supabase
     .from("support_tickets")
-    .select("id, subject, status, priority, created_at")
+    .select("id, subject, status, priority, created_at, ticket_messages(sender_role, created_at)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

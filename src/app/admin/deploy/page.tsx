@@ -1,8 +1,14 @@
-export default function DeployPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold mb-1">Deploy</h1>
-      <p className="text-muted-foreground">Deploy models and agents to customer VPS.</p>
-    </div>
-  );
+import { createAdminClient } from "@/lib/supabase-admin";
+import { AdminDeploy } from "@/components/dashboard/admin-deploy";
+
+export default async function DeployPage() {
+  const admin = createAdminClient();
+
+  const { data: customers } = await admin
+    .from("users")
+    .select("id, name, email, vps_instances(id, status)")
+    .eq("role", "customer")
+    .order("name");
+
+  return <AdminDeploy customers={customers || []} />;
 }

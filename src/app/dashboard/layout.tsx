@@ -31,9 +31,17 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("plan")
+    .eq("user_id", authUser.id)
+    .single();
+
+  const plan = (subscription?.plan as string) || "starter";
+
   return (
     <SidebarProvider>
-      <AppSidebar user={user} />
+      <AppSidebar user={user} plan={plan} />
       <SidebarInset>
         <header className="flex h-14 items-center gap-2 border-b border-border px-6">
           <SidebarTrigger />

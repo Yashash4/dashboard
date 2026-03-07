@@ -73,10 +73,32 @@ export function TicketThread({
   const [messages, setMessages] = useState(initialMessages);
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [ticketStatus, setTicketStatus] = useState(ticket.status);
 
-  const status = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.open;
+  const status = STATUS_CONFIG[ticketStatus] || STATUS_CONFIG.open;
   const priority = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
-  const canReply = ticket.status === "open" || ticket.status === "in_progress";
+  const canReply = ticketStatus === "open" || ticketStatus === "in_progress";
+
+  const handleResolve = async () => {
+    setResolving(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/resolve`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to resolve ticket");
+        return;
+      }
+      setTicketStatus("resolved");
+      toast.success("Ticket marked as resolved");
+    } catch {
+      toast.error("Failed to resolve ticket");
+    } finally {
+      setResolving(false);
+    }
+  };
 
   const handleReply = async () => {
     if (!reply.trim()) {
@@ -189,7 +211,19 @@ export function TicketThread({
             value={reply}
             onChange={(e) => setReply(e.target.value)}
           />
-          <div className="flex justify-end">
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handleResolve}
+              disabled={resolving}
+            >
+              {resolving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Mark as Resolved
+            </Button>
             <Button onClick={handleReply} disabled={sending}>
               {sending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

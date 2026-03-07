@@ -17,7 +17,7 @@ export async function GET() {
   const { data: vps, error } = await admin
     .from("vps_instances")
     .select(
-      "id, status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url, vps_provider, created_at, hostinger_vm_id"
+      "id, status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url, created_at, hostinger_vm_id"
     )
     .eq("user_id", user.id)
     .single();
@@ -53,7 +53,6 @@ export async function GET() {
     storage_gb: vps.storage_gb,
     bandwidth_tb: vps.bandwidth_tb,
     openclaw_dashboard_url: vps.openclaw_dashboard_url,
-    vps_provider: vps.vps_provider,
     created_at: vps.created_at,
   });
 }

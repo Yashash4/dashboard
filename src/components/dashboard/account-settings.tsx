@@ -23,6 +23,7 @@ export function AccountSettings({ profile }: { profile: Profile }) {
   const [name, setName] = useState(profile.name || "");
   const [savingName, setSavingName] = useState(false);
 
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
@@ -57,6 +58,10 @@ export function AccountSettings({ profile }: { profile: Profile }) {
   };
 
   const handleUpdatePassword = async () => {
+    if (!currentPassword) {
+      toast.error("Please enter your current password");
+      return;
+    }
     if (password.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
@@ -71,7 +76,7 @@ export function AccountSettings({ profile }: { profile: Profile }) {
       const res = await fetch("/api/account/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ currentPassword, password }),
       });
       const data = await res.json();
 
@@ -81,6 +86,7 @@ export function AccountSettings({ profile }: { profile: Profile }) {
       }
 
       toast.success("Password updated");
+      setCurrentPassword("");
       setPassword("");
       setConfirmPassword("");
     } catch {
@@ -162,6 +168,18 @@ export function AccountSettings({ profile }: { profile: Profile }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current Password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Enter your current password"
+              className="max-w-sm"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="password">New Password</Label>
             <Input

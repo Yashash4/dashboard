@@ -16,7 +16,22 @@ import {
   Loader2,
   ScrollText,
   RefreshCw,
+  Network,
+  CheckCircle2,
+  XCircle,
+  ArrowDown,
+  ArrowUp,
+  Activity,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +71,38 @@ interface MonitoringData {
   disk_used_gb: number;
   disk_total_gb: number;
   uptime_seconds: number;
+  net_rx_bytes: number;
+  net_tx_bytes: number;
+}
+
+interface GatewayHealth {
+  active: boolean;
+  httpOk: boolean;
+  version: string | null;
+  pid: number | null;
+}
+
+interface ChartPoint {
+  time: string;
+  cpu: number;
+  ram: number;
+  netIn: number;
+  netOut: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function formatRate(bytesPerSec: number): string {
+  if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+  if (bytesPerSec < 1024 * 1024)
+    return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
 export function VPSControls({ initialData }: { initialData: VPSData }) {
@@ -63,8 +110,13 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const prevNetRef = useRef<{ rx: number; tx: number; ts: number } | null>(
+    null
+  );
+  const [netRate, setNetRate] = useState({ inRate: 0, outRate: 0 });
 
-  // Poll VPS status (only when page is visible)
+  // Poll VPS status
   const { data: statusData } = useQuery({
     queryKey: ["vps-status"],
     queryFn: async () => {
@@ -84,7 +136,7 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
   const isTransitioning =
     vps.status === "restarting" || vps.status === "provisioning";
 
-  // Poll monitoring data (only when running + page visible)
+  // Poll monitoring data every 10s
   const { data: monitoring, isLoading: monitoringLoading } = useQuery({
     queryKey: ["vps-monitoring"],
     queryFn: async () => {
@@ -97,7 +149,21 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
     enabled: isRunning,
   });
 
-  // Fetch logs (only when logs panel is open)
+  // Poll gateway health every 30s
+  const { data: gateway, isLoading: gatewayLoading } = useQuery<GatewayHealth>({
+    queryKey: ["gateway-health"],
+    queryFn: async () => {
+      const res = await fetch("/api/vps/gateway-health");
+      if (!res.ok)
+        return { active: false, httpOk: false, version: null, pid: null };
+      return res.json();
+    },
+    refetchInterval: isRunning ? 30000 : false,
+    refetchIntervalInBackground: false,
+    enabled: isRunning,
+  });
+
+  // Fetch logs on demand
   const {
     data: logsData,
     isLoading: logsLoading,
@@ -117,12 +183,67 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
     refetchInterval: false,
   });
 
-  // Auto-scroll logs to bottom
+  // Auto-scroll logs
   useEffect(() => {
     if (logsData && logsEndRef.current) {
       logsEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [logsData]);
+
+  // Accumulate chart data
+  useEffect(() => {
+    if (!monitoring) return;
+
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    let inRate = 0;
+    let outRate = 0;
+    const nowMs = Date.now();
+    if (prevNetRef.current) {
+      const dtSec = (nowMs - prevNetRef.current.ts) / 1000;
+      if (dtSec > 0) {
+        inRate = Math.max(
+          0,
+          (monitoring.net_rx_bytes - prevNetRef.current.rx) / dtSec
+        );
+        outRate = Math.max(
+          0,
+          (monitoring.net_tx_bytes - prevNetRef.current.tx) / dtSec
+        );
+      }
+    }
+    prevNetRef.current = {
+      rx: monitoring.net_rx_bytes,
+      tx: monitoring.net_tx_bytes,
+      ts: nowMs,
+    };
+    setNetRate({ inRate, outRate });
+
+    const ramPercent =
+      monitoring.ram_total_mb > 0
+        ? (monitoring.ram_used_mb / monitoring.ram_total_mb) * 100
+        : 0;
+
+    setChartData((prev) => {
+      const next = [
+        ...prev,
+        {
+          time: timeStr,
+          cpu: Math.round(monitoring.cpu_percent * 10) / 10,
+          ram: Math.round(ramPercent * 10) / 10,
+          netIn: Math.round(inRate),
+          netOut: Math.round(outRate),
+        },
+      ];
+      return next.slice(-180);
+    });
+  }, [monitoring]);
 
   // VPS actions
   const performAction = async (action: "start" | "stop" | "restart") => {
@@ -146,6 +267,7 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
 
       queryClient.invalidateQueries({ queryKey: ["vps-status"] });
       queryClient.invalidateQueries({ queryKey: ["vps-monitoring"] });
+      queryClient.invalidateQueries({ queryKey: ["gateway-health"] });
       if (showLogs) refetchLogs();
     } catch {
       toast.error(`Failed to ${action} VPS`);
@@ -165,7 +287,7 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
             <div className="flex items-center gap-3">
               <Server className="h-5 w-5 text-muted-foreground" />
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <CardTitle className="text-lg">OpenClaw Instance</CardTitle>
                   <Badge className={statusConfig.className}>
                     {isTransitioning && (
@@ -173,6 +295,23 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                     )}
                     {statusConfig.label}
                   </Badge>
+                  {isRunning && (
+                    <>
+                      {gatewayLoading ? (
+                        <Skeleton className="h-5 w-20" />
+                      ) : gateway?.active ? (
+                        <Badge className="bg-green-600 text-white border-green-600">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Gateway
+                        </Badge>
+                      ) : (
+                        <Badge variant="destructive">
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Gateway Down
+                        </Badge>
+                      )}
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
                   {vps.hostname && (
@@ -183,12 +322,19 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                     </>
                   )}
                   <span>{vps.ip_address}</span>
+                  {gateway?.version && (
+                    <>
+                      <span>&middot;</span>
+                      <span className="font-mono text-xs">
+                        v{gateway.version}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Start button — shown when stopped or error */}
               {(isStopped || vps.status === "error") && (
                 <Button
                   size="sm"
@@ -204,7 +350,6 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                 </Button>
               )}
 
-              {/* Stop button — shown when running */}
               {isRunning && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -237,7 +382,6 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                 </AlertDialog>
               )}
 
-              {/* Restart button — shown when running */}
               {isRunning && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -270,7 +414,6 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                 </AlertDialog>
               )}
 
-              {/* Open OpenClaw */}
               {vps.openclaw_dashboard_url && isRunning && (
                 <Button size="sm" asChild>
                   <a
@@ -288,8 +431,8 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
         </CardHeader>
       </Card>
 
-      {/* Resource Usage */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Resource Usage — 4 cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -333,9 +476,14 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                     {(monitoring.ram_total_mb / 1024).toFixed(1)} GB
                   </p>
                   <span className="text-sm text-muted-foreground">
-                    ({monitoring.ram_total_mb > 0
-                      ? ((monitoring.ram_used_mb / monitoring.ram_total_mb) * 100).toFixed(1)
-                      : "0"}%)
+                    (
+                    {monitoring.ram_total_mb > 0
+                      ? (
+                          (monitoring.ram_used_mb / monitoring.ram_total_mb) *
+                          100
+                        ).toFixed(1)
+                      : "0"}
+                    %)
                   </span>
                 </div>
                 <Progress
@@ -370,9 +518,14 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                     {monitoring.disk_used_gb} / {monitoring.disk_total_gb} GB
                   </p>
                   <span className="text-sm text-muted-foreground">
-                    ({monitoring.disk_total_gb > 0
-                      ? ((monitoring.disk_used_gb / monitoring.disk_total_gb) * 100).toFixed(1)
-                      : "0"}%)
+                    (
+                    {monitoring.disk_total_gb > 0
+                      ? (
+                          (monitoring.disk_used_gb / monitoring.disk_total_gb) *
+                          100
+                        ).toFixed(1)
+                      : "0"}
+                    %)
                   </span>
                 </div>
                 <Progress
@@ -388,9 +541,150 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
             )}
           </CardContent>
         </Card>
+
+        <Card className="border-border">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Network I/O
+            </CardTitle>
+            <Network className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            {!isRunning ? (
+              <p className="text-sm text-muted-foreground">VPS is offline</p>
+            ) : monitoringLoading || !monitoring ? (
+              <Skeleton className="h-4 w-full" />
+            ) : (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <ArrowDown className="h-3 w-3 text-green-500" />
+                  <span className="text-sm font-medium">
+                    {formatRate(netRate.inRate)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <ArrowUp className="h-3 w-3 text-blue-500" />
+                  <span className="text-sm font-medium">
+                    {formatRate(netRate.outRate)}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  {formatBytes(monitoring.net_rx_bytes)} in /{" "}
+                  {formatBytes(monitoring.net_tx_bytes)} out
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* VPS Specs + Uptime */}
+      {/* Charts */}
+      {chartData.length >= 2 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                CPU & RAM Usage
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={60} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => `${v}%`} width={45} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 0, fontSize: 12 }}
+                      labelStyle={{ color: "hsl(var(--foreground))" }}
+                      formatter={(value: number, name: string) => [`${value.toFixed(1)}%`, name === "cpu" ? "CPU" : "RAM"]}
+                    />
+                    <Area type="monotone" dataKey="cpu" stroke="hsl(var(--primary))" fill="url(#cpuGrad)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="ram" stroke="hsl(142, 76%, 36%)" fill="url(#ramGrad)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center gap-4 mt-2 justify-center">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5 bg-primary" />
+                  <span className="text-xs text-muted-foreground">CPU</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-0.5" style={{ backgroundColor: "hsl(142, 76%, 36%)" }} />
+                  <span className="text-xs text-muted-foreground">RAM</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Network I/O</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="netInGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="netOutGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(217, 91%, 60%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} interval="preserveStartEnd" minTickGap={60} />
+                    <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} tickFormatter={(v) => formatRate(v)} width={65} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 0, fontSize: 12 }}
+                      labelStyle={{ color: "hsl(var(--foreground))" }}
+                      formatter={(value: number, name: string) => [formatRate(value), name === "netIn" ? "Download" : "Upload"]}
+                    />
+                    <Area type="monotone" dataKey="netIn" stroke="hsl(142, 76%, 36%)" fill="url(#netInGrad)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="netOut" stroke="hsl(217, 91%, 60%)" fill="url(#netOutGrad)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center gap-4 mt-2 justify-center">
+                <div className="flex items-center gap-1.5">
+                  <ArrowDown className="h-3 w-3 text-green-500" />
+                  <span className="text-xs text-muted-foreground">Download</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <ArrowUp className="h-3 w-3 text-blue-500" />
+                  <span className="text-xs text-muted-foreground">Upload</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {chartData.length < 2 && isRunning && (
+        <Card className="border-border">
+          <CardContent className="pt-6">
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              <Activity className="h-6 w-6 mx-auto mb-2 animate-pulse" />
+              Collecting chart data...
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Instance Details */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -401,9 +695,7 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
               <p className="text-xs text-muted-foreground mb-1">CPU</p>
-              <p className="text-sm font-medium">
-                {vps.cpu_cores} vCPU
-              </p>
+              <p className="text-sm font-medium">{vps.cpu_cores} vCPU</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground mb-1">RAM</p>
@@ -448,7 +740,7 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
           <div className="flex items-center gap-2">
             <ScrollText className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Logs
+              Gateway Logs
             </CardTitle>
           </div>
           <div className="flex items-center gap-2">

@@ -101,3 +101,135 @@ export async function restartVM(vmId: number): Promise<void> {
     throw new Error(`Failed to restart VM (${res.status}): ${text}`);
   }
 }
+
+// --- Firewall Management ---
+
+export interface FirewallRule {
+  id?: number;
+  action: string;
+  protocol: string;
+  port: string;
+  source: string;
+  source_detail: string;
+}
+
+export interface Firewall {
+  id: number;
+  name: string;
+  rules: FirewallRule[];
+}
+
+// Find VM by IP address
+export async function findVMByIP(ip: string): Promise<HostingerVM | undefined> {
+  const vms = await listVMs();
+  return vms.find((vm) =>
+    vm.ipv4?.some((addr) => addr.address === ip)
+  );
+}
+
+// Get firewall details (includes rules)
+export async function getFirewall(firewallId: number): Promise<Firewall> {
+  const res = await fetch(`${API_BASE}/firewall/${firewallId}`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to get firewall (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+// Create a firewall rule
+export async function createFirewallRule(
+  firewallId: number,
+  rule: { protocol: string; port: string; source: string; source_detail: string }
+): Promise<FirewallRule> {
+  const res = await fetch(`${API_BASE}/firewall/${firewallId}/rules`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: JSON.stringify(rule),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to create firewall rule (${res.status}): ${text}`);
+  }
+  return res.json();
+}
+
+// Sync firewall rules to a VM
+export async function syncFirewall(
+  firewallId: number,
+  vmId: number
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/firewall/${firewallId}/sync/${vmId}`,
+    { method: "POST", headers: getHeaders() }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to sync firewall (${res.status}): ${text}`);
+  }
+}
+
+// Activate firewall on a VM
+export async function activateFirewall(
+  firewallId: number,
+  vmId: number
+): Promise<void> {
+  const res = await fetch(
+    `${API_BASE}/firewall/${firewallId}/activate/${vmId}`,
+    { method: "POST", headers: getHeaders() }
+  );
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to activate firewall (${res.status}): ${text}`);
+  }
+}
+
+// Ensure ports 22, 80, 443 are open on the VM's firewall
+export async function ensureFirewallPorts(
+  ip: string
+): Promise<{ vmId: number; firewallId: number; portsOpened: string[] }> {
+  // 1. Find the VM by IP
+  const vm = await findVMByIP(ip);
+  if (!vm) {
+    throw new Error(`No VM found with IP ${ip}`);
+  }
+
+  const firewallId = vm.firewall_group_id;
+  if (!firewallId) {
+    // No firewall group = no provider-level firewall blocking ports. Skip gracefully.
+    return { vmId: vm.id, firewallId: 0, portsOpened: [] };
+  }
+
+  // 2. Get current firewall rules
+  const firewall = await getFirewall(firewallId);
+  const existingPorts = new Set(
+    firewall.rules
+      ?.filter((r) => r.protocol === "TCP" && r.action === "accept")
+      .map((r) => r.port) || []
+  );
+
+  // 3. Add missing rules for required ports
+  const requiredPorts = ["22", "80", "443"];
+  const portsOpened: string[] = [];
+
+  for (const port of requiredPorts) {
+    if (!existingPorts.has(port)) {
+      await createFirewallRule(firewallId, {
+        protocol: "TCP",
+        port,
+        source: "any",
+        source_detail: "any",
+      });
+      portsOpened.push(port);
+    }
+  }
+
+  // 4. Sync firewall to VM if we added any rules
+  if (portsOpened.length > 0) {
+    await syncFirewall(firewallId, vm.id);
+  }
+
+  return { vmId: vm.id, firewallId, portsOpened };
+}

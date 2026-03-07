@@ -5,10 +5,12 @@ import {
   CreditCard,
   Calendar,
   Receipt,
-  Sparkles,
   Building2,
   Mail,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
+import { usePayment } from "@/hooks/use-payment";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -64,6 +66,8 @@ const PLANS = [
       "128K context window",
       "Model change once per month",
       "All messaging channels",
+      "Chat with agents from dashboard",
+      "OpenClaw dashboard access",
       "Dashboard ticket support",
       "Managed updates & backups",
     ],
@@ -73,14 +77,14 @@ const PLANS = [
     label: "Pro",
     price: "$129",
     annual: "$1,299/yr",
-    comingSoon: true,
     features: [
       "8 vCPU, 32GB RAM, 400GB storage",
       "Full context window (no cap)",
       "Instant & unlimited model changes",
-      "Agent control dashboard",
-      "Priority support",
-      "Higher rate limits",
+      "Advanced monitoring & analytics",
+      "Custom agent templates",
+      "Priority support + live chat",
+      "5x higher rate limits",
     ],
   },
   {
@@ -118,6 +122,27 @@ export function BillingOverview({
   const subStatus = SUB_STATUS_CONFIG[subscription.status] || SUB_STATUS_CONFIG.active;
   const isCancelled = subscription.status === "cancelled";
   const cycleLabel = subscription.billing_cycle === "annual" ? "yr" : "mo";
+
+  const { initiatePayment, isProcessing } = usePayment({
+    onSuccess: () => window.location.reload(),
+  });
+
+  const handleUpgrade = async (plan: (typeof PLANS)[number]) => {
+    const amount = parseFloat(plan.price.replace(/[^0-9.]/g, ""));
+    if (!amount) return;
+
+    await initiatePayment({
+      amount,
+      paymentType:
+        subscription.plan === "starter" || !subscription.plan
+          ? "subscription_new"
+          : "subscription_upgrade",
+      metadata: {
+        plan: plan.name,
+        billing_cycle: subscription.billing_cycle || "monthly",
+      },
+    });
+  };
 
   return (
     <div className="space-y-8">
@@ -226,20 +251,29 @@ export function BillingOverview({
                     <Button variant="outline" className="w-full" disabled>
                       Current Plan
                     </Button>
-                  ) : plan.comingSoon ? (
-                    <Button variant="outline" className="w-full" disabled>
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Coming Soon
-                    </Button>
                   ) : plan.contactUs ? (
                     <Button className="w-full" asChild>
-                      <a href="mailto:support@clawhq.tech">
+                      <a
+                        href={`mailto:support@clawhq.tech?subject=${encodeURIComponent(
+                          "Enterprise Plan Inquiry"
+                        )}`}
+                      >
                         <Mail className="mr-2 h-4 w-4" />
                         Contact Us
                       </a>
                     </Button>
                   ) : (
-                    <Button variant="outline" className="w-full" disabled>
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={isProcessing}
+                      onClick={() => handleUpgrade(plan)}
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ArrowRight className="mr-2 h-4 w-4" />
+                      )}
                       Upgrade
                     </Button>
                   )}
