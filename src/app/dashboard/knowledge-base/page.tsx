@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { TeamManager } from "@/components/dashboard/team-manager";
+import { KnowledgeBaseManager } from "@/components/dashboard/knowledge-base-manager";
 
-export default async function TeamPage() {
+export default async function KnowledgeBasePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -22,9 +22,9 @@ export default async function TeamPage() {
   if (!hasAccess(plan, "pro")) {
     return (
       <div>
-        <h1 className="text-2xl font-bold mb-1">Team</h1>
+        <h1 className="text-2xl font-bold mb-1">Knowledge Base</h1>
         <p className="text-muted-foreground mb-6">
-          Invite members and manage team access.
+          Upload documents for your agents to reference.
         </p>
         <UpgradePrompt requiredPlan="pro" />
       </div>
@@ -33,11 +33,11 @@ export default async function TeamPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1">Team</h1>
+      <h1 className="text-2xl font-bold mb-1">Knowledge Base</h1>
       <p className="text-muted-foreground mb-6">
-        Invite members and manage team access.
+        Upload documents for your agents to reference.
       </p>
-      <TeamManager />
+      <KnowledgeBaseManager />
     </div>
   );
 }

@@ -24,13 +24,16 @@ import {
   LogOut,
   Radar,
   KanbanSquare,
-  UsersRound,
   Activity,
   Timer,
   FileText,
   TrendingUp,
   Key,
   ClipboardList,
+  BookOpen,
+  Webhook,
+  Route,
+  UsersRound,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase";
@@ -70,7 +73,9 @@ function getCustomerNav(plan: string) {
 const proNav = [
   { title: "Logs", href: "/logs", icon: FileText },
   { title: "Analytics", href: "/analytics", icon: TrendingUp },
-  { title: "Team", href: "/team", icon: UsersRound },
+  { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
+  { title: "Webhooks", href: "/webhooks", icon: Webhook },
+  { title: "Smart Routing", href: "/smart-routing", icon: Route },
   { title: "API Access", href: "/api-access", icon: Key },
   { title: "Audit Log", href: "/audit-log", icon: ClipboardList },
 ];

@@ -71,13 +71,20 @@ const MOCK_KEYS: ApiKey[] = [
 ];
 
 const CODE_EXAMPLES = {
-  curl: `curl -X POST https://your-instance.clawhq.tech/api/v1/chat \\
-  -H "Authorization: Bearer sk-claw-xxxxx" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "message": "Hello, how can you help me?",
-    "agent": "default"
-  }'`,
+  curl: `curl -X POST "https://your-instance.clawhq.tech/api/v1/chat" \
+  -H "Authorization: Bearer sk-claw-xxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, how can you help me?", "agent": "default"}'`,
+  powershell: `$response = Invoke-RestMethod \`
+  -Uri "https://your-instance.clawhq.tech/api/v1/chat" \`
+  -Method POST \`
+  -Headers @{
+    "Authorization" = "Bearer sk-claw-xxxxx"
+    "Content-Type"  = "application/json"
+  } \`
+  -Body '{"message": "Hello, how can you help me?", "agent": "default"}'
+
+$response | ConvertTo-Json`,
   python: `import requests
 
 response = requests.post(
@@ -368,6 +375,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
           <Tabs defaultValue="curl">
             <TabsList>
               <TabsTrigger value="curl">cURL</TabsTrigger>
+              <TabsTrigger value="powershell">PowerShell</TabsTrigger>
               <TabsTrigger value="python">Python</TabsTrigger>
               <TabsTrigger value="javascript">JavaScript</TabsTrigger>
             </TabsList>
