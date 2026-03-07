@@ -53,10 +53,12 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Refresh session
+  // Use getSession() for fast route protection (reads JWT from cookie, no network call)
+  // Layout still calls getUser() for full validation
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user || null;
 
   // Logged-in users trying to access auth pages → redirect to home
   if ((path === "/login" || path === "/register") && user) {

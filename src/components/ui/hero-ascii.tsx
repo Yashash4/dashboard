@@ -66,13 +66,23 @@ export default function HeroAsciiBackground() {
     };
 
     hideBranding();
-    const interval = setInterval(hideBranding, 100);
-    setTimeout(hideBranding, 1000);
-    setTimeout(hideBranding, 3000);
-    setTimeout(hideBranding, 5000);
+
+    // Use MutationObserver instead of 100ms polling
+    let observer: MutationObserver | null = null;
+    const projectDiv = document.querySelector('[data-us-project]');
+    if (projectDiv) {
+      observer = new MutationObserver(hideBranding);
+      observer.observe(projectDiv, { childList: true, subtree: true });
+    }
+
+    // Fallback timeouts for initial load
+    const t1 = setTimeout(hideBranding, 1000);
+    const t2 = setTimeout(hideBranding, 3000);
 
     return () => {
-      clearInterval(interval);
+      observer?.disconnect();
+      clearTimeout(t1);
+      clearTimeout(t2);
       document.head.removeChild(embedScript);
       document.head.removeChild(style);
     };

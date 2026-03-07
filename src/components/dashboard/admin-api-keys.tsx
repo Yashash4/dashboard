@@ -106,11 +106,6 @@ export function AdminApiKeys({
         toast.success(`${provider} key saved (will configure on deploy)`);
       }
 
-      // Debug: log VPS diagnostic output
-      if (data.debug) {
-        console.log("[API Keys Debug]", data.debug);
-      }
-
       setShowForm(false);
       setProvider("");
       setApiKey("");

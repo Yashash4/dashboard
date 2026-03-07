@@ -69,10 +69,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  console.log(
-    `[admin] Bulk ${action}: ${count} subscriptions updated by ${user.email}`
-  );
-
   const ip = getClientIp(request);
   logAudit({ adminId: user.id, action: "bulk_action", entityType: "customer", details: { action, count: count || userIds.length, userIds }, ip });
 

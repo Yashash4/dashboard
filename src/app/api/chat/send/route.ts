@@ -160,10 +160,6 @@ export async function POST(request: NextRequest) {
       headers["Authorization"] = `Basic ${basicAuth}`;
     }
 
-    console.log(
-      `[chat/send] POST ${baseUrl}/v1/chat/completions agent=${agentSlug} session=${sessionKey}`
-    );
-
     const openclawResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
@@ -208,9 +204,7 @@ export async function POST(request: NextRequest) {
 
     const data = await openclawResponse.json();
 
-    // Log raw response structure for debugging
     const msg = data.choices?.[0]?.message;
-    console.log("[chat/send] Response keys:", msg ? Object.keys(msg) : "none");
 
     // Use only the 'content' field — ignore 'reasoning_content' / 'thinking' fields
     // Some models (Kimi, DeepSeek) return thinking in a separate field

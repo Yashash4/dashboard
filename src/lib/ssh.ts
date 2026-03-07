@@ -742,8 +742,6 @@ export async function getOpenClawToken(creds: VPSCredentials): Promise<string> {
     const journalResult = await ssh.execCommand(
       'journalctl -u openclaw-gateway --no-pager -n 50 2>/dev/null | grep -i "token\\|auth" | head -5'
     );
-    console.log("[getOpenClawToken] journal hints:", journalResult.stdout.trim());
-
     throw new Error("Could not find auth token in any config location");
   } finally {
     ssh.dispose();
@@ -1066,7 +1064,6 @@ export async function configureApiKeys(
     const restartStatus = restartResult.stdout?.trim() || "unknown";
     debugLines.push(`Gateway: ${restartStatus}`);
 
-    console.log("[configureApiKeys]", debugLines.join("\n"));
     return { success: true, debug: debugLines.join("\n") };
   } finally {
     ssh.dispose();
