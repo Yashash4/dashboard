@@ -20,6 +20,7 @@ import {
 const PRICE_MAP: Record<string, Record<string, number>> = {
   starter: { monthly: 59, annual: 599 },
   pro: { monthly: 129, annual: 1299 },
+  ultra: { monthly: 350, annual: 3499 },
   enterprise: { monthly: 999, annual: 9999 },
 };
 
@@ -123,6 +124,7 @@ export function AdminSubscriptionEditor({ userId, subscription }: Props) {
   const PLAN_COLORS: Record<string, string> = {
     starter: "bg-secondary text-secondary-foreground",
     pro: "bg-primary text-primary-foreground",
+    ultra: "bg-violet-600 text-white",
     enterprise: "bg-purple-600 text-white",
   };
 

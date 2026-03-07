@@ -47,7 +47,7 @@ export async function POST(
     );
   }
 
-  const validPlans = ["starter", "pro", "enterprise"];
+  const validPlans = ["starter", "pro", "ultra", "enterprise"];
   const validStatuses = ["active", "cancelled", "expired", "pending"];
   const validCycles = ["monthly", "annual"];
 
