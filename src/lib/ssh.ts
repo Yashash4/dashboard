@@ -943,25 +943,16 @@ export async function configureApiKeys(
   const ssh = await connect(creds);
   try {
     const debugLines: string[] = [];
+    const runtime = await detectRuntime(ssh);
+    debugLines.push(`Runtime: ${runtime}`);
 
-    // 1. Read current openclaw.json to preserve gateway section
-    const readResult = await ssh.execCommand("cat /root/.openclaw/openclaw.json 2>/dev/null");
-    let existingConfig: Record<string, any> = {};
-    if (readResult.stdout?.trim()) {
-      try {
-        const cleaned = readResult.stdout
-          .replace(/\/\/.*$/gm, "")
-          .replace(/,\s*([\]}])/g, "$1");
-        existingConfig = JSON.parse(cleaned);
-      } catch {
-        existingConfig = {};
-      }
-    }
+    // 1. Read current config to preserve gateway + channels sections
+    const existingConfig = await readOpenClawConfig(ssh, runtime);
 
     // 2. Preserve or rebuild gateway section
     const gateway = existingConfig.gateway || {
       mode: "local",
-      bind: "loopback",
+      bind: runtime === "docker" ? "0.0.0.0" : "loopback",
       trustedProxies: ["127.0.0.1", "::1"],
       auth: {
         mode: "trusted-proxy",
@@ -1024,8 +1015,9 @@ export async function configureApiKeys(
       }
     }
 
-    // 4. Build the complete config (matching verified working format)
+    // 4. Build complete config — preserve channels and other existing sections
     const fullConfig: Record<string, any> = {
+      ...existingConfig,
       gateway,
       models: { providers },
       agents: {
@@ -1041,28 +1033,45 @@ export async function configureApiKeys(
     // 5. Write via base64 (safe for all characters)
     const configContent = JSON.stringify(fullConfig, null, 2);
     const configB64 = Buffer.from(configContent).toString("base64");
-    const writeResult = await ssh.execCommand(
-      [
-        "mkdir -p /root/.openclaw && chmod 700 /root/.openclaw",
-        `echo '${configB64}' | base64 -d > /root/.openclaw/openclaw.json`,
-        "chmod 600 /root/.openclaw/openclaw.json",
-      ].join(" && ")
-    );
 
-    if (writeResult.code !== null && writeResult.code !== 0) {
-      return { success: false, error: writeResult.stderr?.trim() || "Failed to write config" };
+    if (runtime === "docker") {
+      // Docker: write to host volume path (mounted into container)
+      const writeResult = await ssh.execCommand(
+        [
+          "mkdir -p /opt/openclaw/config",
+          `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
+          "chmod 600 /opt/openclaw/config/openclaw.json",
+        ].join(" && ")
+      );
+      if (writeResult.code !== null && writeResult.code !== 0) {
+        return { success: false, error: writeResult.stderr?.trim() || "Failed to write config" };
+      }
+    } else {
+      // Native: write to user home
+      const writeResult = await ssh.execCommand(
+        [
+          "mkdir -p /root/.openclaw && chmod 700 /root/.openclaw",
+          `echo '${configB64}' | base64 -d > /root/.openclaw/openclaw.json`,
+          "chmod 600 /root/.openclaw/openclaw.json",
+        ].join(" && ")
+      );
+      if (writeResult.code !== null && writeResult.code !== 0) {
+        return { success: false, error: writeResult.stderr?.trim() || "Failed to write config" };
+      }
     }
 
-    // 6. Verify written config
-    const verifyResult = await ssh.execCommand("cat /root/.openclaw/openclaw.json");
-    debugLines.push(verifyResult.stdout?.trim() || "");
-
-    // 7. Restart gateway
-    const restartResult = await ssh.execCommand(
-      "systemctl restart openclaw-gateway && sleep 5 && systemctl is-active openclaw-gateway 2>/dev/null || echo 'restart-failed'"
-    );
-    const restartStatus = restartResult.stdout?.trim() || "unknown";
-    debugLines.push(`Gateway: ${restartStatus}`);
+    // 6. Restart gateway (model changes require restart)
+    if (runtime === "docker") {
+      const restartResult = await ssh.execCommand(
+        "docker restart openclaw && sleep 5 && docker inspect openclaw --format '{{.State.Status}}' 2>/dev/null || echo 'restart-failed'"
+      );
+      debugLines.push(`Gateway: ${restartResult.stdout?.trim() || "unknown"}`);
+    } else {
+      const restartResult = await ssh.execCommand(
+        "systemctl restart openclaw-gateway && sleep 5 && systemctl is-active openclaw-gateway 2>/dev/null || echo 'restart-failed'"
+      );
+      debugLines.push(`Gateway: ${restartResult.stdout?.trim() || "unknown"}`);
+    }
 
     return { success: true, debug: debugLines.join("\n") };
   } finally {
@@ -1114,10 +1123,23 @@ export async function enableAutoRestart(
 ): Promise<{ success: boolean; error?: string }> {
   const ssh = await connect(creds);
   try {
+    const runtime = await detectRuntime(ssh);
+
+    if (runtime === "docker") {
+      // Docker: --restart=always handles auto-restart, just verify it's set
+      const restartPolicy = await ssh.execCommand(
+        'docker inspect openclaw --format "{{.HostConfig.RestartPolicy.Name}}" 2>/dev/null'
+      );
+      if (restartPolicy.stdout.trim() !== "always") {
+        await ssh.execCommand("docker update --restart=always openclaw");
+      }
+      return { success: true };
+    }
+
+    // Native: Install systemd health check timer
     // 1. Upgrade systemd service to Restart=always
     const upgradeCmd = [
       "sed -i 's/Restart=on-failure/Restart=always/' /etc/systemd/system/openclaw-gateway.service 2>/dev/null || true",
-      // Add StartLimitIntervalSec if not present
       "grep -q StartLimitIntervalSec /etc/systemd/system/openclaw-gateway.service || sed -i '/\\[Service\\]/a StartLimitIntervalSec=300\\nStartLimitBurst=5' /etc/systemd/system/openclaw-gateway.service",
     ].join(" && ");
     await ssh.execCommand(upgradeCmd);

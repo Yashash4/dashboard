@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
+import { configureApiKeys } from "@/lib/ssh";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -130,6 +131,49 @@ export async function POST(request: NextRequest) {
         last_change_at: new Date().toISOString(),
       })
       .eq("id", modelConfig.id);
+
+    // Push config to VPS so the model change actually takes effect
+    try {
+      const { data: vps } = await admin
+        .from("vps_instances")
+        .select("ip_address, ssh_user, ssh_password, ssh_port, hostname, status")
+        .eq("user_id", user.id)
+        .single();
+
+      if (vps && vps.status === "running") {
+        const { data: apiKeys } = await admin
+          .from("user_api_keys")
+          .select("provider, api_key, base_url")
+          .eq("user_id", user.id);
+
+        if (apiKeys?.length) {
+          await configureApiKeys(
+            {
+              ip_address: vps.ip_address,
+              ssh_user: vps.ssh_user,
+              ssh_password: vps.ssh_password,
+              ssh_port: vps.ssh_port,
+            },
+            apiKeys.map((k) => ({
+              provider: k.provider,
+              apiKey: k.api_key,
+              baseUrl: k.base_url,
+            })),
+            {
+              hostname: vps.hostname,
+              email: user.email || "",
+              appUrl: process.env.NEXT_PUBLIC_APP_URL || "https://app.clawhq.tech",
+              modelName: model,
+              contextLimit: availableModel.context_limit,
+            }
+          );
+        }
+      }
+    } catch (sshErr) {
+      // SSH push failed but DB is updated — log and continue
+      // User can retry or admin can re-push via API keys route
+      console.error("[models/change] SSH config push failed:", sshErr);
+    }
   } else {
     // Scheduled: set as pending change
     await admin

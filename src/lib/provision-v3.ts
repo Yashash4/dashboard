@@ -23,16 +23,16 @@ export type OnProgress = (step: ProvisionStep) => void;
 
 // Steps 2-11 (steps 0-1 handled in route.ts: DNS + Firewall)
 const STEPS = [
-  "Test SSH",                // step 2 (index 0)
-  "Prepare system",          // step 3
-  "Install OpenClaw",        // step 4
-  "Write gateway config",    // step 5
-  "Create systemd service",  // step 6
-  "Start gateway",           // step 7
-  "Generate SSL certificate",// step 8
-  "Install Nginx",           // step 9
-  "Configure Nginx",         // step 10
-  "Verify",                  // step 11
+  "Test SSH",                  // step 2 (index 0)
+  "Prepare system",            // step 3
+  "Install Docker",            // step 4
+  "Pull OpenClaw image",       // step 5
+  "Write gateway config",      // step 6
+  "Start container",           // step 7
+  "Generate SSL certificate",  // step 8
+  "Install Nginx",             // step 9
+  "Configure Nginx",           // step 10
+  "Verify",                    // step 11
 ];
 
 async function runStep(
@@ -46,7 +46,7 @@ async function runStep(
   onProgress({ step: stepNum, label, status: "running" });
 
   // Prepend comprehensive PATH — SSH exec sessions have minimal PATH
-  // that often misses /usr/sbin (nginx), /usr/local/bin (openclaw), etc.
+  // that often misses /usr/sbin (nginx), /usr/local/bin, etc.
   const fullCmd = `export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH" && ${cmd}`;
   const result = await ssh.execCommand(fullCmd);
 
@@ -78,8 +78,7 @@ export async function provisionVPS(
   let ssh: NodeSSH | null = null;
 
   try {
-    // Version marker — if you don't see this in logs, dev server needs restart
-    console.log("[Provision] === PROVISION V3 (PATH fix + robust nginx) ===");
+    console.log("[Provision] === PROVISION V4 (Docker) ===");
     // Step 2: Test SSH
     console.log(`[Provision] Starting provisioning for ${config.hostname} (${config.ip})`);
     onProgress({ step: 2, label: STEPS[0], status: "running" });
@@ -115,30 +114,43 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 4: Install OpenClaw
+    // Step 4: Install Docker Engine
     await runStep(
       ssh,
       4,
       [
-        "rm -f /usr/local/bin/openclaw /usr/bin/openclaw",
-        "(curl -fsSL https://openclaw.ai/install.sh | bash) 2>&1 || true",
-        'export PATH="$(npm config get prefix 2>/dev/null)/bin:$HOME/.local/bin:$HOME/.openclaw/bin:$PATH"',
-        "OPENCLAW_PATH=$(command -v openclaw 2>/dev/null)",
-        'if [ -z "$OPENCLAW_PATH" ]; then npm install -g openclaw@latest 2>&1; export PATH="$(npm config get prefix 2>/dev/null)/bin:$PATH"; OPENCLAW_PATH=$(command -v openclaw 2>/dev/null); fi',
-        'if [ -z "$OPENCLAW_PATH" ]; then echo "openclaw binary not found after install"; exit 1; fi',
-        'REAL_PATH=$(readlink -f "$OPENCLAW_PATH" 2>/dev/null || echo "$OPENCLAW_PATH")',
-        'ln -sf "$REAL_PATH" /usr/bin/openclaw',
-        "/usr/bin/openclaw --version",
-      ].join(" ; "),
+        "export DEBIAN_FRONTEND=noninteractive",
+        // Check if Docker is already installed
+        "if command -v docker >/dev/null 2>&1; then echo 'Docker already installed'; docker --version; else " +
+          "curl -fsSL https://get.docker.com -o /tmp/get-docker.sh && " +
+          "sh /tmp/get-docker.sh && " +
+          "rm -f /tmp/get-docker.sh; fi",
+        "systemctl enable docker",
+        "systemctl start docker",
+        "docker --version",
+      ].join(" && "),
       onProgress
     );
 
-    // Step 5: Write gateway config — matches working manual setup exactly
+    // Step 5: Pull OpenClaw Docker image
+    await runStep(
+      ssh,
+      5,
+      [
+        "docker pull openclaw/openclaw:latest",
+        "docker images openclaw/openclaw --format '{{.Repository}}:{{.Tag}} ({{.Size}})'",
+      ].join(" && "),
+      onProgress
+    );
+
+    // Step 6: Write gateway config to host volume path
+    // CRITICAL: bind must be "0.0.0.0" for Docker (not "loopback")
+    // Security: -p 127.0.0.1:18789:18789 ensures port only exposed on host localhost
     const gatewayConfig = JSON.stringify(
       {
         gateway: {
           mode: "local",
-          bind: "loopback",
+          bind: "0.0.0.0",
           trustedProxies: ["127.0.0.1", "::1"],
           auth: {
             mode: "trusted-proxy",
@@ -165,82 +177,39 @@ export async function provisionVPS(
       null,
       2
     );
-    await runStep(
-      ssh,
-      5,
-      `mkdir -p /root/.openclaw && chmod 700 /root/.openclaw && cat > /root/.openclaw/openclaw.json << 'OCEOF'\n${gatewayConfig}\nOCEOF\necho 'Config written'`,
-      onProgress
-    );
-
-    // Step 6: Create systemd service — matches working manual setup
-    const serviceFile = `[Unit]
-Description=OpenClaw Gateway
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/openclaw gateway run
-Restart=always
-RestartSec=5
-StartLimitIntervalSec=300
-StartLimitBurst=5
-Environment=HOME=/root
-Environment=NODE_ENV=production
-Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-WorkingDirectory=/root
-
-[Install]
-WantedBy=multi-user.target`;
-
-    // Health check timer — restarts gateway if HTTP endpoint is unresponsive
-    const healthCheckScript = `#!/bin/bash
-if ! curl -sf --max-time 5 http://127.0.0.1:18789/ > /dev/null 2>&1; then
-  echo "[health-check] Gateway unresponsive, restarting..."
-  systemctl restart openclaw-gateway
-fi`;
-
-    const healthCheckService = `[Unit]
-Description=OpenClaw Gateway Health Check
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/openclaw-health-check.sh`;
-
-    const healthCheckTimer = `[Unit]
-Description=Run OpenClaw health check every 2 minutes
-
-[Timer]
-OnBootSec=60
-OnUnitActiveSec=120
-
-[Install]
-WantedBy=timers.target`;
+    const configB64 = Buffer.from(gatewayConfig).toString("base64");
 
     await runStep(
       ssh,
       6,
       [
-        `cat > /etc/systemd/system/openclaw-gateway.service << 'SVCEOF'\n${serviceFile}\nSVCEOF`,
-        `cat > /usr/local/bin/openclaw-health-check.sh << 'HCEOF'\n${healthCheckScript}\nHCEOF`,
-        "chmod +x /usr/local/bin/openclaw-health-check.sh",
-        `cat > /etc/systemd/system/openclaw-health-check.service << 'HCSEOF'\n${healthCheckService}\nHCSEOF`,
-        `cat > /etc/systemd/system/openclaw-health-check.timer << 'HCTEOF'\n${healthCheckTimer}\nHCTEOF`,
-        "systemctl daemon-reload",
-        "systemctl enable openclaw-gateway openclaw-health-check.timer",
-        "systemctl start openclaw-health-check.timer",
-        "echo 'Service + health check created and enabled'",
+        "mkdir -p /opt/openclaw/config /opt/openclaw/data",
+        "chmod 700 /opt/openclaw",
+        `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
+        "chmod 600 /opt/openclaw/config/openclaw.json",
+        "echo 'Config written to /opt/openclaw/config/openclaw.json'",
       ].join(" && "),
       onProgress
     );
 
-    // Step 7: Start gateway and verify it's listening
+    // Step 7: Start OpenClaw container
+    // Remove any existing container first (idempotent)
     await runStep(
       ssh,
       7,
       [
-        "systemctl restart openclaw-gateway",
-        "sleep 3",
-        "systemctl is-active openclaw-gateway",
+        "docker rm -f openclaw 2>/dev/null || true",
+        "docker run -d " +
+          "--name openclaw " +
+          "--restart=always " +
+          "-p 127.0.0.1:18789:18789 " +
+          "-v /opt/openclaw/config:/home/node/.openclaw " +
+          "-v /opt/openclaw/data:/data " +
+          "openclaw/openclaw:latest",
+        "sleep 5",
+        // Verify container is running
+        "docker inspect openclaw --format '{{.State.Status}}' | grep -q running && echo 'Container running'",
+        // Wait for gateway to respond (up to 30s)
         '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/ > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; echo "Gateway not responding"; exit 1)',
       ].join(" && "),
       onProgress
@@ -258,7 +227,6 @@ WantedBy=timers.target`;
     );
 
     // Step 9: Install Nginx — use a script to avoid cross-step PATH/env issues
-    // Write a bash script to the VPS, then execute it
     const nginxInstallScript = [
       "#!/bin/bash",
       "set -e",
@@ -279,9 +247,9 @@ WantedBy=timers.target`;
       "apt-get install -y nginx apache2-utils",
       "",
       "# Verify",
-      "echo \"PATH=$PATH\"",
-      "echo \"which nginx: $(which nginx 2>&1)\"",
-      "echo \"dpkg: $(dpkg -l nginx 2>&1 | grep nginx | head -1)\"",
+      'echo "PATH=$PATH"',
+      'echo "which nginx: $(which nginx 2>&1)"',
+      'echo "dpkg: $(dpkg -l nginx 2>&1 | grep nginx | head -1)"',
       "ls -la /usr/sbin/nginx 2>&1 || echo '/usr/sbin/nginx not found'",
       "nginx -v 2>&1",
     ].join("\n");
@@ -295,7 +263,6 @@ WantedBy=timers.target`;
     );
 
     // Step 10: Configure Nginx — write config via base64 and apply
-    // Include HTTP Basic Auth if credentials are provided
     const authDirectives = config.dashboardUsername && config.dashboardPassword
       ? [
           '        auth_basic "OpenClaw Dashboard";',
@@ -349,12 +316,12 @@ WantedBy=timers.target`;
       "systemctl restart nginx",
       "echo 'Nginx configured'",
     ].join("\n");
-    const configB64 = Buffer.from(nginxConfigScript).toString("base64");
+    const configScriptB64 = Buffer.from(nginxConfigScript).toString("base64");
 
     await runStep(
       ssh,
       10,
-      `echo '${configB64}' | base64 -d > /tmp/config-nginx.sh && chmod +x /tmp/config-nginx.sh && bash /tmp/config-nginx.sh`,
+      `echo '${configScriptB64}' | base64 -d > /tmp/config-nginx.sh && chmod +x /tmp/config-nginx.sh && bash /tmp/config-nginx.sh`,
       onProgress
     );
 
