@@ -1070,6 +1070,44 @@ export async function configureApiKeys(
   }
 }
 
+// Get top processes sorted by CPU/RAM usage
+export async function getProcessList(creds: VPSCredentials) {
+  const ssh = await connect(creds);
+  try {
+    const result = await ssh.execCommand(
+      'ps aux --sort=-%cpu | head -21 | awk \'NR>1 {printf "%s\\t%s\\t%s\\t%s\\t", $1, $2, $3, $4; for(i=11;i<=NF;i++) printf "%s ", $i; print ""}\''
+    );
+
+    const lines = result.stdout.trim().split("\n").filter(Boolean);
+    const processes = lines.map((line) => {
+      const parts = line.split("\t");
+      return {
+        user: parts[0] || "",
+        pid: parseInt(parts[1] || "0"),
+        cpu: parseFloat(parts[2] || "0"),
+        mem: parseFloat(parts[3] || "0"),
+        command: (parts[4] || "").trim(),
+      };
+    });
+
+    return processes;
+  } finally {
+    ssh.dispose();
+  }
+}
+
+// Full VPS reboot via SSH
+export async function rebootVPS(creds: VPSCredentials) {
+  const ssh = await connect(creds);
+  try {
+    // Schedule reboot in 5 seconds so SSH can return
+    await ssh.execCommand("nohup bash -c 'sleep 5 && reboot' &>/dev/null &");
+    return { success: true };
+  } finally {
+    ssh.dispose();
+  }
+}
+
 // Enable auto-restart health check on existing VPS
 export async function enableAutoRestart(
   creds: VPSCredentials

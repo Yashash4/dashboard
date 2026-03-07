@@ -50,19 +50,22 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-const customerNav = [
-  { title: "Overview", href: "/", icon: LayoutDashboard },
-  { title: "VPS", href: "/vps", icon: Server },
-  { title: "Models", href: "/models", icon: Brain },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Store", href: "/store", icon: ShoppingBag },
-  { title: "Chat", href: "/chat", icon: MessageCircle },
-  { title: "Channels", href: "/channels", icon: MessageSquare },
-  { title: "OpenClaw", href: "/openclaw", icon: Globe },
-  { title: "Support", href: "/support", icon: HelpCircle },
-  { title: "Billing", href: "/billing", icon: CreditCard },
-  { title: "Account", href: "/account", icon: UserIcon },
-];
+function getCustomerNav(plan: string) {
+  const isPro = hasAccess(plan, "pro");
+  return [
+    { title: "Overview", href: "/", icon: LayoutDashboard },
+    { title: isPro ? "Mission Control" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
+    { title: "Models", href: "/models", icon: Brain },
+    { title: "Agents", href: "/agents", icon: Bot },
+    { title: "Store", href: "/store", icon: ShoppingBag },
+    { title: "Chat", href: "/chat", icon: MessageCircle },
+    { title: "Channels", href: "/channels", icon: MessageSquare },
+    { title: "OpenClaw", href: "/openclaw", icon: Globe },
+    { title: "Support", href: "/support", icon: HelpCircle },
+    { title: "Billing", href: "/billing", icon: CreditCard },
+    { title: "Account", href: "/account", icon: UserIcon },
+  ];
+}
 
 const proNav = [
   { title: "Logs", href: "/logs", icon: FileText },
@@ -107,6 +110,8 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   useEffect(() => {
     setPendingPath(null);
   }, [pathname]);
+
+  const customerNav = getCustomerNav(plan);
 
   // Collect all nav hrefs to find the most specific match
   const allHrefs = [
