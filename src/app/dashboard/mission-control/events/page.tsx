@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
-import { Activity } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { EventFeed } from "@/components/mission-control/event-feed";
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -28,17 +27,7 @@ export default async function EventsPage() {
       <p className="text-muted-foreground mb-6">
         Real-time activity stream from your AI agents.
       </p>
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <div className="text-center py-12">
-            <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Live Event Feed</h2>
-            <p className="text-muted-foreground">
-              Real-time event streaming — coming in the next update.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <EventFeed />
     </div>
   );
 }

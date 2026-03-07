@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
-import { Timer } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { SessionTracker } from "@/components/mission-control/session-tracker";
 
 export default async function SessionsPage() {
   const supabase = await createClient();
@@ -28,17 +27,7 @@ export default async function SessionsPage() {
       <p className="text-muted-foreground mb-6">
         Track agent sessions, token usage, and costs.
       </p>
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <div className="text-center py-12">
-            <Timer className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Session Tracker</h2>
-            <p className="text-muted-foreground">
-              Session tracking with token & cost analysis — coming in the next update.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <SessionTracker />
     </div>
   );
 }
