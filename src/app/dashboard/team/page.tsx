@@ -1,9 +1,7 @@
-import { UsersRound } from "lucide-react";
-
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { Card, CardContent } from "@/components/ui/card";
+import { TeamManager } from "@/components/dashboard/team-manager";
 
 export default async function TeamPage() {
   const supabase = await createClient();
@@ -39,17 +37,7 @@ export default async function TeamPage() {
       <p className="text-muted-foreground mb-6">
         Invite members and manage team access.
       </p>
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <UsersRound className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Team Management</h2>
-            <p className="text-muted-foreground">
-              Multi-user access with role-based permissions — coming soon.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <TeamManager />
     </div>
   );
 }

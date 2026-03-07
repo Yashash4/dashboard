@@ -157,3 +157,20 @@
     opacity: 0.3;
   }
 }
+
+/* Sidebar selection indicator */
+[data-sidebar="menu-button"] {
+  border-left: 2px solid transparent;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+[data-sidebar="menu-button"][data-active="true"] {
+  background: hsl(var(--primary) / 0.1) !important;
+  border-left-color: hsl(var(--primary));
+  color: hsl(var(--sidebar-foreground)) !important;
+  font-weight: 500;
+}
+
+[data-sidebar="menu-button"][data-active="true"] svg {
+  color: hsl(var(--primary));
+}

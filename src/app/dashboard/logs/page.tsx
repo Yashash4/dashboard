@@ -1,9 +1,7 @@
-import { FileText } from "lucide-react";
-
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { Card, CardContent } from "@/components/ui/card";
+import { LogsExplorer } from "@/components/dashboard/logs-explorer";
 
 export default async function LogsPage() {
   const supabase = await createClient();
@@ -39,17 +37,7 @@ export default async function LogsPage() {
       <p className="text-muted-foreground mb-6">
         Search and filter your VPS logs in real-time.
       </p>
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Logs Explorer</h2>
-            <p className="text-muted-foreground">
-              Real-time log streaming, search, and filtering — coming soon.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <LogsExplorer />
     </div>
   );
 }

@@ -1,9 +1,7 @@
-import { ClipboardList } from "lucide-react";
-
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { Card, CardContent } from "@/components/ui/card";
+import { AuditLogViewer } from "@/components/dashboard/audit-log-viewer";
 
 export default async function AuditLogPage() {
   const supabase = await createClient();
@@ -39,17 +37,7 @@ export default async function AuditLogPage() {
       <p className="text-muted-foreground mb-6">
         Track all activity across your account.
       </p>
-      <Card className="border-border">
-        <CardContent className="pt-6">
-          <div className="text-center py-8">
-            <ClipboardList className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Audit Log</h2>
-            <p className="text-muted-foreground">
-              Full activity history with filtering and export — coming soon.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <AuditLogViewer />
     </div>
   );
 }

@@ -108,12 +108,29 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
     setPendingPath(null);
   }, [pathname]);
 
+  // Collect all nav hrefs to find the most specific match
+  const allHrefs = [
+    ...customerNav.map((i) => i.href),
+    ...proNav.map((i) => i.href),
+    ...ultraNav.map((i) => i.href),
+    ...adminNav.map((i) => i.href),
+  ];
+
   const isActive = (href: string) => {
     const checkPath = pendingPath || pathname;
+
+    // Exact-only routes (root pages that also have children)
     if (href === "/" || href === "/admin") {
       return checkPath === href;
     }
-    return checkPath.startsWith(href);
+
+    // Find the longest href that matches the current path
+    // This ensures only the most specific item highlights
+    const matchingHrefs = allHrefs.filter(
+      (h) => h !== "/" && h !== "/admin" && checkPath.startsWith(h)
+    );
+    const bestMatch = matchingHrefs.sort((a, b) => b.length - a.length)[0];
+    return href === bestMatch;
   };
 
   const handleLogout = async () => {
