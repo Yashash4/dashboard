@@ -193,30 +193,63 @@ export async function provisionVPS(
     );
 
     // Step 7: Start OpenClaw container
-    // Remove any existing container first (idempotent)
     // CRITICAL: Must pass explicit gateway command — default entrypoint runs CLI, not gateway
-    await runStep(
-      ssh,
-      7,
-      [
-        "docker rm -f openclaw 2>/dev/null || true",
-        "docker run -d --init " +
-          "--name openclaw " +
-          "--restart=always " +
-          "-e HOME=/home/node " +
-          "-p 127.0.0.1:18789:18789 " +
-          "-v /opt/openclaw/config:/home/node/.openclaw " +
-          "-v /opt/openclaw/data:/data " +
-          "ghcr.io/openclaw/openclaw:latest " +
-          "node dist/index.js gateway --bind lan --port 18789",
-        "sleep 20",
-        // Verify container is running
-        "docker inspect openclaw --format '{{.State.Status}}' | grep -q running && echo 'Container running'",
-        // Wait for gateway to respond (up to 30s, check /healthz)
-        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/healthz > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; echo "Gateway not responding"; exit 1)',
-      ].join(" && "),
-      onProgress
-    );
+    {
+      const label = STEPS[7 - 2];
+      onProgress({ step: 7, label, status: "running" });
+
+      // Remove old container
+      await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
+
+      // Start container with gateway command
+      const runCmd = [
+        "docker run -d --init",
+        "--name openclaw",
+        "--restart=always",
+        "-e HOME=/home/node",
+        "-p 127.0.0.1:18789:18789",
+        "-v /opt/openclaw/config:/home/node/.openclaw",
+        "-v /opt/openclaw/data:/data",
+        "ghcr.io/openclaw/openclaw:latest",
+        "node dist/index.js gateway --bind lan --port 18789",
+      ].join(" ");
+      await ssh.execCommand(
+        `export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH" && ${runCmd}`
+      );
+
+      // Wait for gateway startup (~20s per official compose start_period)
+      await ssh.execCommand("sleep 20");
+
+      // Check container state
+      const inspect = await ssh.execCommand(
+        'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
+      );
+      const state = inspect.stdout?.trim();
+
+      if (state !== "running") {
+        // Container crashed — grab logs so we can diagnose
+        const logs = await ssh.execCommand("docker logs openclaw --tail 40 2>&1");
+        const logOutput = logs.stdout?.trim() || logs.stderr?.trim() || "no logs";
+        const errMsg = `Container state: ${state || "not found"}. Logs:\n${logOutput}`;
+        console.error(`[Provision] ✗ Step 7 FAILED: ${errMsg}`);
+        onProgress({ step: 7, label, status: "error", output: errMsg });
+        throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
+      }
+
+      // Wait for gateway to respond on /healthz (up to 30s)
+      const healthCheck = await ssh.execCommand(
+        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/healthz > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; docker logs openclaw --tail 20 2>&1; echo "Gateway not responding"; exit 1)'
+      );
+      if (healthCheck.code !== null && healthCheck.code !== 0) {
+        const errMsg = healthCheck.stdout?.trim() || healthCheck.stderr?.trim() || "Gateway not responding";
+        console.error(`[Provision] ✗ Step 7 FAILED (health): ${errMsg}`);
+        onProgress({ step: 7, label, status: "error", output: errMsg });
+        throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
+      }
+
+      console.log(`[Provision] ✓ Step 7: ${label} — ${healthCheck.stdout?.trim()}`);
+      onProgress({ step: 7, label, status: "done", output: healthCheck.stdout?.trim() });
+    }
 
     // Step 8: Generate self-signed SSL certificate (for Cloudflare Full mode)
     await runStep(
