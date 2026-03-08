@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { OpenClawCredentialsBanner } from "@/components/dashboard/openclaw-credentials-banner";
+import { OpenClawEmbed } from "@/components/dashboard/openclaw-embed";
 
 export default async function OpenClawPage() {
   const supabase = await createClient();
@@ -16,7 +18,7 @@ export default async function OpenClawPage() {
   const admin = createAdminClient();
   const { data: vps } = await admin
     .from("vps_instances")
-    .select("openclaw_dashboard_url")
+    .select("openclaw_dashboard_url, dashboard_username, dashboard_password")
     .eq("user_id", user.id)
     .single();
 
@@ -60,11 +62,15 @@ export default async function OpenClawPage() {
           </a>
         </Button>
       </div>
-      <iframe
-        src={dashboardUrl}
-        className="flex-1 w-full border-0"
-        allow="clipboard-read; clipboard-write; storage-access"
-        title="OpenClaw Dashboard"
+      {vps.dashboard_username && vps.dashboard_password && (
+        <OpenClawCredentialsBanner
+          username={vps.dashboard_username}
+          password={vps.dashboard_password}
+        />
+      )}
+      <OpenClawEmbed
+        dashboardUrl={dashboardUrl}
+        embedKey={vps.dashboard_password || ""}
       />
     </div>
   );

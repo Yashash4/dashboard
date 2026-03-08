@@ -288,8 +288,27 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 10: Configure Nginx — no Basic Auth (trusted-proxy handles auth,
-    // and Basic Auth blocks cross-origin iframe embedding from app.clawhq.tech)
+    // Step 10: Configure Nginx — Basic Auth for direct access, cookie bypass for iframe
+    // The embed key (dashboard password) lets ClawHQ set a cookie to bypass Basic Auth
+    const embedKey = config.dashboardPassword || "";
+
+    // Map config goes in http context (conf.d/) — checks query param + cookie
+    const mapConf = [
+      `map $arg__key $claw_embed_param {`,
+      `    "${embedKey}" 1;`,
+      `    default 0;`,
+      `}`,
+      `map $cookie__claw $claw_embed_cookie {`,
+      `    "${embedKey}" 1;`,
+      `    default 0;`,
+      `}`,
+      `map "$claw_embed_param:$claw_embed_cookie" $claw_auth_realm {`,
+      `    "~1" "off";`,
+      `    default "OpenClaw Dashboard";`,
+      `}`,
+    ].join("\n");
+
+    // Server config — Basic Auth with cookie bypass + auth endpoint
     const nginxConf = [
       "server {",
       "    listen 80;",
@@ -299,7 +318,29 @@ export async function provisionVPS(
       `    ssl_certificate /etc/ssl/certs/${config.hostname}.crt;`,
       `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
       "",
+      "    # Auth endpoint — sets embed cookie (no Basic Auth here)",
+      "    location = /_claw_auth {",
+      "        if ($request_method = 'OPTIONS') {",
+      "            add_header 'Access-Control-Allow-Origin' $http_origin always;",
+      "            add_header 'Access-Control-Allow-Methods' 'GET, OPTIONS' always;",
+      "            add_header 'Access-Control-Allow-Credentials' 'true' always;",
+      "            add_header 'Access-Control-Max-Age' '86400' always;",
+      "            return 204;",
+      "        }",
+      "        if ($claw_embed_param != '1') {",
+      "            return 403;",
+      "        }",
+      `        add_header 'Set-Cookie' '_claw=${embedKey}; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=None; Partitioned' always;`,
+      "        add_header 'Access-Control-Allow-Origin' $http_origin always;",
+      "        add_header 'Access-Control-Allow-Credentials' 'true' always;",
+      "        add_header 'Content-Type' 'text/plain' always;",
+      "        return 200 'ok';",
+      "    }",
+      "",
       "    location / {",
+      "        auth_basic $claw_auth_realm;",
+      "        auth_basic_user_file /etc/nginx/.htpasswd;",
+      "",
       "        proxy_pass http://127.0.0.1:18789;",
       "        proxy_http_version 1.1;",
       "        proxy_set_header Upgrade $http_upgrade;",
@@ -314,13 +355,22 @@ export async function provisionVPS(
       "    }",
       "}",
     ].join("\n");
+
+    const mapConfB64 = Buffer.from(mapConf).toString("base64");
     const nginxConfB64 = Buffer.from(nginxConf).toString("base64");
+
+    // Build htpasswd for Basic Auth
+    const htpasswdCmd = config.dashboardUsername && config.dashboardPassword
+      ? `htpasswd -cb /etc/nginx/.htpasswd '${config.dashboardUsername.replace(/'/g, "'\\''")}' '${config.dashboardPassword.replace(/'/g, "'\\''")}'`
+      : "echo 'No auth credentials — skipping htpasswd'";
 
     const nginxConfigScript = [
       "#!/bin/bash",
       "set -e",
       "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH",
-      "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled",
+      "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d",
+      htpasswdCmd,
+      `echo '${mapConfB64}' | base64 -d > /etc/nginx/conf.d/claw-embed.conf`,
       `echo '${nginxConfB64}' | base64 -d > /etc/nginx/sites-available/${config.hostname}`,
       `ln -sf /etc/nginx/sites-available/${config.hostname} /etc/nginx/sites-enabled/`,
       "rm -f /etc/nginx/sites-enabled/default",
@@ -337,13 +387,16 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 11: Verify — test gateway directly + through nginx
+    // Step 11: Verify — test gateway, nginx (Basic Auth), and embed cookie bypass
     await runStep(
       ssh,
       11,
       [
         "curl -sf http://127.0.0.1:18789/ > /dev/null",
-        `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
+        config.dashboardUsername && config.dashboardPassword
+          ? `curl -sfk -u '${config.dashboardUsername}:${config.dashboardPassword}' https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`
+          : `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
+        `curl -sfk --cookie '_claw=${config.dashboardPassword}' https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),
       onProgress
