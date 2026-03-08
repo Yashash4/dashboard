@@ -11,6 +11,7 @@ const Navbar = () => {
   const links = [
     { label: "Features", href: "#features" },
     { label: "Pricing", href: "#pricing" },
+    { label: "Docs", href: "/docs" },
     { label: "FAQ", href: "#faq" },
   ];
 
@@ -38,6 +39,7 @@ const Navbar = () => {
   }, []);
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (!href.startsWith("#")) return; // Allow normal navigation for non-hash links
     e.preventDefault();
     setMobileOpen(false);
     const target = document.querySelector(href);
