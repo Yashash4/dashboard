@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
         metric_type: "message",
         response_time_ms: Date.now() - analyticsStart,
       })
-      .then(() => {});
+      .then(() => {}, () => {});
 
     return NextResponse.json({
       response: assistantContent,
@@ -297,7 +297,7 @@ export async function POST(request: NextRequest) {
         response_time_ms: Date.now() - analyticsStart,
         metadata: { error: err instanceof Error ? err.message : "unknown" },
       })
-      .then(() => {});
+      .then(() => {}, () => {});
 
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json(
