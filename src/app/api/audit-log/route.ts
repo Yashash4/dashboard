@@ -28,19 +28,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const params = request.nextUrl.searchParams;
-  const page = Math.max(1, parseInt(params.get("page") || "1", 10));
-  const limit = Math.min(100, Math.max(1, parseInt(params.get("limit") || "50", 10)));
+  const page = Math.max(1, parseInt(params.get("page") || "1", 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(params.get("limit") || "50", 10) || 50));
   const category = params.get("category");
   const search = params.get("search");
   const offset = (page - 1) * limit;
 
-  // Build query
-  let query = admin
+  // Build query — use user client (RLS enforces user_id = auth.uid())
+  let query = supabase
     .from("audit_logs")
     .select("id, action, entity_type, entity_id, category, actor_type, details, ip_address, created_at", {
       count: "exact",
     })
-    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -49,9 +48,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    query = query.or(
-      `action.ilike.%${search}%,entity_type.ilike.%${search}%`
-    );
+    const safe = search.replace(/[,%().\\/]/g, "");
+    if (safe.trim()) {
+      query = query.or(
+        `action.ilike.%${safe}%,entity_type.ilike.%${safe}%`
+      );
+    }
   }
 
   const { data: logs, count, error } = await query;

@@ -93,6 +93,11 @@ function formatDetails(details: Record<string, unknown> | null): string {
   return parts.join(", ") || "-";
 }
 
+function csvSafe(val: string): string {
+  if (/^[=+\-@]/.test(val)) return `\t${val}`;
+  return val;
+}
+
 export function AuditLogViewer() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -139,7 +144,7 @@ export function AuditLogViewer() {
       "Timestamp,Action,Category,Actor Type,Entity Type,Entity ID,Details,IP",
       ...logs.map(
         (e) =>
-          `"${e.created_at}","${e.action}","${e.category}","${e.actor_type}","${e.entity_type}","${e.entity_id || ""}","${formatDetails(e.details).replace(/"/g, '""')}","${e.ip_address || "-"}"`
+          `"${csvSafe(e.created_at)}","${csvSafe(e.action)}","${csvSafe(e.category)}","${csvSafe(e.actor_type)}","${csvSafe(e.entity_type)}","${csvSafe(e.entity_id || "")}","${csvSafe(formatDetails(e.details).replace(/"/g, '""'))}","${csvSafe(e.ip_address || "-")}"`
       ),
     ].join("\n");
 
@@ -197,7 +202,7 @@ export function AuditLogViewer() {
             disabled={logs.length === 0}
           >
             <Download className="h-4 w-4 mr-1" />
-            Export
+            Export Page
           </Button>
         </div>
       </div>
