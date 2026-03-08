@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
-import { indexDocument, stripHTML } from "@/lib/knowledge-base";
+import { indexDocument, stripHTML, isPrivateUrl } from "@/lib/knowledge-base";
 
 export async function POST(
   _request: NextRequest,
@@ -61,6 +61,9 @@ export async function POST(
       // Re-fetch URL
       if (!doc.source_url) {
         throw new Error("Source URL not found");
+      }
+      if (isPrivateUrl(doc.source_url)) {
+        throw new Error("URL must point to a public website");
       }
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);

@@ -136,10 +136,10 @@ export async function POST(request: NextRequest) {
           error_message: "No text content found in file",
         })
         .eq("id", doc.id);
-      return NextResponse.json({
-        document: { id: doc.id, status: "error" },
-        error: "No text content found",
-      });
+      return NextResponse.json(
+        { error: "No text content found in file" },
+        { status: 422 }
+      );
     }
 
     const { chunkCount } = await indexDocument(

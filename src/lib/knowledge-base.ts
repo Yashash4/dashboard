@@ -1,7 +1,37 @@
 import { createAdminClient } from "@/lib/supabase-admin";
 
 const MAX_CHUNK_SIZE = 2000;
-const CHUNK_OVERLAP = 50;
+const CHUNK_OVERLAP = 200;
+
+/** Block SSRF — prevent fetching private/internal URLs */
+export function isPrivateUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return true;
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) return true;
+  const h = parsed.hostname.toLowerCase();
+  if (["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].includes(h))
+    return true;
+  if (
+    h.endsWith(".local") ||
+    h.endsWith(".internal") ||
+    h.endsWith(".localhost")
+  )
+    return true;
+  const parts = h.split(".");
+  if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
+    const [a, b] = parts.map(Number);
+    if (a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 0) return true;
+  }
+  return false;
+}
 
 /**
  * Split text into chunks with overlap.
@@ -55,8 +85,14 @@ function splitLongText(text: string): string[] {
 
   for (const sentence of sentences) {
     if (current.length + sentence.length + 1 > MAX_CHUNK_SIZE) {
-      if (current) chunks.push(current.trim());
-      current = sentence;
+      if (current) {
+        chunks.push(current.trim());
+        // Keep overlap from end of previous chunk
+        const overlap = current.slice(-CHUNK_OVERLAP);
+        current = overlap + " " + sentence;
+      } else {
+        current = sentence;
+      }
     } else {
       current += (current ? " " : "") + sentence;
     }
@@ -148,7 +184,7 @@ export async function indexDocument(
     return { chunkCount: 0 };
   }
 
-  // Insert chunks
+  // Insert chunks in batches of 100
   const chunkRows = chunks.map((text, index) => ({
     document_id: documentId,
     user_id: userId,
@@ -157,18 +193,21 @@ export async function indexDocument(
     metadata: {},
   }));
 
-  const { error } = await admin.from("kb_chunks").insert(chunkRows);
-
-  if (error) {
-    await admin
-      .from("kb_documents")
-      .update({
-        status: "error",
-        error_message: `Failed to index: ${error.message}`,
-        chunk_count: 0,
-      })
-      .eq("id", documentId);
-    throw error;
+  const BATCH_SIZE = 100;
+  for (let i = 0; i < chunkRows.length; i += BATCH_SIZE) {
+    const batch = chunkRows.slice(i, i + BATCH_SIZE);
+    const { error: batchError } = await admin.from("kb_chunks").insert(batch);
+    if (batchError) {
+      await admin
+        .from("kb_documents")
+        .update({
+          status: "error",
+          error_message: `Failed to index batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batchError.message}`,
+          chunk_count: 0,
+        })
+        .eq("id", documentId);
+      throw batchError;
+    }
   }
 
   // Update document status
@@ -186,8 +225,8 @@ export async function indexDocument(
 }
 
 /**
- * Search KB chunks for a user using text matching.
- * Returns top matches sorted by relevance.
+ * Search KB chunks for a user using Postgres full-text search.
+ * Uses tsvector + ts_rank for relevance-ranked results.
  */
 export async function searchKBChunks(
   userId: string,
@@ -196,36 +235,29 @@ export async function searchKBChunks(
 ): Promise<{ content: string; documentName: string }[]> {
   const admin = createAdminClient();
 
-  // Split query into keywords for matching
-  const keywords = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
+  if (!query.trim()) return [];
 
-  if (keywords.length === 0) return [];
-
-  // Use ILIKE for text search (works without pg_trgm extension)
-  // Search for any keyword match
-  const { data: chunks, error } = await admin
-    .from("kb_chunks")
-    .select("content, document_id")
-    .eq("user_id", userId)
-    .or(keywords.map((k) => `content.ilike.%${k}%`).join(","))
-    .limit(limit);
+  // Call the FTS RPC function (uses tsvector + GIN index + ts_rank)
+  const { data: chunks, error } = await admin.rpc("search_kb_chunks_fts", {
+    p_user_id: userId,
+    p_query: query.trim(),
+    p_limit: limit,
+  });
 
   if (error || !chunks || chunks.length === 0) return [];
 
-  // Get document names
-  const docIds = [...new Set(chunks.map((c) => c.document_id))];
+  // Get document names (with user_id filter for defense-in-depth)
+  const docIds = [...new Set(chunks.map((c: any) => c.chunk_document_id))];
   const { data: docs } = await admin
     .from("kb_documents")
     .select("id, name")
-    .in("id", docIds);
+    .in("id", docIds)
+    .eq("user_id", userId);
 
   const docMap = new Map(docs?.map((d) => [d.id, d.name]) || []);
 
-  return chunks.map((c) => ({
-    content: c.content,
-    documentName: docMap.get(c.document_id) || "Unknown",
+  return chunks.map((c: any) => ({
+    content: c.chunk_content,
+    documentName: docMap.get(c.chunk_document_id) || "Unknown",
   }));
 }

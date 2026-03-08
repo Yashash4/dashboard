@@ -35,13 +35,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Search chunks using ILIKE
-  const { data: chunks, error } = await admin
-    .from("kb_chunks")
-    .select("id, content, chunk_index, document_id")
-    .eq("user_id", user.id)
-    .ilike("content", `%${q}%`)
-    .limit(20);
+  // Use Postgres full-text search via RPC function
+  const { data: chunks, error } = await admin.rpc("search_kb_chunks_fts", {
+    p_user_id: user.id,
+    p_query: q.trim(),
+    p_limit: 20,
+  });
 
   if (error) {
     return NextResponse.json(
@@ -50,23 +49,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Get document names
-  const docIds = [...new Set((chunks || []).map((c) => c.document_id))];
+  // Get document names (with user_id filter for defense-in-depth)
+  const docIds = [...new Set((chunks || []).map((c: any) => c.chunk_document_id))];
   let docMap = new Map<string, string>();
   if (docIds.length > 0) {
     const { data: docs } = await admin
       .from("kb_documents")
       .select("id, name")
-      .in("id", docIds);
+      .in("id", docIds)
+      .eq("user_id", user.id);
     docMap = new Map(docs?.map((d) => [d.id, d.name]) || []);
   }
 
-  const results = (chunks || []).map((c) => ({
-    id: c.id,
-    content: c.content,
+  const results = (chunks || []).map((c: any) => ({
+    id: c.chunk_id,
+    content: c.chunk_content,
     chunkIndex: c.chunk_index,
-    documentId: c.document_id,
-    documentName: docMap.get(c.document_id) || "Unknown",
+    documentId: c.chunk_document_id,
+    documentName: docMap.get(c.chunk_document_id) || "Unknown",
+    rank: c.rank,
   }));
 
   return NextResponse.json({ results });

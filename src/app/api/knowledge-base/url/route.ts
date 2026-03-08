@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
-import { indexDocument, stripHTML } from "@/lib/knowledge-base";
+import { indexDocument, stripHTML, isPrivateUrl } from "@/lib/knowledge-base";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -34,6 +34,13 @@ export async function POST(request: NextRequest) {
   if (!url || !url.startsWith("http")) {
     return NextResponse.json(
       { error: "Valid URL is required" },
+      { status: 400 }
+    );
+  }
+
+  if (isPrivateUrl(url)) {
+    return NextResponse.json(
+      { error: "URL must point to a public website" },
       { status: 400 }
     );
   }

@@ -137,16 +137,21 @@ export async function POST(request: NextRequest) {
     });
 
     // Search Knowledge Base for relevant context (non-blocking if fails)
+    // Skip for short/conversational messages — no point RAG-searching "hi" or "thanks"
     let kbContext = "";
-    try {
-      const kbResults = await searchKBChunks(user.id, message.trim(), 3);
-      if (kbResults.length > 0) {
-        kbContext = kbResults
-          .map((r) => `[From: ${r.documentName}]\n${r.content}`)
-          .join("\n\n---\n\n");
+    const trimmedMsg = message.trim();
+    const wordCount = trimmedMsg.split(/\s+/).length;
+    if (trimmedMsg.length >= 20 && wordCount >= 3) {
+      try {
+        const kbResults = await searchKBChunks(user.id, trimmedMsg, 3);
+        if (kbResults.length > 0) {
+          kbContext = kbResults
+            .map((r) => `[From: ${r.documentName}]\n${r.content}`)
+            .join("\n\n---\n\n");
+        }
+      } catch {
+        // KB search failure should never block chat
       }
-    } catch {
-      // KB search failure should never block chat
     }
 
     // Call OpenClaw chat completions API
