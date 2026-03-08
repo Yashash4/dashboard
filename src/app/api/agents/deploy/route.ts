@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { deployAgent } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -111,6 +112,11 @@ export async function POST(request: NextRequest) {
         deployed_at: new Date().toISOString(),
       })
       .eq("id", userAgent.id);
+
+    dispatchWebhooks(user.id, "agent.deployed", {
+      agent_id,
+      agent_name: agent.name,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (err) {

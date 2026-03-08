@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { configureChannel } from "@/lib/ssh";
 import { encryptCredentials, isEncryptionConfigured } from "@/lib/crypto";
 import { rateLimit } from "@/lib/rate-limit";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 const VALID_CHANNELS = [
   "whatsapp",
@@ -146,6 +147,11 @@ export async function POST(request: NextRequest) {
         encrypted_data: encrypted,
       });
     }
+
+    dispatchWebhooks(user.id, "channel.connected", {
+      channel_type,
+      channel_id: channelId,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, channel_id: channelId });
   } catch (err) {

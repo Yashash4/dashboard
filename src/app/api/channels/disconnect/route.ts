@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { removeChannel } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -83,6 +84,11 @@ export async function POST(request: NextRequest) {
 
     // Remove channel from DB
     await admin.from("channels").delete().eq("id", channel.id);
+
+    dispatchWebhooks(user.id, "channel.disconnected", {
+      channel_type: channel.channel_type,
+      channel_id: channel.id,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (err) {

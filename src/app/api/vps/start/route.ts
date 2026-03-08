@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { startVM } from "@/lib/hostinger";
 import { rateLimit } from "@/lib/rate-limit";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 export async function POST() {
   const supabase = await createClient();
@@ -32,7 +33,7 @@ export async function POST() {
 
   if (!vps.hostinger_vm_id) {
     return NextResponse.json(
-      { error: "Hostinger VM ID not configured" },
+      { error: "ClawHQ VM ID not configured. Contact support." },
       { status: 400 }
     );
   }
@@ -51,6 +52,11 @@ export async function POST() {
       .from("vps_instances")
       .update({ status: "running" })
       .eq("id", vps.id);
+
+    dispatchWebhooks(user.id, "vps.status_changed", {
+      status: "running",
+      action: "start",
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (err) {

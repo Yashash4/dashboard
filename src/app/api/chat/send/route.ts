@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { searchKBChunks } from "@/lib/knowledge-base";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 // Same sanitization as ssh.ts deployAgent uses for agent folder names
 function sanitizeAgentName(name: string): string {
@@ -63,11 +64,11 @@ export async function POST(request: NextRequest) {
   const agentName = (userAgent as any).agents?.name || "main";
   const agentSlug = sanitizeAgentName(agentName);
 
-  // Get VPS details (including gateway token for API auth)
+  // Get VPS details (including Basic Auth credentials for nginx)
   const { data: vps } = await admin
     .from("vps_instances")
     .select(
-      "id, hostname, openclaw_dashboard_url, dashboard_username, dashboard_password, gateway_token, status"
+      "id, hostname, openclaw_dashboard_url, dashboard_username, dashboard_password, status"
     )
     .eq("user_id", user.id)
     .single();
@@ -154,8 +155,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call OpenClaw chat completions API via direct IP (bypasses nginx Basic Auth)
-    // Uses Bearer token auth (gateway token generated during provisioning)
+    // Call OpenClaw chat completions API through nginx (trusted-proxy auth)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -169,11 +169,8 @@ export async function POST(request: NextRequest) {
       "x-openclaw-session-key": sessionKey,
     };
 
-    // Use Bearer token auth (gateway token) — /v1/ path bypasses nginx Basic Auth
-    if (vps.gateway_token) {
-      headers["Authorization"] = `Bearer ${vps.gateway_token}`;
-    } else if (vps.dashboard_username && vps.dashboard_password) {
-      // Fallback: Basic Auth through nginx (legacy/native installs)
+    // HTTP Basic Auth to pass nginx (gateway uses trusted-proxy behind nginx)
+    if (vps.dashboard_username && vps.dashboard_password) {
       const basicAuth = Buffer.from(
         `${vps.dashboard_username}:${vps.dashboard_password}`
       ).toString("base64");
@@ -283,6 +280,11 @@ export async function POST(request: NextRequest) {
         response_time_ms: Date.now() - analyticsStart,
       })
       .then(() => {}, () => {});
+
+    dispatchWebhooks(user.id, "message.received", {
+      conversation_id: conversation.id,
+      agent_id,
+    }).catch(() => {});
 
     return NextResponse.json({
       response: assistantContent,

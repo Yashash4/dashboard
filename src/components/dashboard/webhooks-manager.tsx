@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Webhook,
   Plus,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -50,9 +52,12 @@ interface WebhookEndpoint {
   secret: string;
   events: string[];
   enabled: boolean;
-  createdAt: string;
-  lastTriggered: string | null;
-  lastStatus: "success" | "failed" | null;
+  description: string | null;
+  last_triggered_at: string | null;
+  last_status: "success" | "failed" | null;
+  last_status_code: number | null;
+  failure_count: number;
+  created_at: string;
 }
 
 const AVAILABLE_EVENTS = [
@@ -98,37 +103,86 @@ const AVAILABLE_EVENTS = [
   },
 ];
 
-const MOCK_WEBHOOKS: WebhookEndpoint[] = [
-  {
-    id: "1",
-    url: "https://api.example.com/webhooks/clawhq",
-    secret: "whsec_abc123def456",
-    events: ["conversation.started", "conversation.ended", "agent.error"],
-    enabled: true,
-    createdAt: "2026-02-20",
-    lastTriggered: "2026-03-07T14:30:00Z",
-    lastStatus: "success",
-  },
-  {
-    id: "2",
-    url: "https://hooks.slack.com/services/T00/B00/xxx",
-    secret: "whsec_xyz789ghi012",
-    events: ["vps.status_changed", "agent.error"],
-    enabled: true,
-    createdAt: "2026-03-01",
-    lastTriggered: "2026-03-06T09:15:00Z",
-    lastStatus: "failed",
-  },
-];
-
 export function WebhooksManager() {
-  const [webhooks, setWebhooks] = useState<WebhookEndpoint[]>(MOCK_WEBHOOKS);
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [newUrl, setNewUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+
+  const { data, isLoading, isError, refetch } = useQuery<{ webhooks: WebhookEndpoint[] }>({
+    queryKey: ["webhooks"],
+    queryFn: async () => {
+      const res = await fetch("/api/webhooks");
+      if (!res.ok) throw new Error("Failed to fetch webhooks");
+      return res.json();
+    },
+  });
+
+  const webhooks = data?.webhooks || [];
+
+  const createMutation = useMutation({
+    mutationFn: async (payload: { url: string; events: string[] }) => {
+      const res = await fetch("/api/webhooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create webhook");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+      setCreateOpen(false);
+      setNewUrl("");
+      setSelectedEvents([]);
+      toast.success("Webhook created");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/webhooks/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to delete webhook");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+      toast.success("Webhook deleted");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const res = await fetch(`/api/webhooks/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      if (!res.ok) throw new Error("Failed to update webhook");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+    },
+    onError: () => {
+      toast.error("Failed to toggle webhook");
+    },
+  });
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -146,41 +200,39 @@ export function WebhooksManager() {
   };
 
   const handleCreate = () => {
-    const webhook: WebhookEndpoint = {
-      id: Math.random().toString(36).slice(2, 8),
-      url: newUrl,
-      secret: `whsec_${Math.random().toString(36).slice(2, 14)}`,
-      events: selectedEvents,
-      enabled: true,
-      createdAt: new Date().toISOString().slice(0, 10),
-      lastTriggered: null,
-      lastStatus: null,
-    };
-    setWebhooks((prev) => [...prev, webhook]);
-    setCreateOpen(false);
-    setNewUrl("");
-    setSelectedEvents([]);
-    toast.success("Webhook created");
+    createMutation.mutate({ url: newUrl, events: selectedEvents });
   };
 
-  const handleDelete = (id: string) => {
-    setWebhooks((prev) => prev.filter((w) => w.id !== id));
-    toast.success("Webhook deleted");
-  };
-
-  const handleToggle = (id: string) => {
-    setWebhooks((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, enabled: !w.enabled } : w))
-    );
-  };
-
-  const handleTest = (id: string) => {
+  const handleTest = async (id: string) => {
     setTestingId(id);
-    setTimeout(() => {
+    try {
+      const res = await fetch(`/api/webhooks/${id}/test`, { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Test event delivered successfully");
+      } else {
+        toast.error(`Test failed: ${data.error || `HTTP ${data.status_code}`}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["webhooks"] });
+    } catch {
+      toast.error("Failed to send test event");
+    } finally {
       setTestingId(null);
-      toast.success("Test event sent");
-    }, 1500);
+    }
   };
+
+  if (isError) {
+    return (
+      <Card className="border-destructive/50">
+        <CardContent className="p-6 text-center">
+          <p className="text-sm text-destructive mb-2">Failed to load webhooks</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -191,9 +243,13 @@ export function WebhooksManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Active</p>
-                <p className="text-2xl font-bold">
-                  {webhooks.filter((w) => w.enabled).length}
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-8 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    {webhooks.filter((w) => w.enabled).length}
+                  </p>
+                )}
               </div>
               <Webhook className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -204,9 +260,13 @@ export function WebhooksManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Events Tracked</p>
-                <p className="text-2xl font-bold">
-                  {new Set(webhooks.flatMap((w) => w.events)).size}
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-8 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    {new Set(webhooks.flatMap((w) => w.events)).size}
+                  </p>
+                )}
               </div>
               <Zap className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -217,24 +277,28 @@ export function WebhooksManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Last Triggered</p>
-                <p className="text-sm font-medium mt-1">
-                  {webhooks.some((w) => w.lastTriggered)
-                    ? new Date(
-                        webhooks
-                          .filter((w) => w.lastTriggered)
-                          .sort(
-                            (a, b) =>
-                              new Date(b.lastTriggered!).getTime() -
-                              new Date(a.lastTriggered!).getTime()
-                          )[0].lastTriggered!
-                      ).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Never"}
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-5 w-24 mt-1" />
+                ) : (
+                  <p className="text-sm font-medium mt-1">
+                    {webhooks.some((w) => w.last_triggered_at)
+                      ? new Date(
+                          webhooks
+                            .filter((w) => w.last_triggered_at)
+                            .sort(
+                              (a, b) =>
+                                new Date(b.last_triggered_at!).getTime() -
+                                new Date(a.last_triggered_at!).getTime()
+                            )[0].last_triggered_at!
+                        ).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Never"}
+                  </p>
+                )}
               </div>
               <Clock className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -302,8 +366,11 @@ export function WebhooksManager() {
               </Button>
               <Button
                 onClick={handleCreate}
-                disabled={!newUrl || selectedEvents.length === 0}
+                disabled={!newUrl || selectedEvents.length === 0 || createMutation.isPending}
               >
+                {createMutation.isPending && (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                )}
                 Create Webhook
               </Button>
             </DialogFooter>
@@ -312,7 +379,25 @@ export function WebhooksManager() {
       </div>
 
       {/* Webhook list */}
-      {webhooks.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Card key={i} className="border-border">
+              <CardHeader className="pb-3">
+                <Skeleton className="h-5 w-72" />
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex gap-2 mb-3">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+                <Skeleton className="h-4 w-48" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : webhooks.length === 0 ? (
         <Card className="border-border">
           <CardContent className="py-12 text-center text-muted-foreground">
             <Webhook className="h-10 w-10 mx-auto mb-3 opacity-50" />
@@ -330,7 +415,12 @@ export function WebhooksManager() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
                     <button
-                      onClick={() => handleToggle(webhook.id)}
+                      onClick={() =>
+                        toggleMutation.mutate({
+                          id: webhook.id,
+                          enabled: !webhook.enabled,
+                        })
+                      }
                       className={`h-2.5 w-2.5 rounded-full shrink-0 transition-colors ${
                         webhook.enabled
                           ? "bg-green-500"
@@ -342,7 +432,7 @@ export function WebhooksManager() {
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {webhook.lastStatus === "success" && (
+                    {webhook.last_status === "success" && (
                       <Badge
                         variant="outline"
                         className="text-[10px] bg-green-500/15 text-green-400 border-green-500/30"
@@ -351,7 +441,7 @@ export function WebhooksManager() {
                         OK
                       </Badge>
                     )}
-                    {webhook.lastStatus === "failed" && (
+                    {webhook.last_status === "failed" && (
                       <Badge
                         variant="outline"
                         className="text-[10px] bg-red-500/15 text-red-400 border-red-500/30"
@@ -395,7 +485,7 @@ export function WebhooksManager() {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(webhook.id)}
+                            onClick={() => deleteMutation.mutate(webhook.id)}
                           >
                             Delete
                           </AlertDialogAction>
@@ -446,10 +536,10 @@ export function WebhooksManager() {
                       )}
                     </button>
                   </div>
-                  {webhook.lastTriggered && (
+                  {webhook.last_triggered_at && (
                     <span>
                       Last fired{" "}
-                      {new Date(webhook.lastTriggered).toLocaleString("en-US", {
+                      {new Date(webhook.last_triggered_at).toLocaleString("en-US", {
                         month: "short",
                         day: "numeric",
                         hour: "2-digit",
