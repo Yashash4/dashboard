@@ -27,6 +27,10 @@ export async function GET() {
     return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
   }
 
+  const rl = rateLimit(`${user.id}:keys_list`, 20, 60_000);
+  if (!rl.success)
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+
   const { data: keys, error } = await admin
     .from("api_keys")
     .select("id, name, key_prefix, usage_count, last_used_at, status, created_at")
@@ -69,6 +73,10 @@ export async function POST(request: NextRequest) {
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Key name is required" }, { status: 400 });
+  }
+
+  if (name.trim().length > 100) {
+    return NextResponse.json({ error: "Key name must be 100 characters or less" }, { status: 400 });
   }
 
   // Enforce 5 active key limit

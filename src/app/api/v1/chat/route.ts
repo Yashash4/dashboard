@@ -71,7 +71,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { message, agent } = body as { message?: string; agent?: string };
+  const { message, agent, session_id } = body as {
+    message?: string;
+    agent?: string;
+    session_id?: string;
+  };
 
   if (!message?.trim()) {
     return NextResponse.json(
@@ -187,7 +191,11 @@ export async function POST(request: NextRequest) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
-    const sessionKey = `apikey_${apiKey.id}_${agentSlug}`;
+    // Stateless by default — each call gets a unique session
+    // Caller can pass session_id to maintain conversation state
+    const sessionKey = session_id
+      ? `apikey_${apiKey.id}_${session_id}`
+      : `apikey_${apiKey.id}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -262,16 +270,9 @@ export async function POST(request: NextRequest) {
       .replace(/<\|think_start\|>[\s\S]*?<\|think_end\|>/gi, "")
       .trim() || "No response from agent";
 
-    // Update key usage (non-blocking)
+    // Atomic usage_count increment (non-blocking)
     admin
-      .from("api_keys")
-      .update({
-        last_used_at: new Date().toISOString(),
-        usage_count: (apiKey as any).usage_count
-          ? (apiKey as any).usage_count + 1
-          : 1,
-      })
-      .eq("id", apiKey.id)
+      .rpc("increment_api_key_usage", { p_key_id: apiKey.id })
       .then(() => {});
 
     // Track analytics (non-blocking)
