@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
+import { rateLimit } from "@/lib/rate-limit";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 
 /** DELETE /api/keys/[id] — revoke an API key */
@@ -28,6 +29,10 @@ export async function DELETE(
   if (!hasAccess(plan, "pro")) {
     return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
   }
+
+  const rl = rateLimit(`${user.id}:key_revoke`, 10, 60_000);
+  if (!rl.success)
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   // Verify ownership and revoke
   const { data: key, error } = await admin

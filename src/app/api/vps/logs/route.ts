@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { hasAccess } from "@/lib/tier";
 import { getOpenClawLogs } from "@/lib/ssh";
 
 export async function GET(request: NextRequest) {
@@ -14,11 +15,23 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { data: vps } = await admin
-    .from("vps_instances")
-    .select("ip_address, ssh_user, ssh_password, ssh_port")
-    .eq("user_id", user.id)
-    .single();
+  const [{ data: sub }, { data: vps }] = await Promise.all([
+    admin
+      .from("subscriptions")
+      .select("plan")
+      .eq("user_id", user.id)
+      .single(),
+    admin
+      .from("vps_instances")
+      .select("ip_address, ssh_user, ssh_password, ssh_port")
+      .eq("user_id", user.id)
+      .single(),
+  ]);
+
+  const plan = (sub?.plan as string) || "starter";
+  if (!hasAccess(plan, "pro")) {
+    return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
+  }
 
   if (!vps) {
     return NextResponse.json({ error: "VPS not found" }, { status: 404 });
