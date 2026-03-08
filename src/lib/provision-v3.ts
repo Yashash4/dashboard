@@ -137,7 +137,7 @@ export async function provisionVPS(
       ssh,
       5,
       [
-        "docker pull openclaw/openclaw:latest",
+        "docker pull ghcr.io/openclaw/openclaw:latest",
         "docker images openclaw/openclaw --format '{{.Repository}}:{{.Tag}} ({{.Size}})'",
       ].join(" && "),
       onProgress
@@ -205,7 +205,7 @@ export async function provisionVPS(
           "-p 127.0.0.1:18789:18789 " +
           "-v /opt/openclaw/config:/home/node/.openclaw " +
           "-v /opt/openclaw/data:/data " +
-          "openclaw/openclaw:latest",
+          "ghcr.io/openclaw/openclaw:latest",
         "sleep 5",
         // Verify container is running
         "docker inspect openclaw --format '{{.State.Status}}' | grep -q running && echo 'Container running'",

@@ -120,7 +120,7 @@ export async function POST(
     }
 
     // Pull OpenClaw image
-    await ssh.execCommand("docker pull openclaw/openclaw:latest");
+    await ssh.execCommand("docker pull ghcr.io/openclaw/openclaw:latest");
     steps.push("Image pulled");
 
     // Create host directories
@@ -157,7 +157,7 @@ export async function POST(
       "-p 127.0.0.1:18789:18789",
       "-v /opt/openclaw/config:/home/node/.openclaw",
       "-v /opt/openclaw/data:/data",
-      "openclaw/openclaw:latest",
+      "ghcr.io/openclaw/openclaw:latest",
     ].join(" ");
     await ssh.execCommand(dockerRun);
     steps.push("Container started");
