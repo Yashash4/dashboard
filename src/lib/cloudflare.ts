@@ -116,6 +116,33 @@ export async function ensureSslFull(): Promise<{ success: boolean; error?: strin
   return { success: true };
 }
 
+// Ensure "Always Use HTTPS" is enabled (zone-level redirect HTTP → HTTPS)
+export async function ensureAlwaysHttps(): Promise<{ success: boolean; error?: string }> {
+  const { token, zoneId } = getConfig();
+
+  const res = await fetch(
+    `${CLOUDFLARE_API}/zones/${zoneId}/settings/always_use_https`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ value: "on" }),
+    }
+  );
+  const data = await res.json();
+
+  if (!data.success) {
+    return {
+      success: false,
+      error: data.errors?.[0]?.message || "Failed to enable Always Use HTTPS",
+    };
+  }
+
+  return { success: true };
+}
+
 // Delete a subdomain record
 export async function deleteSubdomain(
   subdomain: string

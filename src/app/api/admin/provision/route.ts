@@ -4,7 +4,7 @@ import { randomBytes } from "crypto";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { provisionVPS } from "@/lib/provision-v3";
-import { createSubdomain, ensureSslFull } from "@/lib/cloudflare";
+import { createSubdomain, ensureSslFull, ensureAlwaysHttps } from "@/lib/cloudflare";
 import { ensureFirewallPorts } from "@/lib/hostinger";
 import {
   createJob,
@@ -170,10 +170,14 @@ async function runProvisioning(
       output: dns.hostname,
     });
 
-    // Ensure SSL/TLS mode is "Full" (zone-level, idempotent)
+    // Ensure SSL/TLS mode is "Full" + always redirect HTTP→HTTPS (zone-level, idempotent)
     const ssl = await ensureSslFull();
     if (!ssl.success) {
       console.warn(`[Provision] ⚠ SSL mode set failed: ${ssl.error}`);
+    }
+    const https = await ensureAlwaysHttps();
+    if (!https.success) {
+      console.warn(`[Provision] ⚠ Always HTTPS failed: ${https.error}`);
     }
 
     // Step 1: Open firewall ports (provider-level)
