@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Key,
   Plus,
@@ -10,8 +11,9 @@ import {
   EyeOff,
   Trash2,
   Clock,
-  ExternalLink,
   Code,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -44,53 +47,25 @@ import {
 interface ApiKey {
   id: string;
   name: string;
-  prefix: string;
-  createdAt: string;
-  lastUsedAt: string | null;
+  key_prefix: string;
+  usage_count: number;
+  last_used_at: string | null;
   status: "active" | "revoked";
+  created_at: string;
 }
 
-// Mock data
-const MOCK_KEYS: ApiKey[] = [
-  {
-    id: "1",
-    name: "Production",
-    prefix: "sk-claw-prod",
-    createdAt: "2026-02-15",
-    lastUsedAt: "2026-03-07",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Development",
-    prefix: "sk-claw-dev",
-    createdAt: "2026-03-01",
-    lastUsedAt: null,
-    status: "active",
-  },
-];
-
-const CODE_EXAMPLES = {
-  curl: `curl -X POST "https://your-instance.clawhq.tech/api/v1/chat" \
-  -H "Authorization: Bearer sk-claw-xxxxx" \
-  -H "Content-Type: application/json" \
+function getCodeExamples(endpoint: string) {
+  return {
+    curl: `curl -X POST "${endpoint}" \\
+  -H "Authorization: Bearer clw_your_key_here" \\
+  -H "Content-Type: application/json" \\
   -d '{"message": "Hello, how can you help me?", "agent": "default"}'`,
-  powershell: `$response = Invoke-RestMethod \`
-  -Uri "https://your-instance.clawhq.tech/api/v1/chat" \`
-  -Method POST \`
-  -Headers @{
-    "Authorization" = "Bearer sk-claw-xxxxx"
-    "Content-Type"  = "application/json"
-  } \`
-  -Body '{"message": "Hello, how can you help me?", "agent": "default"}'
-
-$response | ConvertTo-Json`,
-  python: `import requests
+    python: `import requests
 
 response = requests.post(
-    "https://your-instance.clawhq.tech/api/v1/chat",
+    "${endpoint}",
     headers={
-        "Authorization": "Bearer sk-claw-xxxxx",
+        "Authorization": "Bearer clw_your_key_here",
         "Content-Type": "application/json",
     },
     json={
@@ -100,12 +75,12 @@ response = requests.post(
 )
 
 print(response.json())`,
-  javascript: `const response = await fetch(
-  "https://your-instance.clawhq.tech/api/v1/chat",
+    javascript: `const response = await fetch(
+  "${endpoint}",
   {
     method: "POST",
     headers: {
-      "Authorization": "Bearer sk-claw-xxxxx",
+      "Authorization": "Bearer clw_your_key_here",
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -117,30 +92,112 @@ print(response.json())`,
 
 const data = await response.json();
 console.log(data);`,
-};
+    powershell: `$response = Invoke-RestMethod \`
+  -Uri "${endpoint}" \`
+  -Method POST \`
+  -Headers @{
+    "Authorization" = "Bearer clw_your_key_here"
+    "Content-Type"  = "application/json"
+  } \`
+  -Body '{"message": "Hello, how can you help me?", "agent": "default"}'
+
+$response | ConvertTo-Json`,
+  };
+}
 
 export function ApiAccessManager({ hostname }: { hostname: string | null }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
-  const [newKey, setNewKey] = useState<string | null>(null);
+  const [newFullKey, setNewFullKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const endpoint = hostname
-    ? `https://${hostname}/api/v1`
-    : "https://your-instance.clawhq.tech/api/v1";
+  const appUrl = typeof window !== "undefined" ? window.location.origin : "";
+  const endpoint = `${appUrl}/api/v1/chat`;
+  const codeExamples = getCodeExamples(endpoint);
 
-  const handleCreate = () => {
-    const key = `sk-claw-${Math.random().toString(36).slice(2, 14)}`;
-    setNewKey(key);
-    toast.success("API key created");
-  };
+  // Fetch keys
+  const {
+    data: keysData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["api-keys"],
+    queryFn: async () => {
+      const res = await fetch("/api/keys");
+      if (!res.ok) throw new Error("Failed to fetch keys");
+      return res.json();
+    },
+  });
+
+  const keys: ApiKey[] = keysData?.keys || [];
+  const activeCount = keys.filter((k) => k.status === "active").length;
+
+  // Create key
+  const createMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await fetch("/api/keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create key");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setNewFullKey(data.key.full_key);
+      setShowKey(true);
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      toast.success("API key created");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  // Revoke key
+  const revokeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to revoke key");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      toast.success("API key revoked");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
     setTimeout(() => setCopied(null), 2000);
     toast.success("Copied to clipboard");
+  };
+
+  const handleCreate = () => {
+    if (keyName.trim()) {
+      createMutation.mutate(keyName.trim());
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setCreateOpen(open);
+    if (!open) {
+      setNewFullKey(null);
+      setKeyName("");
+      setShowKey(false);
+    }
   };
 
   return (
@@ -170,7 +227,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            OpenAI-compatible API. Use this base URL with any OpenAI SDK.
+            Authenticate with <code className="text-foreground">Authorization: Bearer clw_your_key</code>
           </p>
         </CardContent>
       </Card>
@@ -178,21 +235,17 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
       {/* API Keys */}
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            API Keys
-          </CardTitle>
-          <Dialog
-            open={createOpen}
-            onOpenChange={(open) => {
-              setCreateOpen(open);
-              if (!open) {
-                setNewKey(null);
-                setKeyName("");
-              }
-            }}
-          >
+          <div>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              API Keys
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {activeCount}/5 active keys
+            </p>
+          </div>
+          <Dialog open={createOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" disabled={activeCount >= 5}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Key
               </Button>
@@ -200,19 +253,19 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {newKey ? "API Key Created" : "Create API Key"}
+                  {newFullKey ? "API Key Created" : "Create API Key"}
                 </DialogTitle>
                 <DialogDescription>
-                  {newKey
+                  {newFullKey
                     ? "Copy your key now. You won't be able to see it again."
                     : "Give your key a name to identify it later."}
                 </DialogDescription>
               </DialogHeader>
-              {newKey ? (
+              {newFullKey ? (
                 <div className="py-4">
                   <div className="flex items-center gap-2">
                     <code className="flex-1 bg-black/50 px-3 py-2 font-mono text-sm text-green-400 break-all">
-                      {showKey ? newKey : newKey.replace(/./g, "\u2022")}
+                      {showKey ? newFullKey : newFullKey.replace(/./g, "\u2022")}
                     </code>
                     <Button
                       variant="ghost"
@@ -228,7 +281,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => handleCopy(newKey, "newkey")}
+                      onClick={() => handleCopy(newFullKey, "newkey")}
                     >
                       {copied === "newkey" ? (
                         <Check className="h-4 w-4" />
@@ -247,21 +300,30 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                     placeholder="e.g., Production, Development"
                     value={keyName}
                     onChange={(e) => setKeyName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && keyName.trim()) handleCreate();
+                    }}
                   />
                 </div>
               )}
               <DialogFooter>
-                {newKey ? (
-                  <Button onClick={() => setCreateOpen(false)}>Done</Button>
+                {newFullKey ? (
+                  <Button onClick={() => handleDialogClose(false)}>Done</Button>
                 ) : (
                   <>
                     <Button
                       variant="outline"
-                      onClick={() => setCreateOpen(false)}
+                      onClick={() => handleDialogClose(false)}
                     >
                       Cancel
                     </Button>
-                    <Button onClick={handleCreate} disabled={!keyName}>
+                    <Button
+                      onClick={handleCreate}
+                      disabled={!keyName.trim() || createMutation.isPending}
+                    >
+                      {createMutation.isPending && (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      )}
                       Create Key
                     </Button>
                   </>
@@ -271,14 +333,39 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
           </Dialog>
         </CardHeader>
         <CardContent className="p-0">
-          {MOCK_KEYS.length === 0 ? (
+          {isLoading ? (
+            <div className="px-6 py-4 space-y-3">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-32 mb-1" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <AlertTriangle className="h-8 w-8 mx-auto mb-3 opacity-50" />
+              <p className="text-sm">Failed to load keys</p>
+              <button
+                onClick={() => refetch()}
+                className="mt-2 text-sm text-primary hover:underline"
+              >
+                Try again
+              </button>
+            </div>
+          ) : keys.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Key className="h-8 w-8 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No API keys yet. Create one to get started.</p>
+              <p className="text-sm">
+                No API keys yet. Create one to get started.
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
-              {MOCK_KEYS.map((key) => (
+              {keys.map((key) => (
                 <div
                   key={key.id}
                   className="flex items-center justify-between px-6 py-3"
@@ -291,21 +378,27 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">{key.name}</span>
                         <code className="text-xs text-muted-foreground font-mono">
-                          {key.prefix}...
+                          {key.key_prefix}...
                         </code>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>
                           Created{" "}
-                          {new Date(key.createdAt).toLocaleDateString()}
+                          {new Date(key.created_at).toLocaleDateString()}
                         </span>
-                        {key.lastUsedAt && (
+                        {key.usage_count > 0 && (
+                          <>
+                            <span>&middot;</span>
+                            <span>{key.usage_count} requests</span>
+                          </>
+                        )}
+                        {key.last_used_at && (
                           <>
                             <span>&middot;</span>
                             <Clock className="h-3 w-3" />
                             <span>
                               Last used{" "}
-                              {new Date(key.lastUsedAt).toLocaleDateString()}
+                              {new Date(key.last_used_at).toLocaleDateString()}
                             </span>
                           </>
                         )}
@@ -323,36 +416,39 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                     >
                       {key.status}
                     </Badge>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Revoke API Key?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This will immediately revoke &quot;{key.name}&quot;.
-                            Any applications using this key will stop working.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() =>
-                              toast.success(`Key "${key.name}" revoked`)
-                            }
+                    {key.status === "active" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive"
                           >
-                            Revoke
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>
+                              Revoke API Key?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will immediately revoke &quot;{key.name}
+                              &quot;. Any applications using this key will stop
+                              working.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => revokeMutation.mutate(key.id)}
+                            >
+                              Revoke
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
                   </div>
                 </div>
               ))}
@@ -375,36 +471,33 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
           <Tabs defaultValue="curl">
             <TabsList>
               <TabsTrigger value="curl">cURL</TabsTrigger>
-              <TabsTrigger value="powershell">PowerShell</TabsTrigger>
               <TabsTrigger value="python">Python</TabsTrigger>
               <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+              <TabsTrigger value="powershell">PowerShell</TabsTrigger>
             </TabsList>
-            {(Object.entries(CODE_EXAMPLES) as [string, string][]).map(
-              ([lang, code]) => (
-                <TabsContent key={lang} value={lang}>
-                  <div className="relative">
-                    <pre className="bg-black/50 p-4 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre">
-                      {code.replace(
-                        "your-instance.clawhq.tech",
-                        hostname || "your-instance.clawhq.tech"
-                      )}
-                    </pre>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2 h-7 w-7"
-                      onClick={() => handleCopy(code, lang)}
-                    >
-                      {copied === lang ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </TabsContent>
-              )
-            )}
+            {(
+              Object.entries(codeExamples) as [string, string][]
+            ).map(([lang, code]) => (
+              <TabsContent key={lang} value={lang}>
+                <div className="relative">
+                  <pre className="bg-black/50 p-4 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre">
+                    {code}
+                  </pre>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-7 w-7"
+                    onClick={() => handleCopy(code, lang)}
+                  >
+                    {copied === lang ? (
+                      <Check className="h-3.5 w-3.5" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </TabsContent>
+            ))}
           </Tabs>
         </CardContent>
       </Card>
