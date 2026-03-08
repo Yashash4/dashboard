@@ -371,12 +371,13 @@ export async function provisionVPS(
     );
 
     // Step 11: Verify — test gateway + nginx locally
+    // Use /v1/ path for nginx check (bypasses Basic Auth)
     await runStep(
       ssh,
       11,
       [
         "curl -sf http://127.0.0.1:18789/ > /dev/null",
-        `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
+        `curl -sfk https://127.0.0.1/v1/chat/completions -H 'Host: ${config.hostname}' -o /dev/null -w '%{http_code}' | grep -qE '^(200|401|405)'`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),
       onProgress
