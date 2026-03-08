@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -61,6 +62,15 @@ export async function DELETE(
       { status: 500 }
     );
   }
+
+  logAudit({
+    userId: user.id,
+    action: "kb_document_deleted",
+    entityType: "kb_document",
+    entityId: id,
+    category: "knowledge_base",
+    ip: getClientIp(request),
+  });
 
   return NextResponse.json({ success: true });
 }

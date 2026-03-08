@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { indexDocument } from "@/lib/knowledge-base";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -155,6 +156,16 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("id", doc.id)
       .single();
+
+    logAudit({
+      userId: user.id,
+      action: "kb_document_uploaded",
+      entityType: "kb_document",
+      entityId: doc.id,
+      category: "knowledge_base",
+      details: { name: fileName, type: ext, chunkCount },
+      ip: getClientIp(request),
+    });
 
     return NextResponse.json({ document: fullDoc, chunkCount });
   } catch (err) {

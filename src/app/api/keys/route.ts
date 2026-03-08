@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 const MAX_ACTIVE_KEYS = 5;
 
@@ -112,6 +113,16 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: "Failed to create key" }, { status: 500 });
   }
+
+  logAudit({
+    userId: user.id,
+    action: "api_key_created",
+    entityType: "api_key",
+    entityId: key.id,
+    category: "api_key",
+    details: { name: name.trim(), prefix: keyPrefix },
+    ip: getClientIp(request),
+  });
 
   // Return the full key ONCE — it's never stored or retrievable again
   return NextResponse.json({ key: { ...key, full_key: rawKey } });

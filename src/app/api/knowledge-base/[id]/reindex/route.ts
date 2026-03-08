@@ -4,9 +4,10 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { indexDocument, stripHTML, isPrivateUrl } from "@/lib/knowledge-base";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -109,6 +110,16 @@ export async function POST(
       textContent,
       doc.type === "csv"
     );
+
+    logAudit({
+      userId: user.id,
+      action: "kb_document_reindexed",
+      entityType: "kb_document",
+      entityId: id,
+      category: "knowledge_base",
+      details: { chunkCount },
+      ip: getClientIp(request),
+    });
 
     return NextResponse.json({ success: true, chunkCount });
   } catch (err) {

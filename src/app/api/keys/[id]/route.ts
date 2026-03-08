@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 /** DELETE /api/keys/[id] — revoke an API key */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -41,6 +42,15 @@ export async function DELETE(
   if (error || !key) {
     return NextResponse.json({ error: "Key not found or already revoked" }, { status: 404 });
   }
+
+  logAudit({
+    userId: user.id,
+    action: "api_key_revoked",
+    entityType: "api_key",
+    entityId: id,
+    category: "api_key",
+    ip: getClientIp(request),
+  });
 
   return NextResponse.json({ success: true });
 }
