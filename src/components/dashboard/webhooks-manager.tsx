@@ -12,8 +12,6 @@ import {
   CheckCircle2,
   XCircle,
   RotateCw,
-  Eye,
-  EyeOff,
   Loader2,
   Zap,
 } from "lucide-react";
@@ -62,24 +60,9 @@ interface WebhookEndpoint {
 
 const AVAILABLE_EVENTS = [
   {
-    id: "conversation.started",
-    label: "Conversation Started",
-    description: "When a new conversation begins",
-  },
-  {
-    id: "conversation.ended",
-    label: "Conversation Ended",
-    description: "When a conversation is closed",
-  },
-  {
     id: "message.received",
     label: "Message Received",
     description: "When a user sends a message",
-  },
-  {
-    id: "agent.error",
-    label: "Agent Error",
-    description: "When an agent encounters an error",
   },
   {
     id: "agent.deployed",
@@ -109,8 +92,9 @@ export function WebhooksManager() {
   const [newUrl, setNewUrl] = useState("");
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [copied, setCopied] = useState<string | null>(null);
-  const [showSecret, setShowSecret] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
+  const [createdSecret, setCreatedSecret] = useState<string | null>(null);
+  const [secretDialogOpen, setSecretDialogOpen] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery<{ webhooks: WebhookEndpoint[] }>({
     queryKey: ["webhooks"],
@@ -136,11 +120,16 @@ export function WebhooksManager() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["webhooks"] });
       setCreateOpen(false);
       setNewUrl("");
       setSelectedEvents([]);
+      // Show secret once
+      if (data?.webhook?.secret) {
+        setCreatedSecret(data.webhook.secret);
+        setSecretDialogOpen(true);
+      }
       toast.success("Webhook created");
     },
     onError: (err: Error) => {
@@ -510,31 +499,7 @@ export function WebhooksManager() {
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span>Secret:</span>
-                    <code className="font-mono">
-                      {showSecret === webhook.id
-                        ? webhook.secret
-                        : "whsec_••••••••"}
-                    </code>
-                    <button
-                      onClick={() =>
-                        setShowSecret(
-                          showSecret === webhook.id ? null : webhook.id
-                        )
-                      }
-                    >
-                      {showSecret === webhook.id ? (
-                        <EyeOff className="h-3 w-3" />
-                      ) : (
-                        <Eye className="h-3 w-3" />
-                      )}
-                    </button>
-                    <button onClick={() => handleCopy(webhook.secret, webhook.id)}>
-                      {copied === webhook.id ? (
-                        <Check className="h-3 w-3 text-green-500" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </button>
+                    <code className="font-mono">{webhook.secret}</code>
                   </div>
                   {webhook.last_triggered_at && (
                     <span>
@@ -553,6 +518,37 @@ export function WebhooksManager() {
           ))}
         </div>
       )}
+
+      {/* Secret shown once dialog */}
+      <Dialog open={secretDialogOpen} onOpenChange={setSecretDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Webhook Secret</DialogTitle>
+            <DialogDescription>
+              Copy this secret now. It will not be shown again. Use it to
+              verify webhook signatures on your server.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="flex items-center gap-2 p-3 bg-muted border border-border font-mono text-sm break-all">
+              <span className="flex-1">{createdSecret}</span>
+              <button
+                onClick={() => {
+                  if (createdSecret) {
+                    navigator.clipboard.writeText(createdSecret);
+                    toast.success("Secret copied");
+                  }
+                }}
+              >
+                <Copy className="h-4 w-4 shrink-0" />
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setSecretDialogOpen(false)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { isPrivateUrl } from "@/lib/knowledge-base";
 
 const MAX_WEBHOOKS = 10;
 
@@ -35,6 +36,7 @@ export async function GET() {
   const { data: webhooks, error } = await admin
     .from("webhooks")
     .select("id, url, secret, events, enabled, description, last_triggered_at, last_status, last_status_code, failure_count, created_at")
+
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -42,7 +44,15 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch webhooks" }, { status: 500 });
   }
 
-  return NextResponse.json({ webhooks: webhooks || [] });
+  // Mask secrets — only show prefix + last 4 chars
+  const masked = (webhooks || []).map((w) => ({
+    ...w,
+    secret: w.secret.length > 10
+      ? `${w.secret.slice(0, 6)}${"•".repeat(8)}${w.secret.slice(-4)}`
+      : "whsec_••••••••",
+  }));
+
+  return NextResponse.json({ webhooks: masked });
 }
 
 /** POST /api/webhooks — create a webhook */
@@ -83,6 +93,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (isPrivateUrl(url)) {
+    return NextResponse.json(
+      { error: "URL must point to a public endpoint" },
+      { status: 400 }
+    );
+  }
+
   if (url.length > 2048) {
     return NextResponse.json(
       { error: "URL too long (max 2048 characters)" },
@@ -98,8 +115,7 @@ export async function POST(request: NextRequest) {
   }
 
   const validEvents = [
-    "conversation.started", "conversation.ended", "message.received",
-    "agent.error", "agent.deployed", "vps.status_changed",
+    "message.received", "agent.deployed", "vps.status_changed",
     "channel.connected", "channel.disconnected",
   ];
   const invalidEvents = events.filter((e) => !validEvents.includes(e));

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
+import { isPrivateUrl } from "@/lib/knowledge-base";
 
 /** POST /api/webhooks/[id]/test — send a test event */
 export async function POST(
@@ -44,6 +45,13 @@ export async function POST(
 
   if (!webhook) {
     return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
+  }
+
+  if (isPrivateUrl(webhook.url)) {
+    return NextResponse.json(
+      { error: "Webhook URL points to a private address" },
+      { status: 400 }
+    );
   }
 
   const timestamp = new Date().toISOString();

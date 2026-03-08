@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
+import { rateLimit } from "@/lib/rate-limit";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { isPrivateUrl } from "@/lib/knowledge-base";
 
 /** PATCH /api/webhooks/[id] — update webhook (enable/disable, change events, URL) */
 export async function PATCH(
@@ -28,6 +30,10 @@ export async function PATCH(
   if (!hasAccess(plan, "pro")) {
     return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
   }
+
+  const rl = rateLimit(`${user.id}:webhook_update`, 10, 60_000);
+  if (!rl.success)
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   // Verify ownership
   const { data: existing } = await admin
@@ -55,6 +61,9 @@ export async function PATCH(
     if (!url.startsWith("https://")) {
       return NextResponse.json({ error: "HTTPS URL is required" }, { status: 400 });
     }
+    if (isPrivateUrl(url)) {
+      return NextResponse.json({ error: "URL must point to a public endpoint" }, { status: 400 });
+    }
     if (url.length > 2048) {
       return NextResponse.json({ error: "URL too long" }, { status: 400 });
     }
@@ -66,8 +75,7 @@ export async function PATCH(
       return NextResponse.json({ error: "At least one event is required" }, { status: 400 });
     }
     const validEvents = [
-      "conversation.started", "conversation.ended", "message.received",
-      "agent.error", "agent.deployed", "vps.status_changed",
+      "message.received", "agent.deployed", "vps.status_changed",
       "channel.connected", "channel.disconnected",
     ];
     const invalid = events.filter((e) => !validEvents.includes(e));
@@ -137,6 +145,10 @@ export async function DELETE(
   if (!hasAccess(plan, "pro")) {
     return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
   }
+
+  const rl2 = rateLimit(`${user.id}:webhook_delete`, 10, 60_000);
+  if (!rl2.success)
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const { data: webhook, error } = await admin
     .from("webhooks")

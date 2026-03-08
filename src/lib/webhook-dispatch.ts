@@ -1,5 +1,8 @@
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { isPrivateUrl } from "@/lib/knowledge-base";
+
+const MAX_FAILURES = 10;
 
 interface WebhookPayload {
   event: string;
@@ -21,7 +24,7 @@ export async function dispatchWebhooks(
 
   const { data: webhooks } = await admin
     .from("webhooks")
-    .select("id, url, secret")
+    .select("id, url, secret, failure_count")
     .eq("user_id", userId)
     .eq("enabled", true)
     .contains("events", [event]);
@@ -32,8 +35,25 @@ export async function dispatchWebhooks(
   const payload: WebhookPayload = { event, data, timestamp };
   const body = JSON.stringify(payload);
 
+  // Filter out webhooks with private URLs or exceeded failure threshold
+  const deliverable = webhooks.filter((wh) => {
+    if (isPrivateUrl(wh.url)) return false;
+    if ((wh.failure_count || 0) >= MAX_FAILURES) {
+      // Auto-disable — circuit breaker
+      admin
+        .from("webhooks")
+        .update({ enabled: false })
+        .eq("id", wh.id)
+        .then(() => {}, () => {});
+      return false;
+    }
+    return true;
+  });
+
+  if (deliverable.length === 0) return;
+
   await Promise.allSettled(
-    webhooks.map((wh) => deliverWebhook(admin, wh.id, wh.url, wh.secret, event, body, timestamp))
+    deliverable.map((wh) => deliverWebhook(admin, wh.id, wh.url, wh.secret, event, body, timestamp))
   );
 }
 
