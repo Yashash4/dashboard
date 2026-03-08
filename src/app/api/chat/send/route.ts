@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
+import { searchKBChunks } from "@/lib/knowledge-base";
 
 // Same sanitization as ssh.ts deployAgent uses for agent folder names
 function sanitizeAgentName(name: string): string {
@@ -135,6 +136,19 @@ export async function POST(request: NextRequest) {
       content: message.trim(),
     });
 
+    // Search Knowledge Base for relevant context (non-blocking if fails)
+    let kbContext = "";
+    try {
+      const kbResults = await searchKBChunks(user.id, message.trim(), 3);
+      if (kbResults.length > 0) {
+        kbContext = kbResults
+          .map((r) => `[From: ${r.documentName}]\n${r.content}`)
+          .join("\n\n---\n\n");
+      }
+    } catch {
+      // KB search failure should never block chat
+    }
+
     // Call OpenClaw chat completions API
     // Only send the latest message — OpenClaw manages full session history
     // via x-openclaw-session-key header
@@ -165,7 +179,17 @@ export async function POST(request: NextRequest) {
       headers,
       body: JSON.stringify({
         model: `openclaw:${agentSlug}`,
-        messages: [{ role: "user", content: message.trim() }],
+        messages: [
+          ...(kbContext
+            ? [
+                {
+                  role: "system" as const,
+                  content: `Use the following knowledge base context to help answer the user's question. Only reference it if relevant.\n\n${kbContext}`,
+                },
+              ]
+            : []),
+          { role: "user", content: message.trim() },
+        ],
       }),
       signal: controller.signal,
     });

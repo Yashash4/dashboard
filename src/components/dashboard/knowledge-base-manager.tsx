@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
   Upload,
@@ -15,6 +16,7 @@ import {
   FileSpreadsheet,
   Globe,
   HardDrive,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,16 +52,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface KBDocument {
   id: string;
   name: string;
   type: "pdf" | "txt" | "csv" | "url" | "md";
-  size: string;
-  chunks: number;
+  source_url: string | null;
+  storage_path: string | null;
+  file_size: number;
+  chunk_count: number;
   status: "indexed" | "processing" | "error";
-  uploadedAt: string;
-  lastIndexed: string | null;
+  error_message: string | null;
+  indexed_at: string | null;
+  created_at: string;
 }
 
 const FILE_ICONS: Record<string, React.ElementType> = {
@@ -91,99 +97,169 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const MOCK_DOCS: KBDocument[] = [
-  {
-    id: "1",
-    name: "Product FAQ.pdf",
-    type: "pdf",
-    size: "2.4 MB",
-    chunks: 147,
-    status: "indexed",
-    uploadedAt: "2026-03-01",
-    lastIndexed: "2026-03-07",
-  },
-  {
-    id: "2",
-    name: "Support Playbook.md",
-    type: "md",
-    size: "89 KB",
-    chunks: 52,
-    status: "indexed",
-    uploadedAt: "2026-02-20",
-    lastIndexed: "2026-03-05",
-  },
-  {
-    id: "3",
-    name: "Pricing Guide.txt",
-    type: "txt",
-    size: "12 KB",
-    chunks: 8,
-    status: "indexed",
-    uploadedAt: "2026-03-04",
-    lastIndexed: "2026-03-04",
-  },
-  {
-    id: "4",
-    name: "Return Policy.pdf",
-    type: "pdf",
-    size: "540 KB",
-    chunks: 0,
-    status: "processing",
-    uploadedAt: "2026-03-07",
-    lastIndexed: null,
-  },
-];
+const STORAGE_LIMIT = 100 * 1024 * 1024; // 100 MB
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function fetchDocs(): Promise<{
+  documents: KBDocument[];
+  totalBytes: number;
+}> {
+  const res = await fetch("/api/knowledge-base");
+  if (!res.ok) throw new Error("Failed to fetch documents");
+  return res.json();
+}
 
 export function KnowledgeBaseManager() {
-  const [docs, setDocs] = useState<KBDocument[]>(MOCK_DOCS);
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<"file" | "url">("file");
   const [urlInput, setUrlInput] = useState("");
-  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [reindexingId, setReindexingId] = useState<string | null>(null);
 
-  const totalChunks = docs.reduce((s, d) => s + d.chunks, 0);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["kb-documents"],
+    queryFn: fetchDocs,
+  });
+
+  const docs = data?.documents || [];
+  const totalBytes = data?.totalBytes || 0;
+  const totalChunks = docs.reduce((s, d) => s + d.chunk_count, 0);
   const indexedCount = docs.filter((d) => d.status === "indexed").length;
 
   const filtered = docs.filter(
-    (d) =>
-      !search || d.name.toLowerCase().includes(search.toLowerCase())
+    (d) => !search || d.name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleUpload = () => {
-    setUploading(true);
-    setTimeout(() => {
-      const newDoc: KBDocument = {
-        id: Math.random().toString(36).slice(2, 8),
-        name: uploadType === "url" ? urlInput : "New Document.pdf",
-        type: uploadType === "url" ? "url" : "pdf",
-        size: uploadType === "url" ? "-" : "1.2 MB",
-        chunks: 0,
-        status: "processing",
-        uploadedAt: new Date().toISOString().slice(0, 10),
-        lastIndexed: null,
-      };
-      setDocs((prev) => [newDoc, ...prev]);
-      setUploading(false);
+  const uploadFileMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/knowledge-base/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Upload failed");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kb-documents"] });
+      setUploadOpen(false);
+      setSelectedFile(null);
+      toast.success("Document uploaded and indexing started");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const uploadUrlMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const res = await fetch("/api/knowledge-base/url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to fetch URL");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kb-documents"] });
       setUploadOpen(false);
       setUrlInput("");
-      toast.success("Document uploaded — indexing started");
-    }, 1500);
+      toast.success("URL crawled and indexed");
+    },
+    onError: (err: Error) => {
+      toast.error(err.message);
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/knowledge-base/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["kb-documents"] });
+      toast.success("Document removed from knowledge base");
+    },
+    onError: () => {
+      toast.error("Failed to delete document");
+    },
+  });
+
+  const handleReindex = async (id: string) => {
+    setReindexingId(id);
+    try {
+      const res = await fetch(`/api/knowledge-base/${id}/reindex`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Re-index failed");
+      }
+      queryClient.invalidateQueries({ queryKey: ["kb-documents"] });
+      toast.success("Re-indexing complete");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Re-index failed");
+    } finally {
+      setReindexingId(null);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setDocs((prev) => prev.filter((d) => d.id !== id));
-    toast.success("Document removed from knowledge base");
+  const handleUpload = () => {
+    if (uploadType === "file" && selectedFile) {
+      uploadFileMutation.mutate(selectedFile);
+    } else if (uploadType === "url" && urlInput) {
+      uploadUrlMutation.mutate(urlInput);
+    }
   };
 
-  const handleReindex = (id: string) => {
-    setDocs((prev) =>
-      prev.map((d) =>
-        d.id === id ? { ...d, status: "processing" as const } : d
-      )
+  const isUploading =
+    uploadFileMutation.isPending || uploadUrlMutation.isPending;
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) setSelectedFile(file);
+  };
+
+  if (error) {
+    return (
+      <Card className="border-border">
+        <CardContent className="py-12 text-center text-muted-foreground">
+          <AlertCircle className="h-10 w-10 mx-auto mb-3 opacity-50" />
+          <p className="text-sm">Failed to load knowledge base</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() =>
+              queryClient.invalidateQueries({ queryKey: ["kb-documents"] })
+            }
+          >
+            Retry
+          </Button>
+        </CardContent>
+      </Card>
     );
-    toast.success("Re-indexing started");
-  };
+  }
 
   return (
     <div className="space-y-6">
@@ -194,7 +270,11 @@ export function KnowledgeBaseManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Documents</p>
-                <p className="text-2xl font-bold">{docs.length}</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">{docs.length}</p>
+                )}
               </div>
               <BookOpen className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -205,9 +285,13 @@ export function KnowledgeBaseManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Indexed</p>
-                <p className="text-2xl font-bold">
-                  {indexedCount}/{docs.length}
-                </p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    {indexedCount}/{docs.length}
+                  </p>
+                )}
               </div>
               <CheckCircle2 className="h-5 w-5 text-green-500" />
             </div>
@@ -218,7 +302,11 @@ export function KnowledgeBaseManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Total Chunks</p>
-                <p className="text-2xl font-bold">{totalChunks}</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">{totalChunks}</p>
+                )}
               </div>
               <HardDrive className="h-5 w-5 text-muted-foreground" />
             </div>
@@ -229,14 +317,27 @@ export function KnowledgeBaseManager() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Storage Used</p>
-                <p className="text-2xl font-bold">3.0 MB</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold">
+                    {formatBytes(totalBytes)}
+                  </p>
+                )}
               </div>
               <HardDrive className="h-5 w-5 text-muted-foreground" />
             </div>
-            <Progress value={3} className="mt-2 h-1.5" />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              3 MB / 100 MB
-            </p>
+            {!isLoading && (
+              <>
+                <Progress
+                  value={(totalBytes / STORAGE_LIMIT) * 100}
+                  className="mt-2 h-1.5"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {formatBytes(totalBytes)} / {formatBytes(STORAGE_LIMIT)}
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -252,7 +353,16 @@ export function KnowledgeBaseManager() {
             className="pl-9"
           />
         </div>
-        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+        <Dialog
+          open={uploadOpen}
+          onOpenChange={(open) => {
+            setUploadOpen(open);
+            if (!open) {
+              setSelectedFile(null);
+              setUrlInput("");
+            }
+          }}
+        >
           <DialogTrigger asChild>
             <Button>
               <Upload className="h-4 w-4 mr-2" />
@@ -274,7 +384,11 @@ export function KnowledgeBaseManager() {
                 </label>
                 <Select
                   value={uploadType}
-                  onValueChange={(v) => setUploadType(v as "file" | "url")}
+                  onValueChange={(v) => {
+                    setUploadType(v as "file" | "url");
+                    setSelectedFile(null);
+                    setUrlInput("");
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -286,14 +400,40 @@ export function KnowledgeBaseManager() {
                 </Select>
               </div>
               {uploadType === "file" ? (
-                <div className="border-2 border-dashed border-border p-8 text-center">
-                  <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground">
-                    Drag & drop or click to upload
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PDF, TXT, MD, CSV — max 10 MB
-                  </p>
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.txt,.md,.csv"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <div
+                    className="border-2 border-dashed border-border p-8 text-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {selectedFile ? (
+                      <>
+                        <FileText className="h-8 w-8 mx-auto mb-3 text-primary" />
+                        <p className="text-sm font-medium">
+                          {selectedFile.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatBytes(selectedFile.size)}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to select a file
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          PDF, TXT, MD, CSV — max 10 MB
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div>
@@ -312,19 +452,27 @@ export function KnowledgeBaseManager() {
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setUploadOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setUploadOpen(false)}
+                disabled={isUploading}
+              >
                 Cancel
               </Button>
               <Button
                 onClick={handleUpload}
-                disabled={uploading || (uploadType === "url" && !urlInput)}
+                disabled={
+                  isUploading ||
+                  (uploadType === "file" && !selectedFile) ||
+                  (uploadType === "url" && !urlInput)
+                }
               >
-                {uploading ? (
+                {isUploading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
                   <Upload className="h-4 w-4 mr-2" />
                 )}
-                {uploading ? "Uploading..." : "Upload & Index"}
+                {isUploading ? "Processing..." : "Upload & Index"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -334,10 +482,30 @@ export function KnowledgeBaseManager() {
       {/* Document list */}
       <Card className="border-border">
         <CardContent className="p-0">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="divide-y divide-border">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 px-6 py-4">
+                  <Skeleton className="h-10 w-10 shrink-0" />
+                  <div className="flex-1">
+                    <Skeleton className="h-4 w-48 mb-2" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <Skeleton className="h-6 w-16" />
+                </div>
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No documents found</p>
+              <p className="text-sm">
+                {search ? "No documents match your search" : "No documents yet"}
+              </p>
+              {!search && (
+                <p className="text-xs mt-1">
+                  Upload documents so your agents can reference them
+                </p>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-border">
@@ -361,19 +529,24 @@ export function KnowledgeBaseManager() {
                             {doc.type}
                           </span>
                           <span>&middot;</span>
-                          <span>{doc.size}</span>
-                          {doc.chunks > 0 && (
+                          <span>{formatBytes(doc.file_size)}</span>
+                          {doc.chunk_count > 0 && (
                             <>
                               <span>&middot;</span>
-                              <span>{doc.chunks} chunks</span>
+                              <span>{doc.chunk_count} chunks</span>
                             </>
                           )}
                           <span>&middot;</span>
                           <Clock className="h-3 w-3" />
                           <span>
-                            {new Date(doc.uploadedAt).toLocaleDateString()}
+                            {new Date(doc.created_at).toLocaleDateString()}
                           </span>
                         </div>
+                        {doc.error_message && (
+                          <p className="text-xs text-red-400 mt-1">
+                            {doc.error_message}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -386,13 +559,19 @@ export function KnowledgeBaseManager() {
                         />
                         {statusCfg.label}
                       </Badge>
-                      {doc.status === "indexed" && (
+                      {(doc.status === "indexed" || doc.status === "error") && (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="text-xs"
                           onClick={() => handleReindex(doc.id)}
+                          disabled={reindexingId === doc.id}
                         >
+                          {reindexingId === doc.id ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                          )}
                           Re-index
                         </Button>
                       )}
@@ -420,7 +599,7 @@ export function KnowledgeBaseManager() {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleDelete(doc.id)}
+                              onClick={() => deleteMutation.mutate(doc.id)}
                             >
                               Remove
                             </AlertDialogAction>
