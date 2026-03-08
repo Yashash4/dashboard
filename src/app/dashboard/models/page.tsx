@@ -25,7 +25,7 @@ export default async function ModelsPage() {
         .from("available_models")
         .select("name, display_name, context_limit, description")
         .eq("is_available", true)
-        .order("created_at", { ascending: true }),
+        .order("sort_order", { ascending: true }),
       supabase
         .from("subscriptions")
         .select("plan, expires_at")
