@@ -47,31 +47,38 @@ export async function GET() {
       readyTimeout: 10000,
     });
 
-    // Read health check timer journal entries (last 24 hours)
-    // Each run of the health check timer produces output only on restart (failure)
-    // We use the timer's execution count + systemctl show to compute uptime
-
-    // Method: Check systemd timer execution log
-    const journalResult = await ssh.execCommand(
-      'journalctl -u openclaw-health-check.service --since "24 hours ago" --no-pager -o short-iso 2>/dev/null || echo ""'
+    // Detect runtime (Docker vs native)
+    const dockerCheck = await ssh.execCommand(
+      'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
     );
-    const journalLines = journalResult.stdout?.trim().split("\n").filter(Boolean) || [];
+    const isDocker = !!(dockerCheck.stdout.trim() && !dockerCheck.stderr);
 
-    // Count restart events (indicates gateway was down)
-    const restartLines = journalLines.filter((l) =>
-      l.includes("Gateway unresponsive, restarting")
-    );
+    let currentlyUp = false;
+    let failedChecks = 0;
 
-    // Also check current gateway status
-    const activeResult = await ssh.execCommand(
-      "systemctl is-active openclaw-gateway 2>/dev/null"
-    );
-    const currentlyUp = activeResult.stdout?.trim() === "active";
+    if (isDocker) {
+      // Docker: use container status + restart count
+      currentlyUp = dockerCheck.stdout.trim() === "running";
 
-    // Check how many timer runs happened (approximately)
-    const timerResult = await ssh.execCommand(
-      'systemctl show openclaw-health-check.timer --property=LastTriggerUSec 2>/dev/null || echo ""'
-    );
+      const restartResult = await ssh.execCommand(
+        'docker inspect openclaw --format "{{.RestartCount}}" 2>/dev/null'
+      );
+      failedChecks = parseInt(restartResult.stdout.trim()) || 0;
+    } else {
+      // Native: check systemd journal for restart events
+      const journalResult = await ssh.execCommand(
+        'journalctl -u openclaw-health-check.service --since "24 hours ago" --no-pager -o short-iso 2>/dev/null || echo ""'
+      );
+      const journalLines = journalResult.stdout?.trim().split("\n").filter(Boolean) || [];
+      failedChecks = journalLines.filter((l) =>
+        l.includes("Gateway unresponsive, restarting")
+      ).length;
+
+      const activeResult = await ssh.execCommand(
+        "systemctl is-active openclaw-gateway 2>/dev/null"
+      );
+      currentlyUp = activeResult.stdout?.trim() === "active";
+    }
 
     // Get system uptime to estimate total checks (1 check every 2 min)
     const uptimeResult = await ssh.execCommand(
@@ -80,14 +87,9 @@ export async function GET() {
     const uptimeSeconds = parseFloat(
       uptimeResult.stdout?.split(" ")[0] || "0"
     );
-    // Cap at 24 hours
     const relevantSeconds = Math.min(uptimeSeconds, 86400);
-    const estimatedChecks = Math.max(
-      1,
-      Math.floor(relevantSeconds / 120)
-    ); // 1 check per 2 min
+    const estimatedChecks = Math.max(1, Math.floor(relevantSeconds / 120));
 
-    const failedChecks = restartLines.length;
     const successfulChecks = Math.max(0, estimatedChecks - failedChecks);
     const uptimePercentage =
       estimatedChecks > 0
@@ -97,16 +99,13 @@ export async function GET() {
           : 0;
 
     // Build recent_statuses array (last 30 "checks")
-    // Fill with true (up), mark failures at approximate positions
     const recentCount = Math.min(30, estimatedChecks);
     const recentStatuses: boolean[] = new Array(recentCount).fill(true);
 
-    // Place failures in recent positions (most recent first)
     for (let i = 0; i < Math.min(failedChecks, recentCount); i++) {
       recentStatuses[recentCount - 1 - i] = false;
     }
 
-    // If currently down, mark the last check as down
     if (!currentlyUp && recentStatuses.length > 0) {
       recentStatuses[recentStatuses.length - 1] = false;
     }

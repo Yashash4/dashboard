@@ -63,11 +63,11 @@ export async function POST(request: NextRequest) {
   const agentName = (userAgent as any).agents?.name || "main";
   const agentSlug = sanitizeAgentName(agentName);
 
-  // Get VPS details (including Basic Auth credentials for nginx)
+  // Get VPS details (including gateway token for API auth)
   const { data: vps } = await admin
     .from("vps_instances")
     .select(
-      "id, hostname, openclaw_dashboard_url, dashboard_username, dashboard_password, status"
+      "id, hostname, openclaw_dashboard_url, dashboard_username, dashboard_password, gateway_token, status"
     )
     .eq("user_id", user.id)
     .single();
@@ -154,10 +154,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call OpenClaw chat completions API
-    // Only send the latest message — OpenClaw manages full session history
-    // via x-openclaw-session-key header
-    const baseUrl = dashboardUrl.replace(/\/$/, "");
+    // Call OpenClaw chat completions API via direct IP (bypasses nginx Basic Auth)
+    // Uses Bearer token auth (gateway token generated during provisioning)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
@@ -171,13 +169,18 @@ export async function POST(request: NextRequest) {
       "x-openclaw-session-key": sessionKey,
     };
 
-    // HTTP Basic Auth to pass nginx (gateway uses trusted-proxy behind nginx)
-    if (vps.dashboard_username && vps.dashboard_password) {
+    // Use Bearer token auth (gateway token) — /v1/ path bypasses nginx Basic Auth
+    if (vps.gateway_token) {
+      headers["Authorization"] = `Bearer ${vps.gateway_token}`;
+    } else if (vps.dashboard_username && vps.dashboard_password) {
+      // Fallback: Basic Auth through nginx (legacy/native installs)
       const basicAuth = Buffer.from(
         `${vps.dashboard_username}:${vps.dashboard_password}`
       ).toString("base64");
       headers["Authorization"] = `Basic ${basicAuth}`;
     }
+
+    const baseUrl = dashboardUrl.replace(/\/$/, "");
 
     const openclawResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",

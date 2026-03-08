@@ -1,4 +1,5 @@
 import { NodeSSH } from "node-ssh";
+import { randomUUID } from "crypto";
 
 export interface ProvisionConfig {
   ip: string;
@@ -74,7 +75,7 @@ async function runStep(
 export async function provisionVPS(
   config: ProvisionConfig,
   onProgress: OnProgress
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; gatewayToken?: string }> {
   let ssh: NodeSSH | null = null;
 
   try {
@@ -144,8 +145,8 @@ export async function provisionVPS(
     );
 
     // Step 6: Write gateway config to host volume path
-    // CRITICAL: bind must be "0.0.0.0" for Docker (not "loopback")
-    // Security: -p 127.0.0.1:18789:18789 ensures port only exposed on host localhost
+    // bind=lan for Docker (0.0.0.0 inside container), auth=token for HTTP chat API
+    const gatewayToken = randomUUID();
     const gatewayConfig = JSON.stringify(
       {
         gateway: {
@@ -153,7 +154,8 @@ export async function provisionVPS(
           bind: "lan",
           trustedProxies: ["127.0.0.1", "::1"],
           auth: {
-            mode: "trusted-proxy",
+            mode: "token",
+            token: gatewayToken,
             trustedProxy: {
               userHeader: "x-forwarded-user",
             },
@@ -183,17 +185,18 @@ export async function provisionVPS(
       ssh,
       6,
       [
-        "mkdir -p /opt/openclaw/config /opt/openclaw/data",
+        "mkdir -p /opt/openclaw/config",
         "chmod 700 /opt/openclaw",
         `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
         "chmod 600 /opt/openclaw/config/openclaw.json",
+        "chown -R 1000:1000 /opt/openclaw",
         "echo 'Config written to /opt/openclaw/config/openclaw.json'",
       ].join(" && "),
       onProgress
     );
 
     // Step 7: Start OpenClaw container
-    // CRITICAL: Must pass explicit gateway command — default entrypoint runs CLI, not gateway
+    // Default CMD (node openclaw.mjs gateway --allow-unconfigured) is correct — do NOT override
     {
       const label = STEPS[7 - 2];
       onProgress({ step: 7, label, status: "running" });
@@ -201,24 +204,21 @@ export async function provisionVPS(
       // Remove old container
       await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
 
-      // Start container with gateway command
+      // Start container — single volume, default CMD, no command override
       const runCmd = [
         "docker run -d --init",
         "--name openclaw",
-        "--restart=always",
-        "-e HOME=/home/node",
+        "--restart=unless-stopped",
         "-p 127.0.0.1:18789:18789",
         "-v /opt/openclaw/config:/home/node/.openclaw",
-        "-v /opt/openclaw/data:/data",
         "ghcr.io/openclaw/openclaw:latest",
-        "node dist/index.js gateway --bind lan --port 18789",
       ].join(" ");
       await ssh.execCommand(
         `export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH" && ${runCmd}`
       );
 
-      // Wait for gateway startup (~20s per official compose start_period)
-      await ssh.execCommand("sleep 20");
+      // Gateway needs ~30s to fully start
+      await ssh.execCommand("sleep 30");
 
       // Check container state
       const inspect = await ssh.execCommand(
@@ -227,7 +227,6 @@ export async function provisionVPS(
       const state = inspect.stdout?.trim();
 
       if (state !== "running") {
-        // Container crashed — grab logs so we can diagnose
         const logs = await ssh.execCommand("docker logs openclaw --tail 40 2>&1");
         const logOutput = logs.stdout?.trim() || logs.stderr?.trim() || "no logs";
         const errMsg = `Container state: ${state || "not found"}. Logs:\n${logOutput}`;
@@ -236,9 +235,9 @@ export async function provisionVPS(
         throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
       }
 
-      // Wait for gateway to respond on /healthz (up to 30s)
+      // Wait for gateway to respond (up to 30s more)
       const healthCheck = await ssh.execCommand(
-        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/healthz > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; docker logs openclaw --tail 20 2>&1; echo "Gateway not responding"; exit 1)'
+        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/ > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; docker logs openclaw --tail 20 2>&1; echo "Gateway not responding"; exit 1)'
       );
       if (healthCheck.code !== null && healthCheck.code !== 0) {
         const errMsg = healthCheck.stdout?.trim() || healthCheck.stderr?.trim() || "Gateway not responding";
@@ -307,17 +306,7 @@ export async function provisionVPS(
         ]
       : [];
 
-    const nginxConf = [
-      "server {",
-      "    listen 80;",
-      "    listen 443 ssl;",
-      `    server_name ${config.hostname};`,
-      "",
-      `    ssl_certificate /etc/ssl/certs/${config.hostname}.crt;`,
-      `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
-      "",
-      "    location / {",
-      ...authDirectives,
+    const proxyDirectives = [
       "        proxy_pass http://127.0.0.1:18789;",
       "        proxy_http_version 1.1;",
       "        proxy_set_header Upgrade $http_upgrade;",
@@ -329,6 +318,26 @@ export async function provisionVPS(
       `        proxy_set_header X-Forwarded-User "${config.email}";`,
       "        proxy_read_timeout 86400;",
       "        proxy_send_timeout 86400;",
+    ];
+
+    const nginxConf = [
+      "server {",
+      "    listen 80;",
+      "    listen 443 ssl;",
+      `    server_name ${config.hostname};`,
+      "",
+      `    ssl_certificate /etc/ssl/certs/${config.hostname}.crt;`,
+      `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
+      "",
+      "    # API endpoints — no Basic Auth (gateway token auth handles security)",
+      "    location /v1/ {",
+      ...proxyDirectives,
+      "    }",
+      "",
+      "    # Dashboard UI — optional Basic Auth",
+      "    location / {",
+      ...authDirectives,
+      ...proxyDirectives,
       "    }",
       "}",
     ].join("\n");
@@ -366,7 +375,7 @@ export async function provisionVPS(
       ssh,
       11,
       [
-        "curl -sf http://127.0.0.1:18789/healthz > /dev/null",
+        "curl -sf http://127.0.0.1:18789/ > /dev/null",
         `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),
@@ -374,7 +383,7 @@ export async function provisionVPS(
     );
 
     console.log(`[Provision] ✓ COMPLETE — ${config.hostname} provisioned successfully`);
-    return { success: true };
+    return { success: true, gatewayToken };
   } catch (err: any) {
     console.error(`[Provision] ✗ FAILED — ${err.message}`);
     return { success: false, error: err.message || "Provisioning failed" };

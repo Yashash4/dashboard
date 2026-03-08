@@ -59,28 +59,42 @@ export async function GET(
       readyTimeout: 8000,
     });
 
-    // Check systemd service
-    const active = await ssh.execCommand(
-      "systemctl is-active openclaw-gateway 2>/dev/null"
+    // Detect runtime (Docker vs native)
+    const dockerCheck = await ssh.execCommand(
+      'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
     );
-    const gatewayActive = active.stdout?.trim() === "active";
+    const isDocker = !!(dockerCheck.stdout.trim() && !dockerCheck.stderr);
+
+    let gatewayActive = false;
+    let version = "unknown";
+    let pid = "0";
+
+    if (isDocker) {
+      gatewayActive = dockerCheck.stdout.trim() === "running";
+      const versionResult = await ssh.execCommand(
+        "docker exec openclaw openclaw --version 2>/dev/null || echo unknown"
+      );
+      version = versionResult.stdout?.trim() || "unknown";
+    } else {
+      const active = await ssh.execCommand(
+        "systemctl is-active openclaw-gateway 2>/dev/null"
+      );
+      gatewayActive = active.stdout?.trim() === "active";
+      const info = await ssh.execCommand(
+        "openclaw --version 2>/dev/null || echo unknown"
+      );
+      version = info.stdout?.trim() || "unknown";
+      const pidResult = await ssh.execCommand(
+        "systemctl show openclaw-gateway --property=MainPID --value 2>/dev/null || echo 0"
+      );
+      pid = pidResult.stdout?.trim() || "0";
+    }
 
     // Check HTTP endpoint
     const httpCheck = await ssh.execCommand(
       "curl -sf --max-time 3 http://127.0.0.1:18789/ > /dev/null 2>&1 && echo ok || echo fail"
     );
     const httpOk = httpCheck.stdout?.trim() === "ok";
-
-    // Get version + PID
-    const info = await ssh.execCommand(
-      "openclaw --version 2>/dev/null || echo unknown"
-    );
-    const version = info.stdout?.trim() || "unknown";
-
-    const pidResult = await ssh.execCommand(
-      "systemctl show openclaw-gateway --property=MainPID --value 2>/dev/null || echo 0"
-    );
-    const pid = pidResult.stdout?.trim() || "0";
 
     return NextResponse.json({
       gateway_active: gatewayActive && httpOk,

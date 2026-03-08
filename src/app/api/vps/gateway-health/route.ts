@@ -40,25 +40,44 @@ export async function GET() {
       readyTimeout: 10000,
     });
 
-    const [activeResult, healthResult, versionResult] = await Promise.all([
-      ssh.execCommand("systemctl is-active openclaw-gateway 2>/dev/null"),
-      ssh.execCommand("curl -sf http://127.0.0.1:18789/ -o /dev/null -w '%{http_code}' --max-time 5 2>/dev/null"),
-      ssh.execCommand("openclaw --version 2>/dev/null || echo unknown"),
-    ]);
+    // Detect runtime (Docker vs native)
+    const dockerCheck = await ssh.execCommand(
+      'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
+    );
+    const isDocker = !!(dockerCheck.stdout.trim() && !dockerCheck.stderr);
 
-    const active = activeResult.stdout.trim() === "active";
+    let active = false;
+    let version: string | null = null;
+    let pid: number | null = null;
+
+    if (isDocker) {
+      active = dockerCheck.stdout.trim() === "running";
+      const versionResult = await ssh.execCommand(
+        "docker exec openclaw openclaw --version 2>/dev/null || echo unknown"
+      );
+      version = versionResult.stdout.trim() || null;
+    } else {
+      const activeResult = await ssh.execCommand(
+        "systemctl is-active openclaw-gateway 2>/dev/null"
+      );
+      active = activeResult.stdout.trim() === "active";
+      const versionResult = await ssh.execCommand(
+        "openclaw --version 2>/dev/null || echo unknown"
+      );
+      version = versionResult.stdout.trim() || null;
+      if (active) {
+        const pidResult = await ssh.execCommand(
+          "systemctl show openclaw-gateway --property=MainPID --value 2>/dev/null"
+        );
+        pid = parseInt(pidResult.stdout.trim()) || null;
+      }
+    }
+
+    const healthResult = await ssh.execCommand(
+      "curl -sf http://127.0.0.1:18789/ -o /dev/null -w '%{http_code}' --max-time 5 2>/dev/null"
+    );
     const httpCode = parseInt(healthResult.stdout.trim()) || 0;
     const httpOk = httpCode >= 200 && httpCode < 400;
-    const version = versionResult.stdout.trim() || null;
-
-    // Get PID if active
-    let pid: number | null = null;
-    if (active) {
-      const pidResult = await ssh.execCommand(
-        "systemctl show openclaw-gateway --property=MainPID --value 2>/dev/null"
-      );
-      pid = parseInt(pidResult.stdout.trim()) || null;
-    }
 
     return NextResponse.json({ active, httpOk, version, pid });
   } catch {

@@ -265,6 +265,7 @@ async function runProvisioning(
         hostname,
         openclaw_dashboard_url: dashboardUrl,
         openclaw_auth_token: null,
+        gateway_token: result.gatewayToken || null,
         status: "running",
         dashboard_username: dashboardUsername,
         dashboard_password: dashboardPassword,

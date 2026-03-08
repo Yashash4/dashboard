@@ -323,7 +323,7 @@ async function findDataDir(
   runtime: "docker" | "native"
 ): Promise<string> {
   if (runtime === "docker") {
-    return "/data";
+    return "/home/node/.openclaw";
   }
 
   // Check common data directory locations
@@ -387,11 +387,11 @@ export async function deployAgent(
         `docker exec openclaw mkdir -p ${agentDir}`
       );
 
-      // Write each config file
+      // Write each config file via base64 (safe for all characters)
       for (const [filename, content] of Object.entries(configFiles)) {
-        const safeContent = content.replace(/'/g, "'\\''");
+        const contentB64 = Buffer.from(content).toString("base64");
         await ssh.execCommand(
-          `docker exec openclaw sh -c 'cat > ${agentDir}/${filename} << '"'"'AGENTEOF'"'"'\n${safeContent}\nAGENTEOF'`
+          `echo '${contentB64}' | base64 -d | docker exec -i openclaw sh -c 'cat > ${agentDir}/${filename}'`
         );
       }
 
@@ -534,11 +534,15 @@ async function writeOpenClawConfig(
   const safeContent = configStr.replace(/'/g, "'\\''");
 
   if (runtime === "docker") {
-    // Ensure directory exists
-    const dir = configPath.substring(0, configPath.lastIndexOf("/"));
-    await ssh.execCommand(`docker exec openclaw mkdir -p ${dir}`);
+    // Write to host volume path via base64 (safe for all characters)
+    const configB64 = Buffer.from(configStr).toString("base64");
     await ssh.execCommand(
-      `docker exec openclaw sh -c 'cat > ${configPath} << '"'"'OCEOF'"'"'\n${safeContent}\nOCEOF'`
+      [
+        "mkdir -p /opt/openclaw/config",
+        `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
+        "chmod 600 /opt/openclaw/config/openclaw.json",
+        "chown 1000:1000 /opt/openclaw/config/openclaw.json",
+      ].join(" && ")
     );
   } else {
     const dir = configPath.substring(0, configPath.lastIndexOf("/"));
@@ -694,9 +698,13 @@ export async function enableChatEndpoint(creds: VPSCredentials) {
     await writeOpenClawConfig(ssh, runtime, config);
 
     // Restart gateway to pick up changes
-    await ssh.execCommand(
-      "systemctl restart openclaw-gateway 2>/dev/null; sleep 3"
-    );
+    if (runtime === "docker") {
+      await ssh.execCommand("docker restart openclaw && sleep 5");
+    } else {
+      await ssh.execCommand(
+        "systemctl restart openclaw-gateway 2>/dev/null; sleep 3"
+      );
+    }
 
     return { success: true };
   } finally {
@@ -707,7 +715,36 @@ export async function enableChatEndpoint(creds: VPSCredentials) {
 export async function getOpenClawToken(creds: VPSCredentials): Promise<string> {
   const ssh = await connect(creds);
   try {
-    // Method 1: Try the openclaw CLI
+    const runtime = await detectRuntime(ssh);
+
+    if (runtime === "docker") {
+      // Docker: use docker exec to run CLI inside container
+      const result = await ssh.execCommand(
+        "docker exec openclaw openclaw config get gateway.auth.token 2>/dev/null"
+      );
+      const token = result.stdout.trim();
+      if (token && !token.includes("error") && !token.includes("not found")) {
+        return token;
+      }
+
+      // Fallback: read from host volume path
+      const readResult = await ssh.execCommand(
+        "cat /opt/openclaw/config/openclaw.json 2>/dev/null"
+      );
+      const raw = readResult.stdout.trim();
+      if (raw) {
+        try {
+          const cleaned = raw.replace(/\/\/.*$/gm, "").replace(/,\s*([\]}])/g, "$1");
+          const config = JSON.parse(cleaned);
+          const t = config?.gateway?.auth?.token;
+          if (t) return t;
+        } catch {}
+      }
+
+      throw new Error("Could not find auth token in Docker config");
+    }
+
+    // Native: try the openclaw CLI
     const result = await ssh.execCommand(
       'export PATH="/usr/local/bin:/usr/bin:/root/.local/bin:$PATH" && openclaw config get gateway.auth.token 2>/dev/null'
     );
@@ -716,10 +753,9 @@ export async function getOpenClawToken(creds: VPSCredentials): Promise<string> {
       return cliToken;
     }
 
-    // Method 2: Read token from config JSON file directly
+    // Fallback: read token from config JSON file directly
     const configPaths = [
       "/root/.openclaw/openclaw.json",
-      "/home/node/.openclaw/openclaw.json",
       "/opt/openclaw/openclaw.json",
     ];
 
@@ -738,10 +774,6 @@ export async function getOpenClawToken(creds: VPSCredentials): Promise<string> {
       }
     }
 
-    // Method 3: Check systemd service for config path hints
-    const journalResult = await ssh.execCommand(
-      'journalctl -u openclaw-gateway --no-pager -n 50 2>/dev/null | grep -i "token\\|auth" | head -5'
-    );
     throw new Error("Could not find auth token in any config location");
   } finally {
     ssh.dispose();
@@ -917,7 +949,7 @@ export async function enableBasicAuth(
 // providerKey = name used in openclaw.json models.providers section
 // api = the API protocol OpenClaw uses to talk to the provider
 const PROVIDER_OPENCLAW_CONFIG: Record<string, { providerKey: string; api: string }> = {
-  ollama:     { providerKey: "model-clawhq",  api: "openai-completions" },
+  ollama:     { providerKey: "clawhq",  api: "openai-completions" },
   anthropic:  { providerKey: "anthropic",     api: "anthropic" },
   openai:     { providerKey: "openai",        api: "openai" },
   google:     { providerKey: "google",        api: "google" },
@@ -955,7 +987,7 @@ export async function configureApiKeys(
       bind: runtime === "docker" ? "lan" : "loopback",
       trustedProxies: ["127.0.0.1", "::1"],
       auth: {
-        mode: "trusted-proxy",
+        mode: "token",
         trustedProxy: { userHeader: "x-forwarded-user" },
       },
       controlUi: {
@@ -1041,6 +1073,7 @@ export async function configureApiKeys(
           "mkdir -p /opt/openclaw/config",
           `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
           "chmod 600 /opt/openclaw/config/openclaw.json",
+          "chown 1000:1000 /opt/openclaw/config/openclaw.json",
         ].join(" && ")
       );
       if (writeResult.code !== null && writeResult.code !== 0) {

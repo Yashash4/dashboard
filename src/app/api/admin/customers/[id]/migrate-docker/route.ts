@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { NodeSSH } from "node-ssh";
+import { randomUUID } from "crypto";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -94,11 +95,38 @@ export async function POST(
       );
     }
 
-    // Fix bind for Docker: loopback → lan (OpenClaw uses mode names, not IPs)
-    if (config.gateway) {
-      config.gateway.bind = "lan";
+    // Fix config for Docker
+    if (!config.gateway) config.gateway = {};
+    config.gateway.bind = "lan";
+    config.gateway.mode = "local";
+    config.gateway.trustedProxies = config.gateway.trustedProxies || ["127.0.0.1", "::1"];
+
+    // Switch auth to token mode (required for HTTP chat API)
+    const gatewayToken = randomUUID();
+    config.gateway.auth = {
+      mode: "token",
+      token: gatewayToken,
+      trustedProxy: { userHeader: "x-forwarded-user" },
+    };
+
+    // Enable chat completions endpoint
+    if (!config.gateway.http) config.gateway.http = {};
+    if (!config.gateway.http.endpoints) config.gateway.http.endpoints = {};
+    if (!config.gateway.http.endpoints.chatCompletions) config.gateway.http.endpoints.chatCompletions = {};
+    config.gateway.http.endpoints.chatCompletions.enabled = true;
+
+    // Ensure controlUi settings for lan bind
+    if (!config.gateway.controlUi) config.gateway.controlUi = {};
+    if (!config.gateway.controlUi.allowedOrigins) {
+      config.gateway.controlUi.allowedOrigins = [
+        `https://${vps.hostname}`,
+        `http://${vps.hostname}`,
+      ];
     }
-    steps.push("Config parsed, bind fixed");
+    config.gateway.controlUi.dangerouslyDisableDeviceAuth = true;
+    config.gateway.controlUi.allowInsecureAuth = true;
+
+    steps.push("Config parsed, bind/auth/endpoints fixed");
 
     // Stop native OpenClaw
     await ssh.execCommand("systemctl stop openclaw-gateway 2>/dev/null || true");
@@ -123,50 +151,50 @@ export async function POST(
     await ssh.execCommand("docker pull ghcr.io/openclaw/openclaw:latest");
     steps.push("Image pulled");
 
-    // Create host directories
+    // Create host directory (single volume — no /data dir needed)
     await ssh.execCommand(
-      "mkdir -p /opt/openclaw/config /opt/openclaw/data && chmod 700 /opt/openclaw"
+      "mkdir -p /opt/openclaw/config && chmod 700 /opt/openclaw"
     );
 
     // Write fixed config to host volume path
     const configB64 = Buffer.from(JSON.stringify(config, null, 2)).toString("base64");
     await ssh.execCommand(
-      `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json && chmod 600 /opt/openclaw/config/openclaw.json`
+      [
+        `echo '${configB64}' | base64 -d > /opt/openclaw/config/openclaw.json`,
+        "chmod 600 /opt/openclaw/config/openclaw.json",
+        "chown -R 1000:1000 /opt/openclaw",
+      ].join(" && ")
     );
     steps.push("Config written to host volume");
 
-    // Copy existing data (agents, etc.) if present
-    const dataCheck = await ssh.execCommand(
-      "test -d /root/.openclaw/data && echo exists || test -d /opt/openclaw/data && echo exists || echo none"
+    // Copy existing agents/data into config dir (Docker volume maps to /home/node/.openclaw)
+    const agentsCheck = await ssh.execCommand(
+      "test -d /root/.openclaw/agents && echo exists || echo none"
     );
-    if (dataCheck.stdout.trim() === "exists") {
+    if (agentsCheck.stdout.trim() === "exists") {
       await ssh.execCommand(
-        "cp -r /root/.openclaw/data/* /opt/openclaw/data/ 2>/dev/null || true"
+        "cp -r /root/.openclaw/agents /opt/openclaw/config/ 2>/dev/null && chown -R 1000:1000 /opt/openclaw/config/agents || true"
       );
-      steps.push("Data migrated");
+      steps.push("Agents migrated");
     }
 
     // Remove existing container if any
     await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
 
-    // Start Docker container
-    // CRITICAL: Must pass explicit gateway command — default entrypoint runs CLI, not gateway
+    // Start Docker container (default CMD starts gateway — no override needed)
     const dockerRun = [
       "docker run -d --init",
       "--name openclaw",
-      "--restart=always",
-      "-e HOME=/home/node",
+      "--restart=unless-stopped",
       "-p 127.0.0.1:18789:18789",
       "-v /opt/openclaw/config:/home/node/.openclaw",
-      "-v /opt/openclaw/data:/data",
       "ghcr.io/openclaw/openclaw:latest",
-      "node dist/index.js gateway --bind lan --port 18789",
     ].join(" ");
     await ssh.execCommand(dockerRun);
     steps.push("Container started");
 
-    // Wait for gateway startup (start_period ~20s per official compose)
-    await ssh.execCommand("sleep 20");
+    // Gateway needs ~30s to fully start
+    await ssh.execCommand("sleep 30");
     const statusCheck = await ssh.execCommand(
       'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
     );
@@ -185,7 +213,7 @@ export async function POST(
 
     // Test gateway health
     const gatewayCheck = await ssh.execCommand(
-      "curl -sf --max-time 10 http://127.0.0.1:18789/healthz > /dev/null && echo ok || echo fail"
+      "curl -sf --max-time 10 http://127.0.0.1:18789/ > /dev/null && echo ok || echo fail"
     );
     if (gatewayCheck.stdout.trim() !== "ok") {
       steps.push("WARNING: Gateway not responding yet (may need more time)");
@@ -204,6 +232,13 @@ export async function POST(
       ].join(" && ")
     );
     steps.push("Old systemd files removed");
+
+    // Store gateway token in DB for chat API
+    await admin
+      .from("vps_instances")
+      .update({ gateway_token: gatewayToken })
+      .eq("user_id", userId);
+    steps.push("Gateway token stored");
 
     const ip = getClientIp(request);
     logAudit({
