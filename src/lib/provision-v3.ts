@@ -194,23 +194,26 @@ export async function provisionVPS(
 
     // Step 7: Start OpenClaw container
     // Remove any existing container first (idempotent)
+    // CRITICAL: Must pass explicit gateway command — default entrypoint runs CLI, not gateway
     await runStep(
       ssh,
       7,
       [
         "docker rm -f openclaw 2>/dev/null || true",
-        "docker run -d " +
+        "docker run -d --init " +
           "--name openclaw " +
           "--restart=always " +
+          "-e HOME=/home/node " +
           "-p 127.0.0.1:18789:18789 " +
           "-v /opt/openclaw/config:/home/node/.openclaw " +
           "-v /opt/openclaw/data:/data " +
-          "ghcr.io/openclaw/openclaw:latest",
-        "sleep 5",
+          "ghcr.io/openclaw/openclaw:latest " +
+          "node dist/index.js gateway --bind lan --port 18789",
+        "sleep 20",
         // Verify container is running
         "docker inspect openclaw --format '{{.State.Status}}' | grep -q running && echo 'Container running'",
-        // Wait for gateway to respond (up to 30s)
-        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/ > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; echo "Gateway not responding"; exit 1)',
+        // Wait for gateway to respond (up to 30s, check /healthz)
+        '(for i in $(seq 1 15); do curl -sf http://127.0.0.1:18789/healthz > /dev/null && echo "Gateway running on port 18789" && exit 0; sleep 2; done; echo "Gateway not responding"; exit 1)',
       ].join(" && "),
       onProgress
     );
@@ -330,7 +333,7 @@ export async function provisionVPS(
       ssh,
       11,
       [
-        "curl -sf http://127.0.0.1:18789/ > /dev/null",
+        "curl -sf http://127.0.0.1:18789/healthz > /dev/null",
         `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),

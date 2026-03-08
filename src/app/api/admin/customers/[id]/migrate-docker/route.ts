@@ -150,20 +150,23 @@ export async function POST(
     await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
 
     // Start Docker container
+    // CRITICAL: Must pass explicit gateway command — default entrypoint runs CLI, not gateway
     const dockerRun = [
-      "docker run -d",
+      "docker run -d --init",
       "--name openclaw",
       "--restart=always",
+      "-e HOME=/home/node",
       "-p 127.0.0.1:18789:18789",
       "-v /opt/openclaw/config:/home/node/.openclaw",
       "-v /opt/openclaw/data:/data",
       "ghcr.io/openclaw/openclaw:latest",
+      "node dist/index.js gateway --bind lan --port 18789",
     ].join(" ");
     await ssh.execCommand(dockerRun);
     steps.push("Container started");
 
-    // Wait and verify
-    await ssh.execCommand("sleep 5");
+    // Wait for gateway startup (start_period ~20s per official compose)
+    await ssh.execCommand("sleep 20");
     const statusCheck = await ssh.execCommand(
       'docker inspect openclaw --format "{{.State.Status}}" 2>/dev/null'
     );
@@ -180,9 +183,9 @@ export async function POST(
       );
     }
 
-    // Test gateway
+    // Test gateway health
     const gatewayCheck = await ssh.execCommand(
-      "curl -sf --max-time 10 http://127.0.0.1:18789/ > /dev/null && echo ok || echo fail"
+      "curl -sf --max-time 10 http://127.0.0.1:18789/healthz > /dev/null && echo ok || echo fail"
     );
     if (gatewayCheck.stdout.trim() !== "ok") {
       steps.push("WARNING: Gateway not responding yet (may need more time)");
