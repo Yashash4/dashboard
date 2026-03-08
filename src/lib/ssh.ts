@@ -987,7 +987,7 @@ export async function configureApiKeys(
       bind: runtime === "docker" ? "lan" : "loopback",
       trustedProxies: ["127.0.0.1", "::1"],
       auth: {
-        mode: "token",
+        mode: "trusted-proxy",
         trustedProxy: { userHeader: "x-forwarded-user" },
       },
       controlUi: {

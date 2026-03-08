@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { NodeSSH } from "node-ssh";
-import { randomUUID } from "crypto";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
@@ -101,11 +100,9 @@ export async function POST(
     config.gateway.mode = "local";
     config.gateway.trustedProxies = config.gateway.trustedProxies || ["127.0.0.1", "::1"];
 
-    // Switch auth to token mode (required for HTTP chat API)
-    const gatewayToken = randomUUID();
+    // Use trusted-proxy auth (nginx sets X-Forwarded-User)
     config.gateway.auth = {
-      mode: "token",
-      token: gatewayToken,
+      mode: "trusted-proxy",
       trustedProxy: { userHeader: "x-forwarded-user" },
     };
 
@@ -232,13 +229,6 @@ export async function POST(
       ].join(" && ")
     );
     steps.push("Old systemd files removed");
-
-    // Store gateway token in DB for chat API
-    await admin
-      .from("vps_instances")
-      .update({ gateway_token: gatewayToken })
-      .eq("user_id", userId);
-    steps.push("Gateway token stored");
 
     const ip = getClientIp(request);
     logAudit({

@@ -43,7 +43,6 @@ async function runStep(
   onProgress: OnProgress
 ): Promise<string> {
   const label = STEPS[stepNum - 2];
-  console.log(`[Provision] Step ${stepNum}: ${label}...`);
   onProgress({ step: stepNum, label, status: "running" });
 
   // Prepend comprehensive PATH — SSH exec sessions have minimal PATH
@@ -66,8 +65,6 @@ async function runStep(
   const stderr = result.stderr?.trim() || "";
   const output = stdout || stderr;
   const lastLine = output.split("\n").pop() || "";
-  console.log(`[Provision] ✓ Step ${stepNum}: ${label} — ${lastLine}`);
-  if (stderr) console.log(`[Provision]   (stderr): ${stderr.split("\n").pop()}`);
   onProgress({ step: stepNum, label, status: "done", output });
   return output;
 }
@@ -79,9 +76,7 @@ export async function provisionVPS(
   let ssh: NodeSSH | null = null;
 
   try {
-    console.log("[Provision] === PROVISION V4 (Docker) ===");
     // Step 2: Test SSH
-    console.log(`[Provision] Starting provisioning for ${config.hostname} (${config.ip})`);
     onProgress({ step: 2, label: STEPS[0], status: "running" });
     ssh = new NodeSSH();
     await ssh.connect({
@@ -92,7 +87,6 @@ export async function provisionVPS(
       readyTimeout: 15000,
     });
     const whoami = await ssh.execCommand("whoami");
-    console.log(`[Provision] ✓ Step 2: Test SSH — Connected as ${whoami.stdout.trim()}`);
     onProgress({
       step: 2,
       label: STEPS[0],
@@ -154,8 +148,7 @@ export async function provisionVPS(
           bind: "lan",
           trustedProxies: ["127.0.0.1", "::1"],
           auth: {
-            mode: "token",
-            token: gatewayToken,
+            mode: "trusted-proxy",
             trustedProxy: {
               userHeader: "x-forwarded-user",
             },
@@ -246,7 +239,6 @@ export async function provisionVPS(
         throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
       }
 
-      console.log(`[Provision] ✓ Step 7: ${label} — ${healthCheck.stdout?.trim()}`);
       onProgress({ step: 7, label, status: "done", output: healthCheck.stdout?.trim() });
     }
 
@@ -306,7 +298,17 @@ export async function provisionVPS(
         ]
       : [];
 
-    const proxyDirectives = [
+    const nginxConf = [
+      "server {",
+      "    listen 80;",
+      "    listen 443 ssl;",
+      `    server_name ${config.hostname};`,
+      "",
+      `    ssl_certificate /etc/ssl/certs/${config.hostname}.crt;`,
+      `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
+      "",
+      "    location / {",
+      ...authDirectives,
       "        proxy_pass http://127.0.0.1:18789;",
       "        proxy_http_version 1.1;",
       "        proxy_set_header Upgrade $http_upgrade;",
@@ -318,26 +320,6 @@ export async function provisionVPS(
       `        proxy_set_header X-Forwarded-User "${config.email}";`,
       "        proxy_read_timeout 86400;",
       "        proxy_send_timeout 86400;",
-    ];
-
-    const nginxConf = [
-      "server {",
-      "    listen 80;",
-      "    listen 443 ssl;",
-      `    server_name ${config.hostname};`,
-      "",
-      `    ssl_certificate /etc/ssl/certs/${config.hostname}.crt;`,
-      `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
-      "",
-      "    # API endpoints — no Basic Auth (gateway token auth handles security)",
-      "    location /v1/ {",
-      ...proxyDirectives,
-      "    }",
-      "",
-      "    # Dashboard UI — optional Basic Auth",
-      "    location / {",
-      ...authDirectives,
-      ...proxyDirectives,
       "    }",
       "}",
     ].join("\n");
@@ -377,14 +359,15 @@ export async function provisionVPS(
       11,
       [
         "curl -sf http://127.0.0.1:18789/ > /dev/null",
-        `curl -sfk https://127.0.0.1/v1/chat/completions -H 'Host: ${config.hostname}' -o /dev/null -w '%{http_code}' | grep -qE '^(200|401|405)'`,
+        config.dashboardUsername && config.dashboardPassword
+          ? `curl -sfk -u '${config.dashboardUsername}:${config.dashboardPassword}' https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`
+          : `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),
       onProgress
     );
 
-    console.log(`[Provision] ✓ COMPLETE — ${config.hostname} provisioned successfully`);
-    return { success: true, gatewayToken };
+    return { success: true };
   } catch (err: any) {
     console.error(`[Provision] ✗ FAILED — ${err.message}`);
     return { success: false, error: err.message || "Provisioning failed" };

@@ -141,9 +141,6 @@ async function runProvisioning(
 ) {
   try {
     // Step 0: DNS
-    console.log(
-      `[Provision] Step 0: Create DNS record for ${config.subdomain}.clawhq.tech → ${config.ip}`
-    );
     updateStep(jobId, {
       step: 0,
       label: "Create DNS record",
@@ -166,7 +163,6 @@ async function runProvisioning(
       return;
     }
 
-    console.log(`[Provision] ✓ DNS record created: ${dns.hostname}`);
     updateStep(jobId, {
       step: 0,
       label: "Create DNS record",
@@ -178,12 +174,9 @@ async function runProvisioning(
     const ssl = await ensureSslFull();
     if (!ssl.success) {
       console.warn(`[Provision] ⚠ SSL mode set failed: ${ssl.error}`);
-    } else {
-      console.log(`[Provision] ✓ SSL/TLS mode set to Full`);
     }
 
     // Step 1: Open firewall ports (provider-level)
-    console.log(`[Provision] Step 1: Open firewall ports for ${config.ip}`);
     updateStep(jobId, {
       step: 1,
       label: "Open firewall ports",
@@ -198,7 +191,6 @@ async function runProvisioning(
         fw.portsOpened.length > 0
           ? `Opened ports ${fw.portsOpened.join(", ")} and synced`
           : "Ports 22, 80, 443 already open";
-      console.log(`[Provision] ✓ Firewall: ${msg}`);
       updateStep(jobId, {
         step: 1,
         label: "Open firewall ports",
@@ -254,7 +246,6 @@ async function runProvisioning(
 
     if (result.success) {
       // Save to DB
-      console.log(`[Provision] Saving to database...`);
       const dashboardUrl = `https://${hostname}`;
 
       const dbRecord: Record<string, unknown> = {
@@ -265,7 +256,7 @@ async function runProvisioning(
         hostname,
         openclaw_dashboard_url: dashboardUrl,
         openclaw_auth_token: null,
-        gateway_token: result.gatewayToken || null,
+        gateway_token: null,
         status: "running",
         dashboard_username: dashboardUsername,
         dashboard_password: dashboardPassword,
@@ -292,7 +283,6 @@ async function runProvisioning(
         });
       }
 
-      console.log(`[Provision] ✓ DB saved. Dashboard: ${dashboardUrl}`);
       completeJob(jobId, {
         success: true,
         dashboardUrl,
