@@ -53,8 +53,8 @@ const CHART_TOOLTIP_STYLE = {
 };
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const d = new Date(dateStr + "T00:00:00Z");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 function pctChange(current: number, previous: number) {
@@ -65,7 +65,7 @@ function pctChange(current: number, previous: number) {
 export function UsageAnalytics() {
   const [timeRange, setTimeRange] = useState("30");
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["analytics-usage", timeRange],
     queryFn: async () => {
       const res = await fetch(`/api/analytics/usage?range=${timeRange}`);
@@ -81,6 +81,12 @@ export function UsageAnalytics() {
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
         <AlertTriangle className="h-8 w-8 mb-2" />
         <p>Failed to load analytics</p>
+        <button
+          onClick={() => refetch()}
+          className="mt-3 text-sm text-primary hover:underline"
+        >
+          Try again
+        </button>
       </div>
     );
   }
@@ -272,7 +278,7 @@ export function UsageAnalytics() {
         <Card className="border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Requests by Hour
+              Requests by Hour <span className="text-muted-foreground font-normal">(UTC)</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
