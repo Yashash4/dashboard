@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   AreaChart,
   Area,
@@ -14,19 +15,19 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  Legend,
 } from "recharts";
 import {
-  Zap,
   MessageSquare,
   Clock,
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
+  AlertTriangle,
+  Timer,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -35,36 +36,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Mock data — will be replaced with real API data
-function generateDailyData(days: number) {
-  const data = [];
-  const now = new Date();
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      tokens: Math.floor(Math.random() * 50000) + 10000,
-      conversations: Math.floor(Math.random() * 80) + 20,
-      messages: Math.floor(Math.random() * 300) + 50,
-    });
-  }
-  return data;
-}
-
-function generateHourlyData() {
-  return Array.from({ length: 24 }, (_, hour) => ({
-    hour: `${hour.toString().padStart(2, "0")}:00`,
-    requests: Math.floor(Math.random() * 50) + (hour >= 9 && hour <= 17 ? 40 : 5),
-  }));
-}
-
-const CHANNEL_DATA = [
-  { name: "WhatsApp", value: 340, color: "hsl(142, 76%, 36%)" },
-  { name: "Telegram", value: 215, color: "hsl(217, 91%, 60%)" },
-  { name: "Discord", value: 128, color: "hsl(265, 83%, 57%)" },
-  { name: "Slack", value: 95, color: "hsl(10, 100%, 52%)" },
-  { name: "Web Chat", value: 72, color: "hsl(47, 100%, 50%)" },
+const AGENT_COLORS = [
+  "hsl(10, 100%, 52%)",
+  "hsl(217, 91%, 60%)",
+  "hsl(142, 76%, 36%)",
+  "hsl(265, 83%, 57%)",
+  "hsl(47, 100%, 50%)",
+  "hsl(340, 82%, 52%)",
 ];
 
 const CHART_TOOLTIP_STYLE = {
@@ -74,18 +52,65 @@ const CHART_TOOLTIP_STYLE = {
   fontSize: 12,
 };
 
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function pctChange(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? 100 : 0;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 export function UsageAnalytics() {
   const [timeRange, setTimeRange] = useState("30");
-  const dailyData = generateDailyData(parseInt(timeRange));
-  const hourlyData = generateHourlyData();
 
-  const totalTokens = dailyData.reduce((sum, d) => sum + d.tokens, 0);
-  const totalConversations = dailyData.reduce((sum, d) => sum + d.conversations, 0);
-  const totalMessages = dailyData.reduce((sum, d) => sum + d.messages, 0);
-  const avgTokensPerDay = Math.round(totalTokens / dailyData.length);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["analytics-usage", timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/analytics/usage?range=${timeRange}`);
+      if (!res.ok) throw new Error("Failed to fetch analytics");
+      return res.json();
+    },
+  });
 
-  const peakHour = hourlyData.reduce((max, h) =>
-    h.requests > max.requests ? h : max
+  if (isLoading) return <AnalyticsSkeleton />;
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+        <AlertTriangle className="h-8 w-8 mb-2" />
+        <p>Failed to load analytics</p>
+      </div>
+    );
+  }
+
+  const daily = (data?.daily || []).map((d: any) => ({
+    ...d,
+    date: formatDate(d.date),
+  }));
+
+  const hourly = (data?.hourly || []).map((h: any) => ({
+    hour: `${String(h.hour).padStart(2, "0")}:00`,
+    requests: h.requests,
+  }));
+
+  const agents = (data?.agents || []).map((a: any, i: number) => ({
+    ...a,
+    color: AGENT_COLORS[i % AGENT_COLORS.length],
+  }));
+
+  const summary = data?.summary || {};
+  const prevSummary = data?.prev_summary || {};
+  const conversations = data?.conversations || 0;
+  const prevConversations = data?.prev_conversations || 0;
+
+  const msgChange = pctChange(summary.total_messages || 0, prevSummary.total_messages || 0);
+  const convChange = pctChange(conversations, prevConversations);
+
+  const peakHour = hourly.reduce(
+    (max: any, h: any) => (h.requests > (max?.requests || 0) ? h : max),
+    hourly[0] || { hour: "--", requests: 0 }
   );
 
   return (
@@ -109,19 +134,13 @@ export function UsageAnalytics() {
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Tokens
+              Messages
             </CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">
-              {(totalTokens / 1000).toFixed(0)}K
-            </p>
-            <div className="flex items-center gap-1 mt-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span className="text-xs text-green-500">12%</span>
-              <span className="text-xs text-muted-foreground">vs last period</span>
-            </div>
+            <p className="text-2xl font-bold">{summary.total_messages || 0}</p>
+            <ChangeIndicator value={msgChange} />
           </CardContent>
         </Card>
 
@@ -133,29 +152,27 @@ export function UsageAnalytics() {
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalConversations}</p>
-            <div className="flex items-center gap-1 mt-1">
-              <ArrowUpRight className="h-3 w-3 text-green-500" />
-              <span className="text-xs text-green-500">8%</span>
-              <span className="text-xs text-muted-foreground">vs last period</span>
-            </div>
+            <p className="text-2xl font-bold">{conversations}</p>
+            <ChangeIndicator value={convChange} />
           </CardContent>
         </Card>
 
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Messages
+              Avg Response
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <Timer className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{totalMessages}</p>
-            <div className="flex items-center gap-1 mt-1">
-              <ArrowDownRight className="h-3 w-3 text-red-500" />
-              <span className="text-xs text-red-500">3%</span>
-              <span className="text-xs text-muted-foreground">vs last period</span>
-            </div>
+            <p className="text-2xl font-bold">
+              {summary.avg_response_ms
+                ? summary.avg_response_ms >= 1000
+                  ? `${(summary.avg_response_ms / 1000).toFixed(1)}s`
+                  : `${summary.avg_response_ms}ms`
+                : "--"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">per message</p>
           </CardContent>
         </Card>
 
@@ -175,21 +192,32 @@ export function UsageAnalytics() {
         </Card>
       </div>
 
-      {/* Token usage chart */}
+      {/* Messages over time chart */}
       <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">
-            Token Usage Over Time
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium">
+              Messages Over Time
+            </CardTitle>
+            {(summary.error_rate || 0) > 0 && (
+              <span className="text-xs text-red-500">
+                {summary.error_rate}% error rate
+              </span>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyData}>
+              <AreaChart data={daily}>
                 <defs>
-                  <linearGradient id="tokenGrad" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="msgGradMain" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="errGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(0, 84%, 60%)" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(0, 84%, 60%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -201,26 +229,40 @@ export function UsageAnalytics() {
                 />
                 <YAxis
                   tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
-                  tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`}
-                  width={50}
+                  width={40}
                 />
                 <Tooltip
                   contentStyle={CHART_TOOLTIP_STYLE}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
-                  formatter={(value: number) => [
-                    `${value.toLocaleString()} tokens`,
-                    "Tokens",
-                  ]}
                 />
                 <Area
                   type="monotone"
-                  dataKey="tokens"
+                  dataKey="messages"
                   stroke="hsl(var(--primary))"
-                  fill="url(#tokenGrad)"
+                  fill="url(#msgGradMain)"
                   strokeWidth={2}
+                  name="Messages"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="errors"
+                  stroke="hsl(0, 84%, 60%)"
+                  fill="url(#errGrad)"
+                  strokeWidth={1.5}
+                  name="Errors"
                 />
               </AreaChart>
             </ResponsiveContainer>
+          </div>
+          <div className="flex items-center gap-4 mt-2 justify-center">
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5" style={{ backgroundColor: "hsl(var(--primary))" }} />
+              <span className="text-xs text-muted-foreground">Messages</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-3 h-0.5" style={{ backgroundColor: "hsl(0, 84%, 60%)" }} />
+              <span className="text-xs text-muted-foreground">Errors</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -236,7 +278,7 @@ export function UsageAnalytics() {
           <CardContent>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={hourlyData}>
+                <BarChart data={hourly}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis
                     dataKey="hour"
@@ -263,61 +305,67 @@ export function UsageAnalytics() {
           </CardContent>
         </Card>
 
-        {/* Channel breakdown */}
+        {/* Agent breakdown */}
         <Card className="border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">
-              Messages by Channel
+              Messages by Agent
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[250px] flex items-center">
-              <div className="w-1/2">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={CHANNEL_DATA}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {CHANNEL_DATA.map((entry, i) => (
-                        <Cell key={i} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={CHART_TOOLTIP_STYLE}
-                      formatter={(value: number, name: string) => [
-                        `${value} messages`,
-                        name,
-                      ]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+            {agents.length === 0 ? (
+              <div className="h-[250px] flex items-center justify-center text-sm text-muted-foreground">
+                No message data yet
               </div>
-              <div className="w-1/2 space-y-2.5">
-                {CHANNEL_DATA.map((channel) => (
-                  <div
-                    key={channel.name}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2.5 h-2.5 rounded-sm"
-                        style={{ backgroundColor: channel.color }}
+            ) : (
+              <div className="h-[250px] flex items-center">
+                <div className="w-1/2">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={agents}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {agents.map((entry: any, i: number) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={CHART_TOOLTIP_STYLE}
+                        formatter={(value: number, name: string) => [
+                          `${value} messages`,
+                          name,
+                        ]}
                       />
-                      <span className="text-muted-foreground">
-                        {channel.name}
-                      </span>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-1/2 space-y-2.5">
+                  {agents.map((agent: any) => (
+                    <div
+                      key={agent.agent_id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2.5 h-2.5 rounded-sm"
+                          style={{ backgroundColor: agent.color }}
+                        />
+                        <span className="text-muted-foreground truncate max-w-[120px]">
+                          {agent.name}
+                        </span>
+                      </div>
+                      <span className="font-medium">{agent.value}</span>
                     </div>
-                    <span className="font-medium">{channel.value}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -332,7 +380,7 @@ export function UsageAnalytics() {
         <CardContent>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dailyData}>
+              <AreaChart data={daily}>
                 <defs>
                   <linearGradient id="convGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(142, 76%, 36%)" stopOpacity={0.3} />
@@ -389,6 +437,71 @@ export function UsageAnalytics() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function ChangeIndicator({ value }: { value: number }) {
+  if (value === 0) {
+    return (
+      <p className="text-xs text-muted-foreground mt-1">No change</p>
+    );
+  }
+  const isUp = value > 0;
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      {isUp ? (
+        <ArrowUpRight className="h-3 w-3 text-green-500" />
+      ) : (
+        <ArrowDownRight className="h-3 w-3 text-red-500" />
+      )}
+      <span className={`text-xs ${isUp ? "text-green-500" : "text-red-500"}`}>
+        {Math.abs(value)}%
+      </span>
+      <span className="text-xs text-muted-foreground">vs last period</span>
+    </div>
+  );
+}
+
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <Skeleton className="h-10 w-[140px]" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i} className="border-border">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-4 w-24" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-32 mt-2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <Skeleton className="h-4 w-40" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[280px] w-full" />
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[...Array(2)].map((_, i) => (
+          <Card key={i} className="border-border">
+            <CardHeader className="pb-2">
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[250px] w-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
