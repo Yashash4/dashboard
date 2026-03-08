@@ -94,9 +94,9 @@ export async function POST(
       );
     }
 
-    // Fix bind for Docker: loopback → 0.0.0.0
+    // Fix bind for Docker: loopback → lan (OpenClaw uses mode names, not IPs)
     if (config.gateway) {
-      config.gateway.bind = "0.0.0.0";
+      config.gateway.bind = "lan";
     }
     steps.push("Config parsed, bind fixed");
 

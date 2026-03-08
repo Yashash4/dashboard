@@ -150,7 +150,7 @@ export async function provisionVPS(
       {
         gateway: {
           mode: "local",
-          bind: "0.0.0.0",
+          bind: "lan",
           trustedProxies: ["127.0.0.1", "::1"],
           auth: {
             mode: "trusted-proxy",

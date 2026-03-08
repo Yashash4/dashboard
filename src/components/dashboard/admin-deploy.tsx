@@ -179,7 +179,7 @@ export function AdminDeploy({ customers }: { customers: Customer[] }) {
 
     // Poll immediately on start, then every 2s
     poll();
-    const interval = setInterval(poll, 2000);
+    const interval = setInterval(poll, 5000);
 
     return () => clearInterval(interval);
   }, [jobId, provisioning, addLog]);
