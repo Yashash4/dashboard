@@ -94,9 +94,9 @@ export async function POST(
       );
     }
 
-    // Fix config for Docker
+    // Fix config for Docker (--network=host, so loopback = host loopback)
     if (!config.gateway) config.gateway = {};
-    config.gateway.bind = "lan";
+    config.gateway.bind = "loopback";
     config.gateway.mode = "local";
     config.gateway.trustedProxies = config.gateway.trustedProxies || ["127.0.0.1", "::1"];
 
@@ -112,7 +112,7 @@ export async function POST(
     if (!config.gateway.http.endpoints.chatCompletions) config.gateway.http.endpoints.chatCompletions = {};
     config.gateway.http.endpoints.chatCompletions.enabled = true;
 
-    // Ensure controlUi settings for lan bind
+    // Ensure controlUi settings
     if (!config.gateway.controlUi) config.gateway.controlUi = {};
     if (!config.gateway.controlUi.allowedOrigins) {
       config.gateway.controlUi.allowedOrigins = [
@@ -178,12 +178,12 @@ export async function POST(
     // Remove existing container if any
     await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
 
-    // Start Docker container (default CMD starts gateway — no override needed)
+    // Start Docker container — host networking so nginx (127.0.0.1) is trusted
     const dockerRun = [
       "docker run -d --init",
       "--name openclaw",
       "--restart=unless-stopped",
-      "-p 127.0.0.1:18789:18789",
+      "--network=host",
       "-v /opt/openclaw/config:/home/node/.openclaw",
       "ghcr.io/openclaw/openclaw:latest",
     ].join(" ");

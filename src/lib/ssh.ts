@@ -984,7 +984,7 @@ export async function configureApiKeys(
     // 2. Preserve or rebuild gateway section
     const gateway = existingConfig.gateway || {
       mode: "local",
-      bind: runtime === "docker" ? "lan" : "loopback",
+      bind: "loopback",
       trustedProxies: ["127.0.0.1", "::1"],
       auth: {
         mode: "trusted-proxy",

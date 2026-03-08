@@ -1,5 +1,4 @@
 import { NodeSSH } from "node-ssh";
-import { randomUUID } from "crypto";
 
 export interface ProvisionConfig {
   ip: string;
@@ -139,13 +138,12 @@ export async function provisionVPS(
     );
 
     // Step 6: Write gateway config to host volume path
-    // bind=lan for Docker (0.0.0.0 inside container), auth=token for HTTP chat API
-    const gatewayToken = randomUUID();
+    // bind=loopback — safe because we use --network=host (container shares host network)
     const gatewayConfig = JSON.stringify(
       {
         gateway: {
           mode: "local",
-          bind: "lan",
+          bind: "loopback",
           trustedProxies: ["127.0.0.1", "::1"],
           auth: {
             mode: "trusted-proxy",
@@ -197,12 +195,13 @@ export async function provisionVPS(
       // Remove old container
       await ssh.execCommand("docker rm -f openclaw 2>/dev/null || true");
 
-      // Start container — single volume, default CMD, no command override
+      // Start container — host networking so nginx (127.0.0.1) is trusted by gateway
+      // No -p port mapping needed with --network=host
       const runCmd = [
         "docker run -d --init",
         "--name openclaw",
         "--restart=unless-stopped",
-        "-p 127.0.0.1:18789:18789",
+        "--network=host",
         "-v /opt/openclaw/config:/home/node/.openclaw",
         "ghcr.io/openclaw/openclaw:latest",
       ].join(" ");
