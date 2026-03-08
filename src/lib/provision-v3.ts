@@ -288,15 +288,8 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 10: Configure Nginx — write config via base64 and apply
-    const authDirectives = config.dashboardUsername && config.dashboardPassword
-      ? [
-          '        auth_basic "OpenClaw Dashboard";',
-          "        auth_basic_user_file /etc/nginx/.htpasswd;",
-          "",
-        ]
-      : [];
-
+    // Step 10: Configure Nginx — no Basic Auth (trusted-proxy handles auth,
+    // and Basic Auth blocks cross-origin iframe embedding from app.clawhq.tech)
     const nginxConf = [
       "server {",
       "    listen 80;",
@@ -307,7 +300,6 @@ export async function provisionVPS(
       `    ssl_certificate_key /etc/ssl/private/${config.hostname}.key;`,
       "",
       "    location / {",
-      ...authDirectives,
       "        proxy_pass http://127.0.0.1:18789;",
       "        proxy_http_version 1.1;",
       "        proxy_set_header Upgrade $http_upgrade;",
@@ -324,17 +316,11 @@ export async function provisionVPS(
     ].join("\n");
     const nginxConfB64 = Buffer.from(nginxConf).toString("base64");
 
-    // Build htpasswd creation command if credentials provided
-    const htpasswdCmd = config.dashboardUsername && config.dashboardPassword
-      ? `htpasswd -cb /etc/nginx/.htpasswd '${config.dashboardUsername.replace(/'/g, "'\\''")}' '${config.dashboardPassword.replace(/'/g, "'\\''")}'`
-      : "echo 'No auth credentials — skipping htpasswd'";
-
     const nginxConfigScript = [
       "#!/bin/bash",
       "set -e",
       "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH",
       "mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled",
-      htpasswdCmd,
       `echo '${nginxConfB64}' | base64 -d > /etc/nginx/sites-available/${config.hostname}`,
       `ln -sf /etc/nginx/sites-available/${config.hostname} /etc/nginx/sites-enabled/`,
       "rm -f /etc/nginx/sites-enabled/default",
@@ -351,16 +337,13 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 11: Verify — test gateway + nginx locally
-    // Use /v1/ path for nginx check (bypasses Basic Auth)
+    // Step 11: Verify — test gateway directly + through nginx
     await runStep(
       ssh,
       11,
       [
         "curl -sf http://127.0.0.1:18789/ > /dev/null",
-        config.dashboardUsername && config.dashboardPassword
-          ? `curl -sfk -u '${config.dashboardUsername}:${config.dashboardPassword}' https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`
-          : `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
+        `curl -sfk https://127.0.0.1/ -H 'Host: ${config.hostname}' > /dev/null`,
         `echo 'Verified: https://${config.hostname} is ready'`,
       ].join(" && "),
       onProgress

@@ -1,10 +1,9 @@
-import { Globe, ExternalLink, KeyRound } from "lucide-react";
+import { Globe, ExternalLink } from "lucide-react";
 
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { OpenClawCredentialsBanner } from "@/components/dashboard/openclaw-credentials-banner";
 
 export default async function OpenClawPage() {
   const supabase = await createClient();
@@ -17,15 +16,13 @@ export default async function OpenClawPage() {
   const admin = createAdminClient();
   const { data: vps } = await admin
     .from("vps_instances")
-    .select("openclaw_dashboard_url, openclaw_auth_token, dashboard_username, dashboard_password")
+    .select("openclaw_dashboard_url")
     .eq("user_id", user.id)
     .single();
 
-  const baseUrl = vps?.openclaw_dashboard_url?.replace(/\/$/, "");
-  const token = vps?.openclaw_auth_token;
-  const dashboardUrl = baseUrl && token ? `${baseUrl}/#token=${token}` : baseUrl;
+  const dashboardUrl = vps?.openclaw_dashboard_url?.replace(/\/$/, "");
 
-  if (!baseUrl) {
+  if (!dashboardUrl) {
     return (
       <div>
         <h1 className="text-2xl font-bold mb-1">OpenClaw Dashboard</h1>
@@ -63,12 +60,6 @@ export default async function OpenClawPage() {
           </a>
         </Button>
       </div>
-      {vps.dashboard_username && vps.dashboard_password && (
-        <OpenClawCredentialsBanner
-          username={vps.dashboard_username}
-          password={vps.dashboard_password}
-        />
-      )}
       <iframe
         src={dashboardUrl}
         className="flex-1 w-full border-0"
