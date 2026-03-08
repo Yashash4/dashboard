@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
   AlertTriangle,
@@ -28,6 +29,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
 import { mockEvents } from "@/lib/mock-data/mission-control";
 import type { MCEvent } from "@/types/mission-control";
 
@@ -98,7 +100,23 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function EventFeed() {
-  const [events] = useState<MCEvent[]>(mockEvents);
+  useMissionControlStream();
+
+  const { data: events = mockEvents } = useQuery<MCEvent[]>({
+    queryKey: ["mc-events"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/events");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.events?.length > 0 ? json.events : mockEvents;
+      } catch {
+        return mockEvents;
+      }
+    },
+    refetchInterval: 2000,
+  });
+
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);

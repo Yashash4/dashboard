@@ -1,15 +1,44 @@
+export type MCTaskColumn =
+  | "planning"
+  | "inbox"
+  | "assigned"
+  | "in_progress"
+  | "testing"
+  | "review"
+  | "done";
+
+export const MC_COLUMNS: {
+  id: MCTaskColumn;
+  label: string;
+  color: string;
+}[] = [
+  { id: "planning", label: "Planning", color: "border-t-purple-500" },
+  { id: "inbox", label: "Inbox", color: "border-t-pink-500" },
+  { id: "assigned", label: "Assigned", color: "border-t-blue-500" },
+  { id: "in_progress", label: "In Progress", color: "border-t-yellow-500" },
+  { id: "testing", label: "Testing", color: "border-t-cyan-500" },
+  { id: "review", label: "Review", color: "border-t-violet-500" },
+  { id: "done", label: "Done", color: "border-t-green-500" },
+];
+
 export interface MCTask {
   id: string;
   user_id: string;
   title: string;
   description: string | null;
-  column_id: "inbox" | "backlog" | "in_progress" | "review" | "done";
+  column_id: MCTaskColumn;
   priority: "low" | "medium" | "high" | "critical";
   assigned_agent_id: string | null;
   assigned_agent?: { id: string; name: string } | null;
+  created_by: string;
   due_date: string | null;
+  estimated_hours: number | null;
+  actual_hours: number | null;
   position: number;
   acceptance_criteria: string | null;
+  outcome: string | null;
+  error_message: string | null;
+  resolution: string | null;
   metadata: {
     subtasks?: Array<{ id: string; title: string; completed: boolean }>;
     tags?: string[];
@@ -19,21 +48,6 @@ export interface MCTask {
   updated_at: string;
   completed_at: string | null;
 }
-
-export type MCTaskColumn =
-  | "inbox"
-  | "backlog"
-  | "in_progress"
-  | "review"
-  | "done";
-
-export const MC_COLUMNS: { id: MCTaskColumn; label: string }[] = [
-  { id: "inbox", label: "Inbox" },
-  { id: "backlog", label: "Backlog" },
-  { id: "in_progress", label: "In Progress" },
-  { id: "review", label: "Review" },
-  { id: "done", label: "Done" },
-];
 
 export interface MCEvent {
   id: string;
@@ -118,4 +132,33 @@ export interface MCMetrics {
   tasks_completed_today: number;
   cost_today_usd: number;
   success_rate_percent: number;
+}
+
+export interface MCComment {
+  id: string;
+  task_id: string;
+  author: string;
+  content: string;
+  created_at: string;
+  parent_id: string | null;
+  mentions: string[];
+}
+
+export interface MCReview {
+  id: string;
+  task_id: string;
+  reviewer: string;
+  status: "approved" | "rejected" | "needs_changes";
+  notes: string | null;
+  created_at: string;
+}
+
+export interface MCActivity {
+  id: string;
+  task_id: string;
+  actor: string;
+  action: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
 }

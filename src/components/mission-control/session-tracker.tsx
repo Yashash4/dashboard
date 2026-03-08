@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Clock,
   Bot,
@@ -21,6 +22,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
 import { mockSessions } from "@/lib/mock-data/mission-control";
 import type { MCSession } from "@/types/mission-control";
 
@@ -54,7 +56,23 @@ function formatTime(dateStr: string): string {
 }
 
 export function SessionTracker() {
-  const [sessions] = useState<MCSession[]>(mockSessions);
+  useMissionControlStream();
+
+  const { data: sessions = mockSessions } = useQuery<MCSession[]>({
+    queryKey: ["mc-sessions"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/sessions");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.sessions?.length > 0 ? json.sessions : mockSessions;
+      } catch {
+        return mockSessions;
+      }
+    },
+    refetchInterval: 3000,
+  });
+
   const [selectedSession, setSelectedSession] = useState<MCSession | null>(
     null
   );

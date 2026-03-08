@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
 import {
   mockMetrics,
   mockAgentStatuses,
@@ -27,7 +28,13 @@ import {
   mockEvents,
   mockSessions,
 } from "@/lib/mock-data/mission-control";
-import type { MCMetrics } from "@/types/mission-control";
+import type {
+  MCMetrics,
+  MCAgentStatus,
+  MCTask,
+  MCEvent,
+  MCSession,
+} from "@/types/mission-control";
 
 const STATUS_COLORS: Record<string, string> = {
   online: "text-green-500",
@@ -59,6 +66,8 @@ function formatTimeAgo(dateStr: string): string {
 }
 
 export function MissionControlOverview() {
+  useMissionControlStream();
+
   const { data: metrics, isLoading } = useQuery<MCMetrics>({
     queryKey: ["mission-control", "metrics"],
     queryFn: async () => {
@@ -73,16 +82,76 @@ export function MissionControlOverview() {
     refetchInterval: 10000,
   });
 
+  const { data: agents = mockAgentStatuses } = useQuery<MCAgentStatus[]>({
+    queryKey: ["mc-agents"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/agents/status");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.agents?.length > 0 ? json.agents : mockAgentStatuses;
+      } catch {
+        return mockAgentStatuses;
+      }
+    },
+    refetchInterval: 5000,
+  });
+
+  const { data: tasks = mockTasks } = useQuery<MCTask[]>({
+    queryKey: ["mc-tasks"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/tasks");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.tasks?.length > 0 ? json.tasks : mockTasks;
+      } catch {
+        return mockTasks;
+      }
+    },
+    refetchInterval: 5000,
+  });
+
+  const { data: events = mockEvents } = useQuery<MCEvent[]>({
+    queryKey: ["mc-events"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/events?limit=5");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.events?.length > 0 ? json.events : mockEvents;
+      } catch {
+        return mockEvents;
+      }
+    },
+    refetchInterval: 5000,
+  });
+
+  const { data: sessions = mockSessions } = useQuery<MCSession[]>({
+    queryKey: ["mc-sessions"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/sessions");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.sessions?.length > 0 ? json.sessions : mockSessions;
+      } catch {
+        return mockSessions;
+      }
+    },
+    refetchInterval: 5000,
+  });
+
   const m = metrics || mockMetrics;
 
-  const inProgressTasks = mockTasks.filter(
+  const inProgressTasks = tasks.filter(
     (t) => t.column_id === "in_progress"
   );
-  const recentEvents = mockEvents.slice(0, 5);
-  const activeSessions = mockSessions.filter((s) => !s.ended_at);
+  const recentEvents = events.slice(0, 5);
+  const activeSessions = sessions.filter((s) => !s.ended_at);
 
   const agentsByStatus: Record<string, number> = {};
-  for (const a of mockAgentStatuses) {
+  for (const a of agents) {
     agentsByStatus[a.status] = (agentsByStatus[a.status] || 0) + 1;
   }
 
@@ -151,7 +220,7 @@ export function MissionControlOverview() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockAgentStatuses.map((agent) => (
+            {agents.map((agent) => (
               <div
                 key={agent.id}
                 className="flex items-center justify-between"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bot,
   Wrench,
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { StatusIndicator } from "./status-indicator";
+import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
 import { mockAgentStatuses } from "@/lib/mock-data/mission-control";
 import type { MCAgentStatus } from "@/types/mission-control";
 
@@ -36,7 +38,23 @@ function formatTimeAgo(dateStr: string | null): string {
 }
 
 export function AgentRoster() {
-  const [agents] = useState<MCAgentStatus[]>(mockAgentStatuses);
+  useMissionControlStream();
+
+  const { data: agents = mockAgentStatuses } = useQuery<MCAgentStatus[]>({
+    queryKey: ["mc-agents"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/mission-control/agents/status");
+        if (!res.ok) throw new Error();
+        const json = await res.json();
+        return json.agents?.length > 0 ? json.agents : mockAgentStatuses;
+      } catch {
+        return mockAgentStatuses;
+      }
+    },
+    refetchInterval: 2000,
+  });
+
   const [selectedAgent, setSelectedAgent] = useState<MCAgentStatus | null>(null);
 
   const statusCounts: Record<string, number> = {};
