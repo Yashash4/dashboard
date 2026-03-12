@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getVM } from "@/lib/hostinger";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   const supabase = await createClient();
@@ -11,6 +12,11 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:vps_status`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();
@@ -30,7 +36,14 @@ export async function GET() {
   if (vps.hostinger_vm_id) {
     try {
       const vm = await getVM(vps.hostinger_vm_id);
-      const hostingerState = vm.state === "running" ? "running" : "stopped";
+      const hostingerState =
+        vm.state === "running"
+          ? "running"
+          : vm.state === "error"
+            ? "error"
+            : vm.state === "restoring"
+              ? "restarting"
+              : "stopped";
 
       if (hostingerState !== vps.status && vps.status !== "restarting") {
         await admin

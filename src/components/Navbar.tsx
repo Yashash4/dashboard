@@ -78,12 +78,12 @@ const Navbar = () => {
               </a>
             );
           })}
-          <a
+          <Link
             href="/register"
             className="text-[11px] font-mono tracking-wider border border-primary bg-primary text-primary-foreground px-4 py-1.5 hover:brightness-110 transition-all duration-200 uppercase"
           >
             Get Started
-          </a>
+          </Link>
         </div>
 
         {/* Mobile Menu Toggle */}
@@ -114,12 +114,12 @@ const Navbar = () => {
               </a>
             );
           })}
-          <a
+          <Link
             href="/register"
             className="block mt-2 text-center border border-primary bg-primary text-primary-foreground px-5 py-2 text-sm font-mono tracking-wider uppercase hover:brightness-110 transition-all"
           >
             Get Started
-          </a>
+          </Link>
         </div>
       )}
     </nav>

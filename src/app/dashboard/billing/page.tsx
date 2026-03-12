@@ -12,18 +12,32 @@ export default async function BillingPage() {
 
   if (!user) return null;
 
-  const [{ data: subscription }, { data: payments }] = await Promise.all([
-    supabase
-      .from("subscriptions")
-      .select("plan, billing_cycle, price, status, started_at, expires_at")
-      .eq("user_id", user.id)
-      .single(),
-    supabase
-      .from("payments")
-      .select("id, amount, description, status, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  let subscription: any = null;
+  let payments: any[] | null = null;
+
+  try {
+    const [subRes, paymentsRes] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("plan, billing_cycle, price, status, started_at, expires_at")
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("payments")
+        .select("id, amount, description, status, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
+    subscription = subRes.data;
+    payments = paymentsRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your data. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   if (!subscription) {
     return (

@@ -265,7 +265,7 @@ const ComparisonSection = () => {
           transition={{ delay: 0.5, duration: 0.5 }}
           className="mt-8 text-center text-xs font-mono text-white/25"
         >
-          ALL MODELS ARE OPEN-SOURCE. NO VENDOR LOCK-IN. YOUR DATA STAYS YOURS.
+          500+ AI MODELS. NO VENDOR LOCK-IN. YOUR DATA STAYS YOURS.
         </motion.p>
       </div>
     </section>

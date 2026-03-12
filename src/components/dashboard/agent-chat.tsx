@@ -332,7 +332,7 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
                 <span className="truncate">{agent.name}</span>
               </button>
             ))}

@@ -19,7 +19,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { model } = body as { model?: string };
 
   if (!model) {
@@ -119,8 +124,8 @@ export async function POST(request: NextRequest) {
   const effectiveDate = isInstant ? new Date() : subscription.expires_at;
 
   if (isInstant) {
-    // Instant: update current model directly
-    await admin
+    // Instant: atomically claim a change slot to prevent race conditions
+    const { data: claimed } = await admin
       .from("models")
       .update({
         current_model: model,
@@ -130,7 +135,21 @@ export async function POST(request: NextRequest) {
         changes_this_month: (modelConfig.changes_this_month || 0) + 1,
         last_change_at: new Date().toISOString(),
       })
-      .eq("id", modelConfig.id);
+      .eq("id", modelConfig.id)
+      .lt("changes_this_month", maxChanges)
+      .select("id");
+
+    if (!claimed?.length) {
+      return NextResponse.json(
+        {
+          error:
+            subscription.plan === "starter"
+              ? "You've used your model change for this month. Upgrade to Pro for unlimited changes."
+              : "Change limit reached",
+        },
+        { status: 400 }
+      );
+    }
 
     // Push config to VPS so the model change actually takes effect
     try {
@@ -172,11 +191,11 @@ export async function POST(request: NextRequest) {
     } catch (sshErr) {
       // SSH push failed but DB is updated — log and continue
       // User can retry or admin can re-push via API keys route
-      console.error("[models/change] SSH config push failed:", sshErr);
+      // SSH push failed but DB is updated — user can retry or admin can re-push
     }
   } else {
-    // Scheduled: set as pending change
-    await admin
+    // Scheduled: atomically claim a change slot
+    const { data: claimed } = await admin
       .from("models")
       .update({
         requested_model: model,
@@ -184,7 +203,18 @@ export async function POST(request: NextRequest) {
         changes_this_month: (modelConfig.changes_this_month || 0) + 1,
         last_change_at: new Date().toISOString(),
       })
-      .eq("id", modelConfig.id);
+      .eq("id", modelConfig.id)
+      .lt("changes_this_month", maxChanges)
+      .select("id");
+
+    if (!claimed?.length) {
+      return NextResponse.json(
+        {
+          error: "You've used your model change for this month. Upgrade to Pro for unlimited changes.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   return NextResponse.json({

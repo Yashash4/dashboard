@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { getProcessList } from "@/lib/ssh";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
   const supabase = await createClient();
@@ -12,6 +13,11 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:vps_processes`, 20, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();

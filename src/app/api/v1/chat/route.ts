@@ -261,8 +261,6 @@ export async function POST(request: NextRequest) {
 
     if (!openclawResponse.ok) {
       const errText = await openclawResponse.text().catch(() => "");
-      console.error("[v1/chat] OpenClaw error:", openclawResponse.status, errText);
-
       // Track error analytics
       admin
         .from("agent_analytics")
@@ -340,7 +338,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("[v1/chat] Error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

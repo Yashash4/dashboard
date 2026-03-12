@@ -10,7 +10,6 @@ interface OpenClawEmbedProps {
 
 export function OpenClawEmbed({ dashboardUrl, embedKey }: OpenClawEmbedProps) {
   const [ready, setReady] = useState(false);
-  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!embedKey) {

@@ -113,11 +113,16 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
 
       <Tabs value={filter} onValueChange={setFilter}>
         <TabsList>
-          {STATUS_TABS.map((tab) => (
-            <TabsTrigger key={tab} value={tab}>
-              {formatTabLabel(tab)}
-            </TabsTrigger>
-          ))}
+          {STATUS_TABS.map((tab) => {
+            const count = tab === "all"
+              ? tickets.length
+              : tickets.filter((t) => t.status === tab).length;
+            return (
+              <TabsTrigger key={tab} value={tab}>
+                {formatTabLabel(tab)} ({count})
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </Tabs>
 

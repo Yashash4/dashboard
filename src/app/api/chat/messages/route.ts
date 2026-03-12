@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -10,6 +11,11 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:chat_messages_get`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const agentId = request.nextUrl.searchParams.get("agent_id");
@@ -39,10 +45,12 @@ export async function GET(request: NextRequest) {
     .from("chat_messages")
     .select("id, role, content, created_at")
     .eq("conversation_id", conversation.id)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(50);
 
-  return NextResponse.json({ messages: messages || [] });
+  const sorted = (messages || []).reverse();
+
+  return NextResponse.json({ messages: sorted });
 }
 
 // Clear chat history for an agent
@@ -54,6 +62,11 @@ export async function DELETE(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:chat_messages_delete`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const agentId = request.nextUrl.searchParams.get("agent_id");

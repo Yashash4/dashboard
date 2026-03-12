@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   if (!dashboardUrl) {
     return NextResponse.json(
-      { error: "OpenClaw dashboard URL is not configured. Contact support." },
+      { error: "Agent endpoint not configured. Contact support." },
       { status: 400 }
     );
   }
@@ -203,15 +203,9 @@ export async function POST(request: NextRequest) {
 
     if (!openclawResponse.ok) {
       const errorText = await openclawResponse.text().catch(() => "");
-      console.error(
-        "[chat/send] OpenClaw error:",
-        openclawResponse.status,
-        errorText
-      );
-
       if (openclawResponse.status === 401) {
         return NextResponse.json(
-          { error: "Authentication failed. Check your dashboard credentials." },
+          { error: "Connection to your agent failed." },
           { status: 502 }
         );
       }
@@ -310,7 +304,6 @@ export async function POST(request: NextRequest) {
         { status: 504 }
       );
     }
-    console.error("[chat/send] Error:", err);
     return NextResponse.json(
       { error: "Failed to send message" },
       { status: 500 }

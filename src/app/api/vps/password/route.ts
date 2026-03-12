@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { updateDashboardPassword } from "@/lib/ssh";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,11 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:vps_password_get`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();
@@ -45,7 +51,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
+  const rl = rateLimit(`${user.id}:vps_password_post`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
   const { password } = body as { password?: string };
 
   if (!password || password.length < 8) {
@@ -71,11 +90,19 @@ export async function POST(request: NextRequest) {
   const username = vps.dashboard_username || "admin";
 
   // Update on VPS via SSH
-  const result = await updateDashboardPassword(vps, username, password);
+  let result;
+  try {
+    result = await updateDashboardPassword(vps, username, password);
+  } catch {
+    return NextResponse.json(
+      { error: "Failed to update password. Try again." },
+      { status: 500 }
+    );
+  }
 
   if (!result.success) {
     return NextResponse.json(
-      { error: "Failed to update password" },
+      { error: "Failed to update password. Try again." },
       { status: 500 }
     );
   }

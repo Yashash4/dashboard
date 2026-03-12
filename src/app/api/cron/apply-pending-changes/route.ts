@@ -6,6 +6,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 min max for SSH operations
 
 export async function GET(request: NextRequest) {
+  if (!process.env.CRON_SECRET) {
+    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+  }
+
   // Verify Vercel Cron secret
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -141,10 +145,6 @@ export async function GET(request: NextRequest) {
         status: "applied",
       });
     } catch (err: any) {
-      console.error(
-        `[cron/apply-pending] Error for user ${change.user_id}:`,
-        err.message
-      );
       results.push({
         userId: change.user_id,
         model: change.requested_model,

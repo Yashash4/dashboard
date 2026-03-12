@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { getOpenClawLogs } from "@/lib/ssh";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:vps_logs`, 20, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();
@@ -51,7 +57,6 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json({ logs });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch logs";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch logs." }, { status: 500 });
   }
 }

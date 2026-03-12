@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { enableDashboardEmbedding } from "@/lib/ssh";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -11,6 +12,11 @@ export async function POST(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:vps_enable_embedding`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();
@@ -46,8 +52,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to configure embedding";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update configuration." }, { status: 500 });
   }
 }

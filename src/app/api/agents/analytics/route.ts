@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,11 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:agents_analytics`, 20, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const { searchParams } = request.nextUrl;
@@ -38,7 +44,6 @@ export async function GET(request: NextRequest) {
   const { data: rows, error } = await query;
 
   if (error) {
-    console.error("[agents/analytics] Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch analytics" },
       { status: 500 }

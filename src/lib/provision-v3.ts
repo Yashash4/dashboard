@@ -52,9 +52,6 @@ async function runStep(
   if (result.code !== null && result.code !== 0) {
     const errMsg =
       result.stderr?.trim() || result.stdout?.trim() || "Command failed";
-    console.error(`[Provision] ✗ Step ${stepNum} FAILED: ${errMsg}`);
-    if (result.stderr) console.error(`[Provision]   stderr: ${result.stderr.trim()}`);
-    if (result.stdout) console.error(`[Provision]   stdout: ${result.stdout.trim()}`);
     onProgress({ step: stepNum, label, status: "error", output: errMsg });
     throw new Error(`Step ${stepNum} (${label}) failed: ${errMsg}`);
   }
@@ -222,7 +219,6 @@ export async function provisionVPS(
         const logs = await ssh.execCommand("docker logs openclaw --tail 40 2>&1");
         const logOutput = logs.stdout?.trim() || logs.stderr?.trim() || "no logs";
         const errMsg = `Container state: ${state || "not found"}. Logs:\n${logOutput}`;
-        console.error(`[Provision] ✗ Step 7 FAILED: ${errMsg}`);
         onProgress({ step: 7, label, status: "error", output: errMsg });
         throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
       }
@@ -233,7 +229,6 @@ export async function provisionVPS(
       );
       if (healthCheck.code !== null && healthCheck.code !== 0) {
         const errMsg = healthCheck.stdout?.trim() || healthCheck.stderr?.trim() || "Gateway not responding";
-        console.error(`[Provision] ✗ Step 7 FAILED (health): ${errMsg}`);
         onProgress({ step: 7, label, status: "error", output: errMsg });
         throw new Error(`Step 7 (${label}) failed: ${errMsg}`);
       }
@@ -404,7 +399,6 @@ export async function provisionVPS(
 
     return { success: true };
   } catch (err: any) {
-    console.error(`[Provision] ✗ FAILED — ${err.message}`);
     return { success: false, error: err.message || "Provisioning failed" };
   } finally {
     if (ssh) {

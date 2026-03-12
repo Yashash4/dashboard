@@ -127,10 +127,10 @@ export function SSLChecker({ hostname }: { hostname: string }) {
                   <p className="text-muted-foreground">Days Remaining</p>
                   <p
                     className={`font-medium font-mono ${
-                      result.daysRemaining < 14
-                        ? "text-yellow-500"
-                        : result.daysRemaining < 0
-                          ? "text-red-500"
+                      result.daysRemaining < 0
+                        ? "text-red-500"
+                        : result.daysRemaining < 14
+                          ? "text-yellow-500"
                           : ""
                     }`}
                   >

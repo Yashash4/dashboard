@@ -2,8 +2,10 @@ import { Globe, ExternalLink } from "lucide-react";
 
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { hasAccess } from "@/lib/tier";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { OpenClawCredentialsBanner } from "@/components/dashboard/openclaw-credentials-banner";
 import { OpenClawEmbed } from "@/components/dashboard/openclaw-embed";
 
@@ -14,6 +16,26 @@ export default async function OpenClawPage() {
   } = await supabase.auth.getUser();
 
   if (!user) return null;
+
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("plan")
+    .eq("user_id", user.id)
+    .single();
+
+  const plan = (subscription?.plan as string) || "starter";
+
+  if (!hasAccess(plan, "pro")) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold mb-1">OpenClaw Dashboard</h1>
+        <p className="text-muted-foreground mb-6">
+          Access your OpenClaw dashboard.
+        </p>
+        <UpgradePrompt requiredPlan="pro" />
+      </div>
+    );
+  }
 
   const admin = createAdminClient();
   const { data: vps } = await admin

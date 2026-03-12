@@ -163,6 +163,8 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
     enabled: isRunning,
   });
 
+  const [logsError, setLogsError] = useState<string | null>(null);
+
   // Fetch logs on demand
   const {
     data: logsData,
@@ -173,9 +175,11 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
     queryFn: async () => {
       const res = await fetch("/api/vps/logs?lines=200");
       if (!res.ok) {
-        const err = await res.json();
-        return err.error || "Failed to fetch logs";
+        const err = await res.json().catch(() => ({}));
+        setLogsError(err.error || "Failed to fetch logs");
+        return "";
       }
+      setLogsError(null);
       const data = await res.json();
       return data.logs as string;
     },
@@ -693,22 +697,30 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">CPU</p>
-              <p className="text-sm font-medium">{vps.cpu_cores} vCPU</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">RAM</p>
-              <p className="text-sm font-medium">{vps.ram_gb} GB</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Storage</p>
-              <p className="text-sm font-medium">{vps.storage_gb} GB</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Bandwidth</p>
-              <p className="text-sm font-medium">{vps.bandwidth_tb} TB</p>
-            </div>
+            {vps.cpu_cores != null && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">CPU</p>
+                <p className="text-sm font-medium">{vps.cpu_cores} vCPU</p>
+              </div>
+            )}
+            {vps.ram_gb != null && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">RAM</p>
+                <p className="text-sm font-medium">{vps.ram_gb} GB</p>
+              </div>
+            )}
+            {vps.storage_gb != null && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Storage</p>
+                <p className="text-sm font-medium">{vps.storage_gb} GB</p>
+              </div>
+            )}
+            {vps.bandwidth_tb != null && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Bandwidth</p>
+                <p className="text-sm font-medium">{vps.bandwidth_tb} TB</p>
+              </div>
+            )}
             <div>
               <p className="text-xs text-muted-foreground mb-1">Provisioned</p>
               <p className="text-sm font-medium">
@@ -775,8 +787,12 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-5/6" />
               </div>
+            ) : logsError ? (
+              <div className="bg-black/50 p-4 max-h-96 overflow-y-auto text-sm text-muted-foreground">
+                Could not load logs. Your server may be stopped.
+              </div>
             ) : (
-              <div className="bg-black/50 rounded-md p-4 max-h-96 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap">
+              <div className="bg-black/50 p-4 max-h-96 overflow-y-auto font-mono text-xs text-green-400 whitespace-pre-wrap">
                 {logsData || "No logs available"}
                 <div ref={logsEndRef} />
               </div>

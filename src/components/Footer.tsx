@@ -62,7 +62,7 @@ const Footer = () => {
           </div>
 
           {/* Links grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-10 lg:gap-16">
+          <div className="grid grid-cols-2 gap-10 lg:gap-16">
             <div>
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-4 h-px bg-white/20" />
@@ -95,8 +95,8 @@ const Footer = () => {
               <div className="space-y-3">
                 {[
                   { label: "Contact", href: "mailto:hello@clawhq.tech" },
-                  { label: "Terms", href: "#" },
-                  { label: "Privacy", href: "#" },
+                  { label: "Terms", href: "/terms" },
+                  { label: "Privacy", href: "/privacy" },
                 ].map((link) => (
                   <a
                     key={link.label}
@@ -110,28 +110,6 @@ const Footer = () => {
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-4 h-px bg-white/20" />
-                <h4 className="text-[10px] font-mono text-white/40 tracking-widest uppercase">Connect</h4>
-              </div>
-              <div className="space-y-3">
-                {[
-                  { label: "Twitter / X", href: "#" },
-                  { label: "Discord", href: "#" },
-                  { label: "GitHub", href: "#" },
-                ].map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    className="flex items-center gap-2 text-xs text-white/25 hover:text-white transition-colors font-mono group"
-                  >
-                    <span className="text-white/10 group-hover:text-primary transition-colors">→</span>
-                    {link.label}
-                  </a>
-                ))}
-              </div>
-            </div>
           </div>
         </div>
 

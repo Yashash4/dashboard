@@ -32,7 +32,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { channel_type, credentials } = body as {
     channel_type?: string;
     credentials?: Record<string, string>;
@@ -155,8 +160,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, channel_id: channelId });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to connect channel";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to connect channel." }, { status: 500 });
   }
 }

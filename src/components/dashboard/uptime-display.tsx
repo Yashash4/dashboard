@@ -44,7 +44,21 @@ export function UptimeDisplay() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <Card className="border-border">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Uptime
+          </CardTitle>
+          <Activity className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Uptime data unavailable</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const percentage = data.uptime_percentage;
   const statusColor =

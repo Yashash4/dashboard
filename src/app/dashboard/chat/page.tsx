@@ -1,4 +1,4 @@
-import { Bot } from "lucide-react";
+import { AlertTriangle, Bot } from "lucide-react";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase-server";
@@ -14,12 +14,34 @@ export default async function ChatPage() {
 
   if (!user) return null;
 
-  // Get deployed agents
-  const { data: userAgents } = await supabase
-    .from("user_agents")
-    .select("agent_id, agents(id, name, description)")
-    .eq("user_id", user.id)
-    .eq("deployed", true);
+  let userAgents: any[] | null = null;
+  let vps: any = null;
+
+  try {
+    const [agentsRes, vpsRes] = await Promise.all([
+      supabase
+        .from("user_agents")
+        .select("agent_id, agents(id, name, description)")
+        .eq("user_id", user.id)
+        .eq("deployed", true),
+      supabase
+        .from("vps_instances")
+        .select("status")
+        .eq("user_id", user.id)
+        .single(),
+    ]);
+    userAgents = agentsRes.data;
+    vps = vpsRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your data. Please refresh the page.</p>
+      </div>
+    );
+  }
+
+  const vpsWarning = !vps || vps.status !== "running";
 
   const agents = (userAgents || [])
     .map((ua: any) => ua.agents)
@@ -32,6 +54,12 @@ export default async function ChatPage() {
         <p className="text-muted-foreground mb-6">
           Chat with your deployed agents.
         </p>
+        {vpsWarning && (
+          <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to chat with agents.</span>
+          </div>
+        )}
         <Card className="border-border">
           <CardContent className="pt-6">
             <div className="text-center py-8">
@@ -52,6 +80,12 @@ export default async function ChatPage() {
 
   return (
     <div className="-m-6 h-[calc(100vh-3.5rem)]">
+      {vpsWarning && (
+        <div className="m-6 mb-0 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to chat with agents.</span>
+        </div>
+      )}
       <AgentChat agents={agents} />
     </div>
   );

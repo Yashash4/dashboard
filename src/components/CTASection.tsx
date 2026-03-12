@@ -70,7 +70,7 @@ const CTASection = () => {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          <span>No credit card required</span>
+          <span>No long-term contract</span>
           <span className="hidden md:inline text-white/20">·</span>
           <span>Cancel anytime</span>
           <span className="hidden md:inline text-white/20">·</span>

@@ -12,12 +12,16 @@ export default async function ModelsPage() {
 
   if (!user) return null;
 
-  const [{ data: modelConfig }, { data: availableModels }, { data: subscription }] =
-    await Promise.all([
+  let modelConfig: any = null;
+  let availableModels: any[] | null = null;
+  let subscription: any = null;
+
+  try {
+    const [modelRes, modelsListRes, subRes] = await Promise.all([
       supabase
         .from("models")
         .select(
-          "current_model, requested_model, change_effective_date, context_limit, changes_this_month"
+          "current_model, requested_model, change_effective_date, context_limit, changes_this_month, last_change_at"
         )
         .eq("user_id", user.id)
         .single(),
@@ -32,6 +36,29 @@ export default async function ModelsPage() {
         .eq("user_id", user.id)
         .single(),
     ]);
+    modelConfig = modelRes.data;
+    availableModels = modelsListRes.data;
+    subscription = subRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your data. Please refresh the page.</p>
+      </div>
+    );
+  }
+
+  // Lazy reset: if billing cycle renewed since last change, reset counter
+  if (modelConfig?.last_change_at && subscription?.expires_at) {
+    const lastChange = new Date(modelConfig.last_change_at);
+    const expiresAt = new Date(subscription.expires_at);
+    const cycleStart = new Date(expiresAt);
+    cycleStart.setMonth(cycleStart.getMonth() - 1);
+
+    if (lastChange < cycleStart) {
+      modelConfig.changes_this_month = 0;
+    }
+  }
 
   if (!modelConfig || !subscription) {
     return (

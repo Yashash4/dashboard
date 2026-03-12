@@ -40,10 +40,11 @@ const PricingSection = () => {
         "Real-time monitoring",
         "Priority support",
       ],
-      cta: "Get Started",
+      cta: "Coming Soon",
       href: "/register",
       highlighted: false,
       badge: "Coming Soon",
+      disabled: true,
     },
     {
       name: "Ultra",
@@ -219,7 +220,15 @@ const PricingSection = () => {
               </ul>
 
               {/* CTA */}
-              {plan.href.startsWith("mailto:") ? (
+              {plan.disabled ? (
+                <button
+                  disabled
+                  className="block w-full py-3 px-6 text-center font-medium bg-white/5 text-white/40 border border-white/10 cursor-not-allowed"
+                  style={{ borderRadius: 0 }}
+                >
+                  {plan.cta}
+                </button>
+              ) : plan.href.startsWith("mailto:") ? (
                 <a
                   href={plan.href}
                   className={`block w-full py-3 px-6 text-center font-medium transition-colors ${

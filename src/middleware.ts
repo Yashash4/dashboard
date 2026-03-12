@@ -69,6 +69,11 @@ export async function middleware(request: NextRequest) {
   const user = session?.user || null;
 
   // Logged-in users trying to access auth pages → redirect to home
+  // /reset-password is accessible to anyone (recovery token in URL fragment)
+  if (path === "/reset-password") {
+    return supabaseResponse;
+  }
+
   if ((path === "/login" || path === "/register") && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
@@ -144,6 +149,7 @@ export const config = {
     "/admin/:path*",
     "/login",
     "/register",
+    "/reset-password",
     "/vps/:path*",
     "/models/:path*",
     "/agents/:path*",

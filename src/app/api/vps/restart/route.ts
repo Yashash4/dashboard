@@ -58,13 +58,11 @@ export async function POST() {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to restart VPS";
     await admin
       .from("vps_instances")
       .update({ status: "error" })
       .eq("id", vps.id);
 
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to restart server. Try again." }, { status: 500 });
   }
 }

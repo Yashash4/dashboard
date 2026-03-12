@@ -112,24 +112,26 @@ export function AccountSettings({ profile }: { profile: Profile }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Display Name</Label>
-            <div className="flex gap-3">
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your display name"
-                className="max-w-sm"
-              />
-              <Button onClick={handleUpdateName} disabled={savingName}>
-                {savingName && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Save
-              </Button>
+          <form onSubmit={(e) => { e.preventDefault(); handleUpdateName(); }}>
+            <div className="space-y-2">
+              <Label htmlFor="name">Display Name</Label>
+              <div className="flex gap-3">
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your display name"
+                  className="max-w-sm"
+                />
+                <Button type="submit" disabled={savingName}>
+                  {savingName && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Save
+                </Button>
+              </div>
             </div>
-          </div>
+          </form>
 
           <div className="space-y-2">
             <Label>Email</Label>
@@ -168,48 +170,52 @@ export function AccountSettings({ profile }: { profile: Profile }) {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="current-password">Current Password</Label>
-            <Input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              placeholder="Enter your current password"
-              className="max-w-sm"
-            />
-          </div>
+          <form onSubmit={(e) => { e.preventDefault(); handleUpdatePassword(); }}>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                  className="max-w-sm"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">New Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
-              className="max-w-sm"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">New Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Minimum 8 characters"
+                  className="max-w-sm"
+                />
+              </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password">Confirm Password</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter your new password"
-              className="max-w-sm"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your new password"
+                  className="max-w-sm"
+                />
+              </div>
 
-          <Button onClick={handleUpdatePassword} disabled={savingPassword}>
-            {savingPassword && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            )}
-            Update Password
-          </Button>
+              <Button type="submit" disabled={savingPassword}>
+                {savingPassword && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Update Password
+              </Button>
+            </div>
+          </form>
         </CardContent>
       </Card>
     </div>

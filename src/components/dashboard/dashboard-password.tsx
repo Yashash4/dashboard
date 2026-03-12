@@ -14,9 +14,11 @@ export function DashboardPassword() {
   const [currentPassword, setCurrentPassword] = useState<string | null>(null);
   const [hostname, setHostname] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
 
   useEffect(() => {
     fetch("/api/vps/password")
@@ -38,6 +40,16 @@ export function DashboardPassword() {
       return;
     }
 
+    if (newPassword.includes("!")) {
+      toast.error("Password cannot contain the ! character");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
     setSaving(true);
     try {
       const res = await fetch("/api/vps/password", {
@@ -55,6 +67,7 @@ export function DashboardPassword() {
 
       setCurrentPassword(newPassword);
       setNewPassword("");
+      setConfirmPassword("");
       toast.success("Dashboard password updated");
     } catch {
       toast.error("Network error");
@@ -82,7 +95,21 @@ export function DashboardPassword() {
     );
   }
 
-  if (!username && !currentPassword) return null;
+  if (!username && !currentPassword) {
+    return (
+      <Card className="border-border">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Dashboard Password
+          </CardTitle>
+          <Shield className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Dashboard credentials not available</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-border">
@@ -128,11 +155,36 @@ export function DashboardPassword() {
 
         <div className="space-y-1.5">
           <Label className="text-xs">New Password</Label>
+          <div className="relative">
+            <Input
+              type={showNew ? "text" : "password"}
+              placeholder="Min 8 characters"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="text-sm pr-10"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="absolute right-0 top-0 h-full px-3"
+              onClick={() => setShowNew(!showNew)}
+            >
+              {showNew ? (
+                <EyeOff className="h-3.5 w-3.5" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Confirm Password</Label>
           <Input
             type="password"
-            placeholder="Min 8 characters"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Re-enter new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
             className="text-sm"
           />
         </div>
@@ -140,7 +192,7 @@ export function DashboardPassword() {
         <Button
           size="sm"
           onClick={handleSave}
-          disabled={!newPassword || newPassword.length < 8 || saving}
+          disabled={!newPassword || newPassword.length < 8 || !confirmPassword || saving}
         >
           {saving ? (
             <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />

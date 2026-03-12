@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { agent_id } = body as { agent_id?: string };
 
   if (!agent_id) {
@@ -120,8 +125,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Failed to deploy agent";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to deploy agent. Ensure your server is running." }, { status: 500 });
   }
 }

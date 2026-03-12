@@ -26,9 +26,8 @@ export async function logAudit(params: AuditParams) {
       details: params.details || null,
       ip_address: params.ip || null,
     });
-  } catch (err) {
+  } catch {
     // Non-blocking — never let audit logging break the main action
-    console.error("[audit-log] Failed to log:", err);
   }
 }
 

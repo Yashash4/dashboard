@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -75,6 +75,11 @@ export function TicketThread({
   const [sending, setSending] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [ticketStatus, setTicketStatus] = useState(ticket.status);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const status = STATUS_CONFIG[ticketStatus] || STATUS_CONFIG.open;
   const priority = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
@@ -132,6 +137,7 @@ export function TicketThread({
       ]);
       setReply("");
       toast.success("Reply sent");
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch {
       toast.error("Failed to send reply");
     } finally {
@@ -200,6 +206,7 @@ export function TicketThread({
             </div>
           );
         })}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Reply Box */}
@@ -237,7 +244,7 @@ export function TicketThread({
       ) : (
         <div className="border border-border p-4 text-center text-muted-foreground">
           <Lock className="h-5 w-5 mx-auto mb-2" />
-          <p className="text-sm">This ticket is {ticket.status}. No further replies can be added.</p>
+          <p className="text-sm">This ticket is {ticketStatus}. No further replies can be added.</p>
         </div>
       )}
     </div>

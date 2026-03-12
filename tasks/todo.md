@@ -1,109 +1,56 @@
-# Docker Migration — Implementation Plan
+# Starter Tier — Deployment Audit & Fix
 
-Based on verified testing on VPS 76.13.247.128. Every fix below is proven working.
+## Phase 1: CRITICAL BUGS
+- [x] 1.1 Create /reset-password page (forgot-password flow broken)
+- [x] 1.2 OpenClaw page add Pro tier gate
+- [x] 1.3 Chat messages route — return newest 50, not oldest
+- [x] 1.4 SSL checker color logic — check expired before warning
+- [x] 1.5 Billing page — prevent downgrade via upgrade button
+- [x] 1.6 Ticket thread — use ticketStatus not ticket.status
 
----
+## Phase 2: SECURITY
+- [x] 2.1 Sanitize error messages in 14 API routes
+- [x] 2.2 Dashboard password — add confirm field + ! warning
+- [x] 2.3 VPS password route — try/catch around SSH
+- [x] 2.4 Add rate limiting to 15 API routes
+- [x] 2.5 Wrap request.json() in try/catch (10 routes)
 
-## Task 1: Fix `provision-v3.ts` (Provisioning) ✅ DONE
-**Files**: `src/lib/provision-v3.ts`
+## Phase 3: CONSOLE REMOVAL
+- [x] 3.1 Remove 14 console statements from lib + API files
 
-Changes:
-- [x] Step 6 (Write config): Add `chown -R 1000:1000 /opt/openclaw` after dir creation, remove `/opt/openclaw/data` dir
-- [x] Step 6 (Config): Switch auth mode from `trusted-proxy` to `token` with generated UUID
-- [x] Step 6 (Config): Add `http.endpoints.chatCompletions.enabled: true`
-- [x] Step 7 (Docker run): Remove command override (use default CMD)
-- [x] Step 7 (Docker run): Remove `-v /opt/openclaw/data:/data` volume (single volume only)
-- [x] Step 7 (Docker run): Change `--restart=always` to `--restart=unless-stopped`
-- [x] Step 7 (Wait): Increase to `sleep 30`
-- [x] Step 7 (Health): Use `curl -sf http://127.0.0.1:18789/` (root URL, not `/healthz`)
-- [x] Step 7 (Logging): Keep docker logs capture on failure
-- [x] Step 10 (Nginx): Add `/v1/` location without Basic Auth for API calls
+## Phase 4: HIGH UX
+- [x] 4.1 Empty states with actionable CTAs (overview agents/channels)
+- [x] 4.2 VPS logs viewer — don't render errors as log content
+- [x] 4.3 VPS specs — null guards for cpu/ram/disk
+- [x] 4.4 Chat — change misleading green dots to neutral gray
+- [x] 4.5 Loading skeleton grid breakpoint fix
+- [x] 4.6 Footer — fix broken placeholder links, remove social stubs
+- [x] 4.7 Model config — billing cycle desync fix
+- [x] 4.8 Sidebar logout error handling
 
----
+## Phase 5: MEDIUM
+- [x] 5.1 VPS-stopped warning banners on agents/chat/channels
+- [x] 5.2 DB query error handling on 7 dashboard pages
+- [x] 5.3 VPS status route — proper state mapping (error/restoring)
+- [x] 5.4 SSL checker — guard null hostname
+- [x] 5.5 Remove rounded-md from brutalist logs container
+- [x] 5.6 Cron route — CRON_SECRET undefined check
+- [x] 5.7 Landing page copy contradictions fixed
+- [x] 5.8 Navbar — use Next.js Link for /register
 
-## Task 2: Fix `ssh.ts` core functions ✅ DONE
-**Files**: `src/lib/ssh.ts`
-
-Changes:
-- [x] `findDataDir()`: Docker → return `/home/node/.openclaw` (not `/data`)
-- [x] `writeOpenClawConfig()`: Replace heredoc with base64 encoding + chown for Docker path
-- [x] `configureApiKeys()`: Add `chown 1000:1000` after writing to host volume
-- [x] `configureApiKeys()`: Change provider key from `model-clawhq` to `clawhq`
-- [x] `configureApiKeys()`: Auth mode fallback changed to `token` (preserve existing token)
-- [x] `enableChatEndpoint()`: Add `detectRuntime()` + `docker restart openclaw` for Docker
-- [x] `getOpenClawToken()`: Add Docker path using `docker exec openclaw openclaw config get gateway.auth.token`
-- [x] `deployAgent()`: Replace heredoc with base64 encoding for Docker
-
----
-
-## Task 3: Fix API routes (gateway-health, uptime, admin health) ✅ DONE
-**Files**:
-- `src/app/api/vps/gateway-health/route.ts`
-- `src/app/api/vps/uptime/route.ts`
-- `src/app/api/admin/customers/[id]/health/route.ts`
-
-Changes:
-- [x] `gateway-health`: Add runtime detection, use `docker inspect openclaw` for Docker
-- [x] `gateway-health`: Use `docker exec openclaw openclaw --version` for Docker
-- [x] `uptime`: Add Docker path — use container restart count
-- [x] `admin health`: Same Docker detection + inspect
-
----
-
-## Task 4: Fix `migrate-docker/route.ts` ✅ DONE
-**Files**: `src/app/api/admin/customers/[id]/migrate-docker/route.ts`
-
-Changes:
-- [x] Docker run: Remove command override (use default CMD)
-- [x] Docker run: Remove `/opt/openclaw/data:/data` volume
-- [x] Docker run: Change to `--restart=unless-stopped`
-- [x] Add `chown -R 1000:1000 /opt/openclaw` after dir creation
-- [x] Config: Switch auth mode to `token` with generated UUID
-- [x] Config: Add `http.endpoints.chatCompletions.enabled: true`
-- [x] Config: Add controlUi settings for lan bind
-- [x] Wait: `sleep 30` instead of `sleep 20`
-- [x] Health check: Use `/` not `/healthz`
-- [x] Copy agents (not /data) to config dir
-- [x] Store gateway token in DB after migration
-
----
-
-## Task 5: Gateway token storage ✅ DONE
-**Files**:
-- `supabase/migrations/20260309100000_gateway_token.sql`
-- `src/lib/provision-v3.ts` (returns token)
-- `src/app/api/admin/provision/route.ts` (stores token in DB)
-- `src/app/api/chat/send/route.ts` (uses Bearer token for API calls)
-
-Changes:
-- [x] Add `gateway_token` column to `vps_instances` table (migration SQL)
-- [x] Provision: provision-v3.ts generates UUID token, returns it
-- [x] Provision route: stores `gateway_token` in DB after success
-- [x] Chat send route: Fetches `gateway_token`, uses as Bearer token
-- [x] Nginx config: `/v1/` location bypasses Basic Auth (gateway token handles security)
-- [x] Migrate-docker: stores gateway token in DB
-
----
-
-## Task 6: Model provider branding ✅ DONE
-**Files**: `src/lib/ssh.ts` (PROVIDER_OPENCLAW_CONFIG mapping)
-
-Changes:
-- [x] Change ollama provider key from `model-clawhq` to `clawhq`
-- [x] No other `ollama-cloud` references in code (only in docs/findings)
-
----
+## Phase 6: POLISH
+- [x] 6.1 formatContext(0) fix
+- [x] 6.2 "Renews"→"Expires" label for cancelled subs
+- [x] 6.3 Uptime/password components — show "Unavailable" instead of vanishing
+- [x] 6.4 Account settings — wrap in form tags for Enter key
+- [x] 6.5 Ticket thread — auto-scroll on new reply
+- [x] 6.6 Ticket list — count badges per tab
+- [x] 6.7 Remove unused Route import from sidebar
+- [x] 6.8 Remove dead error state from openclaw-embed
 
 ## Build Status
-- [x] `next build` passes with 0 errors ✅
+- [x] `next build` passes with 0 errors ✅ (clean build, 83/83 static pages)
 
-## Verification (user testing needed)
-- [ ] Fresh provision on test VPS → container running, gateway responds, chat works
-- [ ] Model change → config pushed, gateway restarts with new model
-- [ ] Telegram connect → hot-reload, bot starts
-- [ ] Telegram disconnect → hot-reload, bot stops
-- [ ] Agent deploy → files written to correct path
-- [ ] Chat API → response from model via Bearer token
-- [ ] Gateway health → shows "running" for Docker VPS
-- [ ] VPS logs → shows docker logs output
-- [ ] Stop/start/restart → all work
+## Files Changed
+- **Created**: src/app/reset-password/page.tsx
+- **Modified**: ~55 files across pages, components, API routes, lib, middleware

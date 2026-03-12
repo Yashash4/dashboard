@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Bot, ShoppingBag } from "lucide-react";
+import { AlertTriangle, Bot, ShoppingBag } from "lucide-react";
 
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,20 +15,43 @@ export default async function AgentsPage() {
 
   if (!user) return null;
 
-  const [{ data: userAgents }, { data: subscription }] = await Promise.all([
-    supabase
-      .from("user_agents")
-      .select(
-        "id, agent_id, deployed, deployed_at, purchased_at, custom_config, agents(id, name, description, category, config_files)"
-      )
-      .eq("user_id", user.id)
-      .order("purchased_at", { ascending: false }),
-    supabase
-      .from("subscriptions")
-      .select("plan")
-      .eq("user_id", user.id)
-      .single(),
-  ]);
+  let userAgents: any[] | null = null;
+  let subscription: any = null;
+  let vps: any = null;
+
+  try {
+    const [agentsRes, subRes, vpsRes] = await Promise.all([
+      supabase
+        .from("user_agents")
+        .select(
+          "id, agent_id, deployed, deployed_at, purchased_at, custom_config, agents(id, name, description, category, config_files)"
+        )
+        .eq("user_id", user.id)
+        .order("purchased_at", { ascending: false }),
+      supabase
+        .from("subscriptions")
+        .select("plan")
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("vps_instances")
+        .select("status")
+        .eq("user_id", user.id)
+        .single(),
+    ]);
+    userAgents = agentsRes.data;
+    subscription = subRes.data;
+    vps = vpsRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your data. Please refresh the page.</p>
+      </div>
+    );
+  }
+
+  const vpsWarning = !vps || vps.status !== "running";
 
   // Supabase returns joined relation as array — flatten to single object
   const normalizedAgents = userAgents?.map((ua) => ({
@@ -41,6 +64,12 @@ export default async function AgentsPage() {
       <div>
         <h1 className="text-2xl font-bold mb-1">Agents</h1>
         <p className="text-muted-foreground mb-6">Manage your AI agents.</p>
+        {vpsWarning && (
+          <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to deploy or manage agents.</span>
+          </div>
+        )}
         <Card className="border-border">
           <CardContent className="pt-6">
             <div className="text-center py-8">
@@ -76,6 +105,12 @@ export default async function AgentsPage() {
           </Link>
         </Button>
       </div>
+      {vpsWarning && (
+        <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to deploy or manage agents.</span>
+        </div>
+      )}
       <AgentManager
         userAgents={normalizedAgents}
         plan={subscription?.plan || "starter"}

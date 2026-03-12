@@ -32,10 +32,10 @@ import {
   ClipboardList,
   BookOpen,
   Webhook,
-  Route,
   UsersRound,
 } from "lucide-react";
 
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { hasAccess, PLAN_CONFIG, type Plan } from "@/lib/tier";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -75,7 +75,6 @@ const proNav = [
   { title: "Analytics", href: "/analytics", icon: TrendingUp },
   { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
   { title: "Webhooks", href: "/webhooks", icon: Webhook },
-  { title: "Smart Routing", href: "/smart-routing", icon: Route },
   { title: "API Access", href: "/api-access", icon: Key },
   { title: "Audit Log", href: "/audit-log", icon: ClipboardList },
 ];
@@ -144,10 +143,14 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   };
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("Failed to sign out. Try again.");
+    }
   };
 
   return (

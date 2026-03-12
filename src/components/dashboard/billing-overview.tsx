@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { usePayment } from "@/hooks/use-payment";
+import { hasAccess, type Plan } from "@/lib/tier";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -279,7 +280,7 @@ export function BillingOverview({
                         Contact Us
                       </a>
                     </Button>
-                  ) : (
+                  ) : !hasAccess(subscription.plan, plan.name as Plan) ? (
                     <Button
                       className="w-full"
                       variant="outline"
@@ -293,7 +294,7 @@ export function BillingOverview({
                       )}
                       Upgrade
                     </Button>
-                  )}
+                  ) : null}
                 </CardContent>
               </Card>
             );

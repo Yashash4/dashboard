@@ -18,20 +18,34 @@ export default async function VpsPage() {
 
   if (!user) return null;
 
-  const [{ data: vps }, { data: subscription }] = await Promise.all([
-    supabase
-      .from("vps_instances")
-      .select(
-        "status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url, created_at"
-      )
-      .eq("user_id", user.id)
-      .single(),
-    supabase
-      .from("subscriptions")
-      .select("plan")
-      .eq("user_id", user.id)
-      .single(),
-  ]);
+  let vps: any = null;
+  let subscription: any = null;
+
+  try {
+    const [vpsRes, subRes] = await Promise.all([
+      supabase
+        .from("vps_instances")
+        .select(
+          "status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url, created_at"
+        )
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("subscriptions")
+        .select("plan")
+        .eq("user_id", user.id)
+        .single(),
+    ]);
+    vps = vpsRes.data;
+    subscription = subRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your data. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   const plan = (subscription?.plan as string) || "starter";
   const isPro = hasAccess(plan, "pro");
@@ -77,9 +91,11 @@ export default async function VpsPage() {
         <UptimeDisplay />
         <DashboardPassword />
       </div>
-      <div className="mt-4">
-        <SSLChecker hostname={vps.hostname} />
-      </div>
+      {vps.hostname && (
+        <div className="mt-4">
+          <SSLChecker hostname={vps.hostname} />
+        </div>
+      )}
 
       {/* Pro: Process List + Maintenance */}
       {isPro && (

@@ -40,7 +40,6 @@ async function runStep(
   onProgress: OnProgress
 ): Promise<string> {
   const label = STEPS[stepNum - 2];
-  console.log(`[Provision] Step ${stepNum}: ${label}...`);
   onProgress({ step: stepNum, label, status: "running" });
 
   // Prepend comprehensive PATH — SSH exec sessions have minimal PATH
@@ -51,16 +50,11 @@ async function runStep(
   if (result.code !== null && result.code !== 0) {
     const errMsg =
       result.stderr?.trim() || result.stdout?.trim() || "Command failed";
-    console.error(`[Provision] ✗ Step ${stepNum} FAILED: ${errMsg}`);
-    if (result.stderr) console.error(`[Provision]   stderr: ${result.stderr.trim()}`);
-    if (result.stdout) console.error(`[Provision]   stdout: ${result.stdout.trim()}`);
     onProgress({ step: stepNum, label, status: "error", output: errMsg });
     throw new Error(`Step ${stepNum} (${label}) failed: ${errMsg}`);
   }
 
   const output = result.stdout?.trim() || "";
-  const lastLine = output.split("\n").pop() || "";
-  console.log(`[Provision] ✓ Step ${stepNum}: ${label} — ${lastLine}`);
   onProgress({ step: stepNum, label, status: "done", output });
   return output;
 }
@@ -72,10 +66,7 @@ export async function provisionVPS(
   let ssh: NodeSSH | null = null;
 
   try {
-    // Version marker — if you don't see this in logs, dev server needs restart
-    console.log("[Provision] === PROVISION V3 (PATH fix + robust nginx) ===");
     // Step 2: Test SSH
-    console.log(`[Provision] Starting provisioning for ${config.hostname} (${config.ip})`);
     onProgress({ step: 2, label: STEPS[0], status: "running" });
     ssh = new NodeSSH();
     await ssh.connect({
@@ -86,7 +77,6 @@ export async function provisionVPS(
       readyTimeout: 15000,
     });
     const whoami = await ssh.execCommand("whoami");
-    console.log(`[Provision] ✓ Step 2: Test SSH — Connected as ${whoami.stdout.trim()}`);
     onProgress({
       step: 2,
       label: STEPS[0],
@@ -287,10 +277,8 @@ WantedBy=multi-user.target`;
       onProgress
     );
 
-    console.log(`[Provision] ✓ COMPLETE — ${config.hostname} provisioned successfully`);
     return { success: true };
   } catch (err: any) {
-    console.error(`[Provision] ✗ FAILED — ${err.message}`);
     return { success: false, error: err.message || "Provisioning failed" };
   } finally {
     if (ssh) {

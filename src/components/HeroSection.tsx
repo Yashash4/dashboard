@@ -92,7 +92,7 @@ const HeroSection = () => {
             transition={{ duration: 0.6, delay: 0.6 }}
             className="mt-10 flex items-center justify-center gap-6 text-[11px] font-mono text-white/30"
           >
-            <span>No credit card required</span>
+            <span>No long-term contract</span>
             <span className="w-1 h-1 bg-white/20 rounded-full" />
             <span>5-minute setup</span>
             <span className="w-1 h-1 bg-white/20 rounded-full" />
