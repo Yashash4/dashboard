@@ -574,12 +574,210 @@ Borders:                very subtle dark gray, barely visible
 
 ## Final Design Decisions
 
-### LOCKED IN:
-- **Color palette:** Linear Dark — near-black bg (#0a0a0c), 3-4 dark gray layers for depth, white text, gray secondary text. Multi-color accents (not single color) used ONLY for badges, buttons, status indicators, icons, category highlights. NO color for backgrounds or large areas. Premium, not "dark mode template."
-- **Typography:** Geist (headings + body) + JetBrains Mono (code). Clean geometric, premium/luxury feel.
-- **Overall vibe:** Premium dark SaaS. Linear's depth system + multi-color sparingly. Big bold headings, lots of breathing room.
+### DESIGN SYSTEM — LOCKED IN
+
+Built from 3 theme sources + creative additions. Dark mode only.
+
+---
+
+#### FONTS (from Dark Matter / tweakcn)
+
+```css
+--font-sans: Geist Mono, ui-monospace, monospace;   /* Body text — monospace everywhere = hacker/terminal aesthetic */
+--font-mono: JetBrains Mono, monospace;              /* Code blocks, technical content */
+--font-serif: serif;                                  /* Not used */
+```
+
+**Why Geist Mono for body:** Sets ClawHQ apart from every SaaS using Inter/Geist Sans. Entire page feels like a terminal/dev tool. Perfectly matches the "managed infrastructure" product identity.
+
+---
+
+#### BACKGROUNDS (from Caffeine / 21st.dev)
+
+```css
+/* Dark mode backgrounds — warm dark, NOT cold gray */
+--background: #111111;           /* Page bg — warm near-black */
+--card: #191919;                 /* Cards, panels — lifted layer */
+--popover: #191919;              /* Popover/dropdown bg */
+--muted: #222222;                /* Muted areas, secondary surfaces */
+--accent: #2a2a2a;               /* Hover states, tertiary surface */
+--border: #201e18;               /* Borders — warm dark, barely visible */
+--input: #484848;                /* Input field borders */
+--sidebar: #18181b;              /* Sidebar bg (if needed) */
+```
+
+**Depth layering system:**
+```
+Layer 0: #111111  (page bg)
+Layer 1: #191919  (cards, panels)
+Layer 2: #222222  (muted areas, nested cards)
+Layer 3: #2a2a2a  (hover states, active surfaces)
+Border:  #201e18  (warm dark — NOT cold gray)
+```
+
+---
+
+#### COLORS (from Kodama Grove / tweakcn — adapted for dark mode)
+
+```css
+/* Primary — muted sage green. Nature/organic feel, NOT corporate blue */
+--primary: oklch(0.6762 0.0567 132.4479);            /* ≈ #6b8f71 — sage green */
+--primary-foreground: oklch(0.2686 0.0105 61.0213);  /* Dark text on primary */
+
+/* Secondary — warm earth tone */
+--secondary: oklch(0.4448 0.0239 84.5498);           /* ≈ #5a5344 — warm dark brown */
+--secondary-foreground: oklch(0.9217 0.0235 82.1191); /* Light text */
+
+/* Accent — warm golden/amber from Caffeine, NOT Kodama's muted accent */
+--accent: #ffe0c2;               /* Warm cream/peach — from Caffeine primary */
+--accent-foreground: #081a1b;    /* Dark text on accent */
+
+/* Text hierarchy */
+--foreground: #eeeeee;           /* Primary text — near white */
+--muted-foreground: #b4b4b4;     /* Secondary text — warm gray */
+/* Tertiary text: #808080 */     /* Use for timestamps, metadata */
+
+/* Ring/focus */
+--ring: oklch(0.6762 0.0567 132.4479);  /* Matches primary green */
+
+/* Destructive */
+--destructive: #e54d2e;          /* Red — from Caffeine */
+--destructive-foreground: #ffffff;
+```
+
+**Color usage rules:**
+- `--accent` (#ffe0c2 warm cream) = CTAs, pricing highlights, "Get Started" buttons, important badges
+- `--primary` (sage green) = success states, active indicators, secondary buttons, links
+- `--foreground` (#eeeeee) = all body text, headings
+- `--muted-foreground` (#b4b4b4) = descriptions, subtitles
+- `--destructive` (#e54d2e) = errors only
+- NO color on backgrounds or large areas. Color is for accents, badges, buttons, small highlights ONLY
+
+---
+
+#### CHART/ACCENT COLORS (for pricing tiers, feature categories, stats)
+
+```css
+--chart-1: oklch(0.6762 0.0567 132.4479);  /* Sage green — Starter tier */
+--chart-2: #ffe0c2;                          /* Warm cream — Pro tier */
+--chart-3: oklch(0.7214 0.1337 49.9802);    /* Amber/orange from Dark Matter — Ultra tier */
+--chart-4: oklch(0.5940 0.0443 196.0233);   /* Teal from Dark Matter — Enterprise tier */
+--chart-5: oklch(0.5183 0.0390 137.1892);   /* Deep forest green — extra accent */
+```
+
+---
+
+#### RADIUS & SHADOWS
+
+```css
+--radius: 0.625rem;             /* Slightly rounded — NOT sharp brutalist, NOT pill-shaped */
+
+/* Shadows — very subtle, dark warm tone */
+--shadow-sm: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+--shadow-md: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 2px 4px -1px hsl(0 0% 0% / 0.05);
+--shadow-lg: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
+```
+
+---
+
+#### COMPLETE CSS (copy-paste ready for globals.css)
+
+```css
+.dark {
+  /* Backgrounds (Caffeine) */
+  --background: #111111;
+  --card: #191919;
+  --card-foreground: #eeeeee;
+  --popover: #191919;
+  --popover-foreground: #eeeeee;
+  --muted: #222222;
+  --muted-foreground: #b4b4b4;
+  --accent: #2a2a2a;
+  --accent-foreground: #eeeeee;
+  --border: #201e18;
+  --input: #484848;
+  --ring: oklch(0.6762 0.0567 132.4479);
+
+  /* Colors (Kodama Grove + Caffeine accent) */
+  --primary: oklch(0.6762 0.0567 132.4479);
+  --primary-foreground: oklch(0.2686 0.0105 61.0213);
+  --secondary: oklch(0.4448 0.0239 84.5498);
+  --secondary-foreground: #eeeeee;
+  --destructive: #e54d2e;
+  --destructive-foreground: #ffffff;
+
+  /* Charts (tier colors) */
+  --chart-1: oklch(0.6762 0.0567 132.4479);
+  --chart-2: #ffe0c2;
+  --chart-3: oklch(0.7214 0.1337 49.9802);
+  --chart-4: oklch(0.5940 0.0443 196.0233);
+  --chart-5: oklch(0.5183 0.0390 137.1892);
+
+  /* Sidebar */
+  --sidebar: #18181b;
+  --sidebar-foreground: #eeeeee;
+  --sidebar-primary: oklch(0.6762 0.0567 132.4479);
+  --sidebar-primary-foreground: oklch(0.2686 0.0105 61.0213);
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #eeeeee;
+  --sidebar-border: #222222;
+  --sidebar-ring: oklch(0.6762 0.0567 132.4479);
+
+  /* Typography (Dark Matter) */
+  --font-sans: Geist Mono, ui-monospace, monospace;
+  --font-mono: JetBrains Mono, monospace;
+  --font-serif: serif;
+
+  /* Radius */
+  --radius: 0.625rem;
+
+  /* Shadows */
+  --shadow-2xs: 0px 1px 4px 0px hsl(0 0% 0% / 0.03);
+  --shadow-xs: 0px 1px 4px 0px hsl(0 0% 0% / 0.03);
+  --shadow-sm: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+  --shadow: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 1px 2px -1px hsl(0 0% 0% / 0.05);
+  --shadow-md: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 2px 4px -1px hsl(0 0% 0% / 0.05);
+  --shadow-lg: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 4px 6px -1px hsl(0 0% 0% / 0.05);
+  --shadow-xl: 0px 1px 4px 0px hsl(0 0% 0% / 0.05), 0px 8px 10px -1px hsl(0 0% 0% / 0.05);
+  --shadow-2xl: 0px 1px 4px 0px hsl(0 0% 0% / 0.13);
+}
+```
+
+---
+
+#### SPECIAL ACCENT COLOR: WARM CREAM (#ffe0c2)
+
+This is the "hero" accent color from Caffeine. Use it for:
+- CTA buttons ("Get Started", "Deploy Now")
+- Pricing card highlights (recommended tier border/glow)
+- Important badges, labels
+- Hover underlines on links
+- Stats/numbers that need to pop
+
+It contrasts beautifully against #111111 bg and pairs with the sage green primary.
+
+---
+
+#### COMPONENT SOURCES
+
+Components can come from ANY library — not limited to shadcn. Pick whatever looks best:
+- **21st.dev** — 284+ hero components, pricing, features, testimonials, CTAs, backgrounds
+- **shadcn/ui** — base components already in the project
+- **tweakcn** — themed shadcn components
+- **Magic UI** — animated components (number tickers, orbit, particles, shimmer)
+- **Aceternity UI** — spotlight effects, 3D cards, moving borders, background beams
+- **Framer Motion** — custom animations
+- **Any other library** — if it looks good, use it
+
+Install 21st.dev components via: `npx shadcn@latest add "https://21st.dev/r/{author}/{component}"`
+
+---
+
+### OVERALL VIBE
+
+**Terminal-luxury SaaS.** Geist Mono everywhere gives it a raw, developer-first feel. Warm Caffeine darks (#111111, #191919) keep it cozy, not cold. Kodama Grove sage green for organic/natural accents. Warm cream (#ffe0c2) for CTAs that pop. The page should feel like a premium developer tool — not a corporate marketing site.
 
 ### AFTER CONTENT DECISIONS:
-- **Section order:** TBD — decide after content/copy is written. Will match design patterns to content.
+- **Section order:** TBD — decide after content/copy is reviewed. Will match design patterns to content.
 - **Animations:** TBD — decide which sections get complex animations (3b, 3e, 4b, 6) vs simple ones.
 - **Which pattern fits which content:** TBD — can mix 2-3 reference ideas into one section as needed.

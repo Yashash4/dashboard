@@ -27,6 +27,11 @@ const DASHBOARD_PATHS = [
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
+  // If Supabase env vars are not set, let requests through (landing page works without auth)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next();
+  }
+
   // Rewrite clean URLs to /dashboard/* internally
   // Note: "/" is handled after auth check — unauthenticated users see the landing page
   let effectivePath = path;
