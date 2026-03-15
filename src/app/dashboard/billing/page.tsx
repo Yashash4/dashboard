@@ -10,7 +10,10 @@ export default async function BillingPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   let subscription: any = null;
   let payments: any[] | null = null;
@@ -28,6 +31,7 @@ export default async function BillingPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false }),
     ]);
+    if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
     subscription = subRes.data;
     payments = paymentsRes.data;
   } catch {

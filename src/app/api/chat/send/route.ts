@@ -3,7 +3,10 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { searchKBChunks } from "@/lib/knowledge-base";
+import { shouldSearchKB } from "@/lib/rag-classifier";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
+import { classifyIntent } from "@/lib/conversation-analysis";
+import { evaluateGroundedness } from "@/lib/rag-evaluation";
 
 // Same sanitization as ssh.ts deployAgent uses for agent folder names
 function sanitizeAgentName(name: string): string {
@@ -31,7 +34,12 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { agent_id, message, new_session } = body as {
     agent_id?: string;
     message?: string;
@@ -45,10 +53,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify agent is deployed and get its name
+  // Verify agent is deployed and get its name + model config
   const { data: userAgent } = await admin
     .from("user_agents")
-    .select("id, deployed, agents(name)")
+    .select("id, deployed, primary_model, fallback_model, agents(name)")
     .eq("user_id", user.id)
     .eq("agent_id", agent_id)
     .eq("deployed", true)
@@ -128,6 +136,13 @@ export async function POST(request: NextRequest) {
         .from("chat_messages")
         .delete()
         .eq("conversation_id", conversation.id);
+
+      // Fire session.started webhook
+      dispatchWebhooks(user.id, "session.started", {
+        conversation_id: conversation.id,
+        agent_id,
+        agent_name: agentName,
+      }).catch(() => {});
     }
 
     // Store user message in our DB
@@ -137,17 +152,105 @@ export async function POST(request: NextRequest) {
       content: message.trim(),
     });
 
+    // Check auto-responses BEFORE AI call (Pro feature)
+    const { data: autoResponses } = await admin
+      .from("auto_responses")
+      .select("type, trigger_keyword, response_text, channel_type")
+      .eq("user_id", user.id)
+      .eq("is_enabled", true);
+
+    if (autoResponses && autoResponses.length > 0) {
+      // Filter to global (null channel_type) or webchat-specific responses
+      const applicableResponses = autoResponses.filter(
+        (ar) => !ar.channel_type || ar.channel_type === "webchat"
+      );
+      const trimmedMsg = message.trim().toLowerCase();
+
+      // Check business hours for away messages
+      const awayResponse = applicableResponses.find((ar) => ar.type === "away");
+      if (awayResponse) {
+        const { data: bizHours } = await admin
+          .from("business_hours")
+          .select("*")
+          .eq("user_id", user.id)
+          .is("channel_type", null)
+          .single();
+
+        if (bizHours) {
+          const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+          // Use the configured timezone for business hours check
+          const userTz = bizHours.timezone || "UTC";
+          const nowInTz = new Date(new Date().toLocaleString("en-US", { timeZone: userTz }));
+          const dayName = days[nowInTz.getDay()];
+          const dayEnabled = bizHours[`${dayName}_enabled` as keyof typeof bizHours];
+          const dayStart = bizHours[`${dayName}_start` as keyof typeof bizHours] as string;
+          const dayEnd = bizHours[`${dayName}_end` as keyof typeof bizHours] as string;
+
+          if (dayEnabled === false || (dayStart && dayEnd)) {
+            const currentTime = `${String(nowInTz.getHours()).padStart(2, "0")}:${String(nowInTz.getMinutes()).padStart(2, "0")}`;
+            const isOutsideHours = dayEnabled === false || currentTime < dayStart || currentTime > dayEnd;
+
+            if (isOutsideHours) {
+              await admin.from("chat_messages").insert({
+                conversation_id: conversation.id,
+                role: "assistant",
+                content: awayResponse.response_text,
+              });
+              return NextResponse.json({
+                response: awayResponse.response_text,
+                message_id: null,
+                conversation_id: conversation.id,
+                auto_response: true,
+              });
+            }
+          }
+        }
+      }
+
+      // Check FAQ keyword matches
+      const faqMatch = applicableResponses.find(
+        (ar) => ar.type === "faq" && ar.trigger_keyword &&
+          trimmedMsg.includes(ar.trigger_keyword.toLowerCase())
+      );
+      if (faqMatch) {
+        await admin.from("chat_messages").insert({
+          conversation_id: conversation.id,
+          role: "assistant",
+          content: faqMatch.response_text,
+        });
+        return NextResponse.json({
+          response: faqMatch.response_text,
+          message_id: null,
+          conversation_id: conversation.id,
+          auto_response: true,
+        });
+      }
+
+      // Greeting for new sessions
+      if (new_session) {
+        const greeting = applicableResponses.find((ar) => ar.type === "greeting");
+        if (greeting) {
+          await admin.from("chat_messages").insert({
+            conversation_id: conversation.id,
+            role: "assistant",
+            content: greeting.response_text,
+          });
+          // Don't return — still proceed to AI call. Greeting is supplementary.
+        }
+      }
+    }
+
     // Search Knowledge Base for relevant context (non-blocking if fails)
-    // Skip for short/conversational messages — no point RAG-searching "hi" or "thanks"
+    // Use RAG classifier to skip KB search for greetings, follow-ups, etc.
     let kbContext = "";
     const trimmedMsg = message.trim();
-    const wordCount = trimmedMsg.split(/\s+/).length;
-    if (trimmedMsg.length >= 20 && wordCount >= 3) {
+    const kbDecision = shouldSearchKB(trimmedMsg);
+    if (kbDecision !== "skip" && trimmedMsg.length >= 2) {
       try {
         const kbResults = await searchKBChunks(user.id, trimmedMsg, 3);
         if (kbResults.length > 0) {
           kbContext = kbResults
-            .map((r) => `[From: ${r.documentName}]\n${r.content}`)
+            .map((r) => `[Source: ${r.documentName}]\n${r.content}`)
             .join("\n\n---\n\n");
         }
       } catch {
@@ -159,6 +262,8 @@ export async function POST(request: NextRequest) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
+    // NOTE: Only the current user message is sent to OpenClaw. Conversation history is
+    // maintained server-side by OpenClaw using the session key (user_id + agent_slug).
     // Session key: unique per user + agent for conversation persistence on OpenClaw side
     const sessionKey = new_session
       ? `${user.id}_${agentSlug}_${Date.now()}`
@@ -189,7 +294,7 @@ export async function POST(request: NextRequest) {
             ? [
                 {
                   role: "system" as const,
-                  content: `Use the following knowledge base context to help answer the user's question. Only reference it if relevant.\n\n${kbContext}`,
+                  content: `Use the following knowledge base context to answer the user's question. Cite the document name when using information from it. If the context is not relevant to the question, ignore it and answer normally.\n\n${kbContext}`,
                 },
               ]
             : []),
@@ -264,6 +369,23 @@ export async function POST(request: NextRequest) {
       .update({ updated_at: new Date().toISOString() })
       .eq("id", conversation.id);
 
+    // RAG evaluation — score groundedness if KB context was used (non-blocking)
+    if (kbContext && assistantContent) {
+      try {
+        const kbChunks = kbContext.split("\n\n---\n\n").map((c) => c.replace(/^\[Source:.*?\]\n/, ""));
+        const evalResult = evaluateGroundedness(assistantContent, kbChunks);
+        // Log score for analytics (fire-and-forget)
+        admin.from("agent_analytics").insert({
+          user_id: user.id,
+          agent_id: agent_id,
+          metric_type: "rag_eval",
+          metadata: { groundedness: evalResult.groundednessScore, supported: evalResult.supportedClaims, total: evalResult.totalClaims },
+        }).then(() => {}, () => {});
+      } catch {
+        // Never let evaluation break the chat flow
+      }
+    }
+
     // Track analytics (non-blocking)
     admin
       .from("agent_analytics")
@@ -275,6 +397,32 @@ export async function POST(request: NextRequest) {
       })
       .then(() => {}, () => {});
 
+    // Classify intent and store for analytics paths (10.2) — non-blocking
+    try {
+      const intent = classifyIntent(message.trim());
+      // Count user messages in this conversation for message_index
+      const { count: msgCount } = await admin
+        .from("chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("conversation_id", conversation.id)
+        .eq("role", "user");
+
+      admin
+        .from("conversation_intents")
+        .upsert(
+          {
+            user_id: user.id,
+            conversation_id: conversation.id,
+            message_index: (msgCount || 1) - 1,
+            intent,
+          },
+          { onConflict: "conversation_id,message_index" }
+        )
+        .then(() => {}, () => {});
+    } catch {
+      // Never let intent classification break the chat flow
+    }
+
     dispatchWebhooks(user.id, "message.received", {
       conversation_id: conversation.id,
       agent_id,
@@ -284,6 +432,7 @@ export async function POST(request: NextRequest) {
       response: assistantContent,
       message_id: assistantMsg?.id,
       conversation_id: conversation.id,
+      model_used: (userAgent as any).primary_model || undefined,
     });
   } catch (err) {
     // Track error analytics (non-blocking)

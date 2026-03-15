@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, verified: true });
   } catch (err: any) {
-    console.error("[payments/verify] Fulfillment error:", err);
     return NextResponse.json(
       { error: "Payment verified but fulfillment failed. Contact support." },
       { status: 500 }

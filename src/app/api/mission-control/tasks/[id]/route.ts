@@ -1,25 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { processAutomationRules } from "@/lib/mc-automation";
 
 // GET /api/mission-control/tasks/[id]
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const { id } = await params;
 
   try {
@@ -51,11 +45,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 }, maxBodySize: 51200 });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const { id } = await params;
   const body = await request.json();
 
@@ -74,6 +68,7 @@ export async function PATCH(
     "resolution",
     "metadata",
     "position",
+    "completed_at",
   ];
 
   const updates: Record<string, unknown> = {};
@@ -96,7 +91,39 @@ export async function PATCH(
   }
 
   try {
-    // Check for review approval if moving to done
+    // Fetch existing task to detect changes for automation rules (FIX-01)
+    const { data: existingTask } = await supabase
+      .from("mc_tasks")
+      .select("column_id, priority")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .single();
+
+    // FIX-02: Enforce dependencies — block move to active columns if deps unfinished
+    if (updates.column_id && ["in_progress", "testing", "review"].includes(updates.column_id as string)) {
+      const { data: deps } = await supabase
+        .from("mc_task_dependencies")
+        .select("depends_on_task_id")
+        .eq("task_id", id);
+
+      if (deps && deps.length > 0) {
+        const { data: undone } = await supabase
+          .from("mc_tasks")
+          .select("id")
+          .in("id", deps.map((d) => d.depends_on_task_id))
+          .neq("column_id", "done")
+          .limit(1);
+
+        if (undone && undone.length > 0) {
+          return NextResponse.json({
+            error: "Task is blocked by unfinished dependencies",
+            blocked_by: deps.map((d) => d.depends_on_task_id),
+          }, { status: 409 });
+        }
+      }
+    }
+
+    // Check for review approval if moving to done (P1.1.9: merge metadata properly)
     if (updates.column_id === "done") {
       const { data: reviews } = await supabase
         .from("mc_reviews")
@@ -105,8 +132,15 @@ export async function PATCH(
         .eq("status", "approved");
 
       if (!reviews || reviews.length === 0) {
-        // Warn but don't block
+        // Fetch existing metadata and merge
+        const { data: existing } = await supabase
+          .from("mc_tasks")
+          .select("metadata")
+          .eq("id", id)
+          .single();
+
         updates.metadata = {
+          ...(existing?.metadata || {}),
           ...(typeof updates.metadata === "object" && updates.metadata
             ? updates.metadata
             : {}),
@@ -127,6 +161,47 @@ export async function PATCH(
 
     emitMCEvent(user.id, "task_updated", { taskId: id });
 
+    // Fire automation rules on column/priority changes (FIX-01)
+    if (existingTask && updates.column_id && updates.column_id !== existingTask.column_id) {
+      processAutomationRules(user.id, "task_enters_column", updates.column_id as string, {
+        taskId: id, oldValue: existingTask.column_id, newValue: updates.column_id,
+      }).catch(() => {});
+    }
+    if (existingTask && updates.priority && updates.priority !== existingTask.priority) {
+      processAutomationRules(user.id, "task_priority_changes", updates.priority as string, {
+        taskId: id, oldValue: existingTask.priority, newValue: updates.priority,
+      }).catch(() => {});
+    }
+
+    // Auto-unblock dependents when task moves to done (FIX-02)
+    if (updates.column_id === "done") {
+      const { data: dependents } = await supabase
+        .from("mc_task_dependencies")
+        .select("task_id")
+        .eq("depends_on_task_id", id);
+
+      for (const dep of dependents || []) {
+        const { data: allDeps } = await supabase
+          .from("mc_task_dependencies")
+          .select("depends_on_task_id")
+          .eq("task_id", dep.task_id);
+
+        // Check if all dependencies are done
+        if (allDeps && allDeps.length > 0) {
+          const { data: undone } = await supabase
+            .from("mc_tasks")
+            .select("id")
+            .in("id", allDeps.map((d) => d.depends_on_task_id))
+            .neq("column_id", "done")
+            .limit(1);
+
+          if (!undone || undone.length === 0) {
+            emitMCEvent(user.id, "task_updated", { taskId: dep.task_id, unblocked: true });
+          }
+        }
+      }
+    }
+
     return NextResponse.json({ task: data });
   } catch {
     return NextResponse.json(
@@ -138,14 +213,14 @@ export async function PATCH(
 
 // DELETE /api/mission-control/tasks/[id]
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const { id } = await params;
 
   try {

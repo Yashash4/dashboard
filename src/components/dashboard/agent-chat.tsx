@@ -6,6 +6,38 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { Copy, Check as CheckIcon } from "lucide-react";
+
+function CodeBlock({ children, className }: { children: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  const language = className?.replace("language-", "") || "";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(children).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="relative group">
+      {language && (
+        <div className="absolute top-0 left-0 px-2 py-0.5 text-[10px] font-mono text-muted-foreground bg-background/80 border-b border-r border-border">
+          {language}
+        </div>
+      )}
+      <button
+        onClick={handleCopy}
+        className="absolute top-1 right-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground bg-background/80"
+      >
+        {copied ? <CheckIcon className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+      </button>
+      <pre className="bg-background p-3 overflow-x-auto text-xs font-mono border border-border">
+        <code>{children}</code>
+      </pre>
+    </div>
+  );
+}
 
 function formatMessageTime(dateStr: string) {
   return new Date(dateStr).toLocaleString("en-US", {
@@ -62,7 +94,14 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
       .then((data) => {
         setMessages(data.messages || []);
       })
-      .catch(() => {})
+      .catch(() => {
+        setMessages([{
+          id: "error-history",
+          role: "system",
+          content: "Failed to load message history. Start a new conversation or try refreshing.",
+          created_at: new Date().toISOString(),
+        }]);
+      })
       .finally(() => setLoadingHistory(false));
   }, [selectedAgent]);
 
@@ -94,8 +133,11 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
 
   const sendMessage = async (message: string, newSession = false) => {
     setLoading(true);
+    const streamMsgId = `stream-${Date.now()}`;
+
     try {
-      const res = await fetch("/api/chat/send", {
+      // Try streaming first
+      const res = await fetch("/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -105,9 +147,8 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
         }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         setMessages((prev) => [
           ...prev,
           {
@@ -121,15 +162,61 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
         return;
       }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: data.message_id || `resp-${Date.now()}`,
-          role: "assistant",
-          content: data.response,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      // Check if response is SSE stream
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("text/event-stream") && res.body) {
+        // Streaming mode — show tokens as they arrive
+        setMessages((prev) => [
+          ...prev,
+          { id: streamMsgId, role: "assistant", content: "", created_at: new Date().toISOString() },
+        ]);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const data = line.slice(6).trim();
+            if (data === "[DONE]") continue;
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.content) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === streamMsgId
+                      ? { ...m, content: m.content + parsed.content }
+                      : m
+                  )
+                );
+              }
+            } catch {
+              // Skip
+            }
+          }
+        }
+      } else {
+        // Fallback to JSON response
+        const data = await res.json();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: data.message_id || `resp-${Date.now()}`,
+            role: "assistant",
+            content: data.response,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -186,14 +273,19 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
           const data = await res.json();
 
           if (res.ok && data.response) {
-            // Clear old messages
+            // Clear old messages on server
             await fetch(`/api/chat/messages?agent_id=${selectedAgent.id}`, {
               method: "DELETE",
             }).catch(() => {});
 
-            // Start new session with summary context
-            setMessages([]);
-            addSystemMessage("Conversation compacted. Starting fresh session with context.");
+            // Reset messages and add system message in one update to avoid race conditions
+            const compactMsg: Message = {
+              id: `sys-compact-${Date.now()}`,
+              role: "system",
+              content: "Conversation compacted. Starting fresh session with context.",
+              created_at: new Date().toISOString(),
+            };
+            setMessages([compactMsg]);
 
             // Send the summary as context to the new session
             await sendMessage(
@@ -332,7 +424,7 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
-                <span className="w-2 h-2 rounded-full bg-zinc-500 shrink-0" />
+                <Bot className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate">{agent.name}</span>
               </button>
             ))}
@@ -414,8 +506,24 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
                             <span>{msg.content}</span>
                           </div>
                         ) : msg.role === "assistant" ? (
-                          <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_pre]:bg-background [&_pre]:p-3 [&_pre]:overflow-x-auto [&_code]:text-xs [&_code]:font-mono [&_a]:text-primary [&_a]:underline">
-                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          <div className="prose prose-sm prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_code]:text-xs [&_code]:font-mono [&_a]:text-primary [&_a]:underline [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1 [&_tr:nth-child(even)]:bg-muted/30 [&_blockquote]:border-l-2 [&_blockquote]:border-primary [&_blockquote]:pl-3 [&_blockquote]:italic [&_hr]:border-border">
+                            <ReactMarkdown
+                              components={{
+                                code: ({ children, className, ...props }) => {
+                                  const isBlock = className?.startsWith("language-") || String(children).includes("\n");
+                                  if (isBlock) {
+                                    return <CodeBlock className={className}>{String(children).replace(/\n$/, "")}</CodeBlock>;
+                                  }
+                                  return <code className="bg-background px-1 py-0.5 text-primary font-mono text-xs" {...props}>{children}</code>;
+                                },
+                                a: ({ href, children }) => (
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                                    {children}
+                                  </a>
+                                ),
+                                pre: ({ children }) => <>{children}</>,
+                              }}
+                            >{msg.content}</ReactMarkdown>
                           </div>
                         ) : (
                           msg.content
@@ -430,9 +538,15 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
               ))}
               {loading && (
                 <div className="flex justify-start">
-                  <div className="bg-muted px-4 py-2.5 text-sm text-muted-foreground flex items-center gap-2">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Thinking...
+                  <div className="bg-muted px-4 py-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs">{selectedAgent?.name} is typing</span>
+                      <span className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

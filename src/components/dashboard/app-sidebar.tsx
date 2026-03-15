@@ -33,11 +33,14 @@ import {
   BookOpen,
   Webhook,
   UsersRound,
+  FlaskConical,
+  Wand2,
 } from "lucide-react";
 
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase";
 import { hasAccess, PLAN_CONFIG, type Plan } from "@/lib/tier";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Sidebar,
@@ -56,8 +59,8 @@ import {
 function getCustomerNav(plan: string) {
   const isPro = hasAccess(plan, "pro");
   return [
-    { title: "Overview", href: "/", icon: LayoutDashboard },
-    { title: isPro ? "Mission Control" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
+    { title: "Overview", href: "/", icon: LayoutDashboard }, // Relies on middleware rewrite: / → /dashboard
+    { title: isPro ? "Advanced VPS Controls" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
     { title: "Models", href: "/models", icon: Brain },
     { title: "Agents", href: "/agents", icon: Bot },
     { title: "Store", href: "/store", icon: ShoppingBag },
@@ -71,6 +74,8 @@ function getCustomerNav(plan: string) {
 }
 
 const proNav = [
+  { title: "Model Playground", href: "/model-playground", icon: FlaskConical },
+  { title: "Agent Builder", href: "/agent-builder", icon: Wand2 },
   { title: "Logs", href: "/logs", icon: FileText },
   { title: "Analytics", href: "/analytics", icon: TrendingUp },
   { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
@@ -88,10 +93,11 @@ const ultraNav = [
 ];
 
 const adminNav = [
-  { title: "Stats", href: "/admin", icon: BarChart3 },
+  { title: "Overview", href: "/admin", icon: BarChart3 },
   { title: "Customers", href: "/admin/customers", icon: Users },
   { title: "Deploy", href: "/admin/deploy", icon: Rocket },
   { title: "Tickets", href: "/admin/tickets", icon: Ticket },
+  { title: "Health Check", href: "/admin/health", icon: Activity },
   { title: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
   { title: "Security", href: "/admin/security", icon: ShieldCheck },
 ];
@@ -167,14 +173,17 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
               ClawHQ
             </span>
           </Link>
-          <span
-            className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 ${
-              PLAN_CONFIG[plan as Plan]?.badgeClass ||
-              PLAN_CONFIG.starter.badgeClass
-            }`}
-          >
-            {plan}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <NotificationBell />
+            <span
+              className={`text-[10px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5 ${
+                PLAN_CONFIG[plan as Plan]?.badgeClass ||
+                PLAN_CONFIG.starter.badgeClass
+              }`}
+            >
+              {plan}
+            </span>
+          </div>
         </div>
       </SidebarHeader>
 

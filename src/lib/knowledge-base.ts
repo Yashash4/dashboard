@@ -1,7 +1,28 @@
 import { createAdminClient } from "@/lib/supabase-admin";
+import { smartChunk } from "@/lib/chunkers";
+import { expandQuery } from "@/lib/query-expansion";
 
-const MAX_CHUNK_SIZE = 2000;
-const CHUNK_OVERLAP = 200;
+const EMBEDDING_BATCH_SIZE = 50;
+
+/* ---------- Types ---------- */
+
+export interface KBSearchResult {
+  content: string;
+  documentName: string;
+  similarity?: number;
+  searchType?: "vector" | "fts" | "both";
+}
+
+interface ScoredChunk {
+  id: string;
+  document_id: string;
+  content: string;
+  score: number;
+  rank: number;
+  source: "vector" | "fts" | "both";
+}
+
+/* ---------- SSRF protection ---------- */
 
 /** Block SSRF — prevent fetching private/internal URLs */
 export function isPrivateUrl(rawUrl: string): boolean {
@@ -33,9 +54,13 @@ export function isPrivateUrl(rawUrl: string): boolean {
   return false;
 }
 
+/* ---------- Legacy chunking (kept for backward compat) ---------- */
+
+const MAX_CHUNK_SIZE = 2000;
+const CHUNK_OVERLAP = 200;
+
 /**
- * Split text into chunks with overlap.
- * Splits on double newlines (paragraphs), then further splits long paragraphs.
+ * @deprecated Use smartChunk() from @/lib/chunkers instead.
  */
 export function chunkText(text: string): string[] {
   const paragraphs = text
@@ -47,7 +72,6 @@ export function chunkText(text: string): string[] {
   let current = "";
 
   for (const para of paragraphs) {
-    // If a single paragraph is too long, split it further
     if (para.length > MAX_CHUNK_SIZE) {
       if (current) {
         chunks.push(current.trim());
@@ -60,7 +84,6 @@ export function chunkText(text: string): string[] {
 
     if (current.length + para.length + 2 > MAX_CHUNK_SIZE) {
       chunks.push(current.trim());
-      // Keep overlap from end of previous chunk
       const overlap = current.slice(-CHUNK_OVERLAP);
       current = overlap + "\n\n" + para;
     } else {
@@ -75,9 +98,6 @@ export function chunkText(text: string): string[] {
   return chunks.filter((c) => c.length > 10);
 }
 
-/**
- * Split a long text block into chunks at sentence boundaries.
- */
 function splitLongText(text: string): string[] {
   const sentences = text.split(/(?<=[.!?])\s+/);
   const chunks: string[] = [];
@@ -87,7 +107,6 @@ function splitLongText(text: string): string[] {
     if (current.length + sentence.length + 1 > MAX_CHUNK_SIZE) {
       if (current) {
         chunks.push(current.trim());
-        // Keep overlap from end of previous chunk
         const overlap = current.slice(-CHUNK_OVERLAP);
         current = overlap + " " + sentence;
       } else {
@@ -106,7 +125,7 @@ function splitLongText(text: string): string[] {
 }
 
 /**
- * Extract text from CSV content. Each row becomes a chunk with header context.
+ * @deprecated Use smartChunk("csv") from @/lib/chunkers instead.
  */
 export function chunkCSV(csvText: string): string[] {
   const lines = csvText.split("\n").filter((l) => l.trim());
@@ -114,9 +133,8 @@ export function chunkCSV(csvText: string): string[] {
 
   const header = lines[0];
   const chunks: string[] = [];
-
-  // Group rows into chunks
   let current = `Headers: ${header}\n\n`;
+
   for (let i = 1; i < lines.length; i++) {
     const row = `Row ${i}: ${lines[i]}`;
     if (current.length + row.length + 1 > MAX_CHUNK_SIZE) {
@@ -133,6 +151,8 @@ export function chunkCSV(csvText: string): string[] {
 
   return chunks;
 }
+
+/* ---------- HTML stripping ---------- */
 
 /**
  * Strip HTML tags and extract text content from a web page.
@@ -155,24 +175,113 @@ export function stripHTML(html: string): string {
     .trim();
 }
 
+/* ---------- Embedding service ---------- */
+
+/**
+ * Call the VPS-side embedding service to get vectors for text chunks.
+ * Service runs on port 5555 on the VPS.
+ */
+export async function getEmbeddings(
+  vpsIp: string,
+  texts: string[]
+): Promise<number[][] | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const res = await fetch(`http://${vpsIp}:5555/embed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ texts }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.vectors || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get VPS info for a user to call embedding service.
+ */
+async function getUserVpsIp(userId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data: vps } = await admin
+    .from("vps_instances")
+    .select("ip_address, status")
+    .eq("user_id", userId)
+    .single();
+
+  if (!vps || vps.status !== "running") return null;
+  return vps.ip_address;
+}
+
+/**
+ * Generate embeddings for chunks in batches and store them.
+ */
+async function embedChunks(
+  documentId: string,
+  userId: string,
+  chunks: string[]
+): Promise<boolean> {
+  const vpsIp = await getUserVpsIp(userId);
+  if (!vpsIp) return false;
+
+  const admin = createAdminClient();
+
+  for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
+    const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE);
+    const vectors = await getEmbeddings(vpsIp, batch);
+    if (!vectors || vectors.length !== batch.length) return false;
+
+    const { data: chunkRows } = await admin
+      .from("kb_chunks")
+      .select("id")
+      .eq("document_id", documentId)
+      .eq("user_id", userId)
+      .gte("chunk_index", i)
+      .lt("chunk_index", i + EMBEDDING_BATCH_SIZE)
+      .order("chunk_index", { ascending: true });
+
+    if (!chunkRows || chunkRows.length !== batch.length) return false;
+
+    for (let j = 0; j < chunkRows.length; j++) {
+      const embedding = `[${vectors[j].join(",")}]`;
+      await admin
+        .from("kb_chunks")
+        .update({ embedding })
+        .eq("id", chunkRows[j].id);
+    }
+  }
+
+  return true;
+}
+
+/* ---------- Indexing ---------- */
+
 /**
  * Process and index a document's text content into chunks.
+ * @param fileType - file extension string (e.g. "pdf", "md", "csv", "txt", "html")
  */
 export async function indexDocument(
   documentId: string,
   userId: string,
   content: string,
-  isCSV: boolean = false
+  fileType: string = "txt"
 ): Promise<{ chunkCount: number }> {
   const admin = createAdminClient();
 
   // Delete existing chunks for re-indexing
   await admin.from("kb_chunks").delete().eq("document_id", documentId);
 
-  // Chunk the content
-  const chunks = isCSV ? chunkCSV(content) : chunkText(content);
+  // Use new smart chunker
+  const smartChunks = smartChunk(content, fileType);
 
-  if (chunks.length === 0) {
+  if (smartChunks.length === 0) {
     await admin
       .from("kb_documents")
       .update({
@@ -184,13 +293,13 @@ export async function indexDocument(
     return { chunkCount: 0 };
   }
 
-  // Insert chunks in batches of 100
-  const chunkRows = chunks.map((text, index) => ({
+  // Insert chunks with metadata
+  const chunkRows = smartChunks.map((chunk, index) => ({
     document_id: documentId,
     user_id: userId,
-    content: text,
+    content: chunk.content,
     chunk_index: index,
-    metadata: {},
+    metadata: chunk.metadata,
   }));
 
   const BATCH_SIZE = 100;
@@ -210,54 +319,271 @@ export async function indexDocument(
     }
   }
 
+  // Try to generate embeddings (non-blocking — falls back to FTS if VPS unavailable)
+  const chunkTexts = smartChunks.map((c) => c.content);
+  const embeddingSuccess = await embedChunks(documentId, userId, chunkTexts);
+
   // Update document status
   await admin
     .from("kb_documents")
     .update({
-      status: "indexed",
-      chunk_count: chunks.length,
-      error_message: null,
+      status: embeddingSuccess ? "indexed" : "pending_embedding",
+      chunk_count: smartChunks.length,
+      error_message: embeddingSuccess
+        ? null
+        : "Embeddings pending — start VPS to complete indexing",
       indexed_at: new Date().toISOString(),
     })
     .eq("id", documentId);
 
-  return { chunkCount: chunks.length };
+  return { chunkCount: smartChunks.length };
 }
 
+/* ---------- Hybrid Search ---------- */
+
 /**
- * Search KB chunks for a user using Postgres full-text search.
- * Uses tsvector + ts_rank for relevance-ranked results.
+ * Search KB chunks using hybrid search (vector + FTS in parallel) with RRF merge.
  */
 export async function searchKBChunks(
   userId: string,
   query: string,
   limit: number = 5
-): Promise<{ content: string; documentName: string }[]> {
+): Promise<KBSearchResult[]> {
   const admin = createAdminClient();
 
   if (!query.trim()) return [];
 
-  // Call the FTS RPC function (uses tsvector + GIN index + ts_rank)
-  const { data: chunks, error } = await admin.rpc("search_kb_chunks_fts", {
-    p_user_id: userId,
-    p_query: query.trim(),
-    p_limit: limit,
-  });
+  const vpsIp = await getUserVpsIp(userId);
 
-  if (error || !chunks || chunks.length === 0) return [];
+  // Expand query with synonyms for FTS
+  const expandedQuery = expandQuery(query.trim());
 
-  // Get document names (with user_id filter for defense-in-depth)
-  const docIds = [...new Set(chunks.map((c: any) => c.chunk_document_id))];
+  // Run BOTH searches in parallel
+  const [vectorResults, ftsResults] = await Promise.all([
+    vectorSearch(admin, userId, query, vpsIp, limit * 2),
+    ftsSearch(admin, userId, expandedQuery, limit * 2),
+  ]);
+
+  // Merge using Reciprocal Rank Fusion
+  let merged = reciprocalRankFusion(vectorResults, ftsResults, limit * 2);
+
+  // Rerank top results if VPS is available and we have more than `limit`
+  if (vpsIp && merged.length > limit) {
+    merged = await rerankResults(vpsIp, query, merged, limit);
+  } else {
+    merged = merged.slice(0, limit);
+  }
+
+  if (merged.length === 0) return [];
+
+  // Get document names for all results
+  const docIds = [...new Set(merged.map((c) => c.document_id))];
   const { data: docs } = await admin
     .from("kb_documents")
     .select("id, name")
     .in("id", docIds)
     .eq("user_id", userId);
-
   const docMap = new Map(docs?.map((d) => [d.id, d.name]) || []);
 
-  return chunks.map((c: any) => ({
-    content: c.chunk_content,
-    documentName: docMap.get(c.chunk_document_id) || "Unknown",
+  // Track usage — increment retrieval_count for each referenced document
+  for (const docId of docIds) {
+    admin
+      .rpc("increment_kb_retrieval_count", { p_document_id: docId })
+      .then(
+        () => {},
+        () => {}
+      );
+  }
+
+  return merged.map((c) => ({
+    content: c.content,
+    documentName: docMap.get(c.document_id) || "Unknown",
+    similarity: c.score,
+    searchType: c.source,
   }));
+}
+
+/* ---------- Vector search helper ---------- */
+
+async function vectorSearch(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  query: string,
+  vpsIp: string | null,
+  limit: number
+): Promise<ScoredChunk[]> {
+  if (!vpsIp) return [];
+
+  try {
+    const vectors = await getEmbeddings(vpsIp, [query.trim()]);
+    if (!vectors || vectors.length === 0) return [];
+
+    const queryEmbedding = `[${vectors[0].join(",")}]`;
+    const { data } = await admin.rpc("search_kb_chunks_vector", {
+      p_user_id: userId,
+      p_query_embedding: queryEmbedding,
+      p_match_threshold: 0.2, // Lower threshold for hybrid — RRF handles relevance
+      p_limit: limit,
+    });
+
+    return (data || []).map((c: any, rank: number) => ({
+      id: c.chunk_id || c.id,
+      document_id: c.chunk_document_id,
+      content: c.chunk_content,
+      score: c.similarity,
+      rank,
+      source: "vector" as const,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/* ---------- FTS search helper ---------- */
+
+async function ftsSearch(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  query: string,
+  limit: number
+): Promise<ScoredChunk[]> {
+  try {
+    const { data } = await admin.rpc("search_kb_chunks_fts", {
+      p_user_id: userId,
+      p_query: query.trim(),
+      p_limit: limit,
+    });
+
+    return (data || []).map((c: any, rank: number) => ({
+      id: c.chunk_id || c.id,
+      document_id: c.chunk_document_id,
+      content: c.chunk_content,
+      score: c.rank || 0,
+      rank,
+      source: "fts" as const,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/* ---------- Reciprocal Rank Fusion ---------- */
+
+/**
+ * Combine results from vector + FTS using RRF.
+ * Standard algorithm used by Elasticsearch, Pinecone, Weaviate.
+ * k=60 is the industry-standard constant.
+ */
+function reciprocalRankFusion(
+  vectorResults: ScoredChunk[],
+  ftsResults: ScoredChunk[],
+  limit: number,
+  k: number = 60
+): (ScoredChunk & { source: "vector" | "fts" | "both" })[] {
+  const scoreMap = new Map<
+    string,
+    { chunk: ScoredChunk; rrfScore: number; sources: Set<string> }
+  >();
+
+  // Score vector results
+  for (let i = 0; i < vectorResults.length; i++) {
+    const chunk = vectorResults[i];
+    const rrfScore = 1 / (k + i + 1);
+    const existing = scoreMap.get(chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfScore;
+      existing.sources.add("vector");
+    } else {
+      scoreMap.set(chunk.id, {
+        chunk,
+        rrfScore,
+        sources: new Set(["vector"]),
+      });
+    }
+  }
+
+  // Score FTS results
+  for (let i = 0; i < ftsResults.length; i++) {
+    const chunk = ftsResults[i];
+    const rrfScore = 1 / (k + i + 1);
+    const existing = scoreMap.get(chunk.id);
+    if (existing) {
+      existing.rrfScore += rrfScore;
+      existing.sources.add("fts");
+    } else {
+      scoreMap.set(chunk.id, {
+        chunk,
+        rrfScore,
+        sources: new Set(["fts"]),
+      });
+    }
+  }
+
+  // Sort by combined RRF score, return top N
+  return [...scoreMap.values()]
+    .sort((a, b) => b.rrfScore - a.rrfScore)
+    .slice(0, limit)
+    .map((entry) => ({
+      ...entry.chunk,
+      score: entry.rrfScore,
+      source:
+        entry.sources.size > 1
+          ? ("both" as const)
+          : entry.sources.has("vector")
+            ? ("vector" as const)
+            : ("fts" as const),
+    }));
+}
+
+/* ---------- Cross-Encoder Reranking ---------- */
+
+/**
+ * Rerank search results using the VPS cross-encoder model.
+ * Calls port 5555 /rerank endpoint. Falls back gracefully on error.
+ */
+async function rerankResults(
+  vpsIp: string,
+  query: string,
+  chunks: (ScoredChunk & { source: "vector" | "fts" | "both" })[],
+  topK: number
+): Promise<(ScoredChunk & { source: "vector" | "fts" | "both" })[]> {
+  if (chunks.length <= topK) return chunks;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const res = await fetch(`http://${vpsIp}:5555/rerank`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: query.trim(),
+        documents: chunks.map((c) => c.content),
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return chunks.slice(0, topK);
+
+    const { scores } = await res.json();
+
+    if (!scores || scores.length !== chunks.length) {
+      return chunks.slice(0, topK);
+    }
+
+    // Attach reranker scores and sort
+    const reranked = chunks
+      .map((chunk, i) => ({
+        ...chunk,
+        rerankerScore: scores[i] as number,
+      }))
+      .sort((a, b) => b.rerankerScore - a.rerankerScore)
+      .slice(0, topK);
+
+    return reranked;
+  } catch {
+    // If reranking fails, return first N without reranking
+    return chunks.slice(0, topK);
+  }
 }

@@ -12,7 +12,10 @@ export default async function ChatPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   let userAgents: any[] | null = null;
   let vps: any = null;
@@ -79,7 +82,7 @@ export default async function ChatPage() {
   }
 
   return (
-    <div className="-m-6 h-[calc(100vh-3.5rem)]">
+    <div className="absolute inset-0 flex flex-col">
       {vpsWarning && (
         <div className="m-6 mb-0 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
           <AlertTriangle className="h-4 w-4 shrink-0" />

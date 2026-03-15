@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Bot,
   Calendar,
@@ -22,6 +22,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,8 +47,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
 import { PriorityBadge } from "./priority-badge";
-import { mockAgentStatuses } from "@/lib/mock-data/mission-control";
 import {
   MC_COLUMNS,
   type MCTask,
@@ -45,17 +56,9 @@ import {
   type MCComment,
   type MCReview,
   type MCActivity,
+  type MCAgentStatus,
 } from "@/types/mission-control";
-
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { formatTimeAgo, formatDate as sharedFormatDate } from "@/lib/format-time";
 
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "";
@@ -132,6 +135,35 @@ export function TaskDetailModal({
   onAddComment,
   onAddReview,
 }: TaskDetailModalProps) {
+  // Fetch real agents for the dropdown
+  const { data: agentStatuses = [] } = useQuery<MCAgentStatus[]>({
+    queryKey: ["mc-agents"],
+    queryFn: async () => {
+      const res = await fetch("/api/mission-control/agents/status");
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.agents || [];
+    },
+    staleTime: 30000,
+  });
+  // Debounced local state for description and acceptance_criteria (FIX-05)
+  const [localDescription, setLocalDescription] = useState(task?.description || "");
+  const [localCriteria, setLocalCriteria] = useState(task?.acceptance_criteria || "");
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync local state when task changes (e.g. switching tasks)
+  useEffect(() => {
+    setLocalDescription(task?.description || "");
+    setLocalCriteria(task?.acceptance_criteria || "");
+  }, [task?.id, task?.description, task?.acceptance_criteria]);
+
+  const debouncedUpdate = useCallback((taskId: string, updates: Record<string, unknown>) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    debounceTimerRef.current = setTimeout(() => {
+      onUpdate(taskId, updates);
+    }, 500);
+  }, [onUpdate]);
+
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
   const [commentText, setCommentText] = useState("");
@@ -365,7 +397,7 @@ export function TaskDetailModal({
                             : {
                                 id: v,
                                 name:
-                                  mockAgentStatuses.find((a) => a.agent_id === v)
+                                  agentStatuses.find((a) => a.agent_id === v)
                                     ?.agent?.name || "Agent",
                               },
                       })
@@ -376,9 +408,9 @@ export function TaskDetailModal({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {mockAgentStatuses.map((agent) => (
+                      {agentStatuses.map((agent) => (
                         <SelectItem key={agent.agent_id} value={agent.agent_id}>
-                          {agent.agent?.name}
+                          {agent.agent?.name || agent.agent_id}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -427,10 +459,11 @@ export function TaskDetailModal({
                 <Textarea
                   className="mt-1 text-sm"
                   rows={3}
-                  value={task.description || ""}
-                  onChange={(e) =>
-                    onUpdate(task.id, { description: e.target.value || null })
-                  }
+                  value={localDescription}
+                  onChange={(e) => {
+                    setLocalDescription(e.target.value);
+                    debouncedUpdate(task.id, { description: e.target.value || null });
+                  }}
                   placeholder="Add a description..."
                 />
               </div>
@@ -441,12 +474,11 @@ export function TaskDetailModal({
                 <Textarea
                   className="mt-1 text-sm"
                   rows={2}
-                  value={task.acceptance_criteria || ""}
-                  onChange={(e) =>
-                    onUpdate(task.id, {
-                      acceptance_criteria: e.target.value || null,
-                    })
-                  }
+                  value={localCriteria}
+                  onChange={(e) => {
+                    setLocalCriteria(e.target.value);
+                    debouncedUpdate(task.id, { acceptance_criteria: e.target.value || null });
+                  }}
                   placeholder="Define success criteria..."
                 />
               </div>
@@ -860,18 +892,38 @@ export function TaskDetailModal({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
-            onClick={() => {
-              onDelete(task.id);
-              onOpenChange(false);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Delete Task
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Delete Task
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete &quot;{task.title}&quot;?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-500 hover:bg-red-600"
+                  onClick={() => {
+                    onDelete(task.id);
+                    onOpenChange(false);
+                  }}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
             Close
           </Button>

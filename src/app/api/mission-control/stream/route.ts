@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { hasAccess } from "@/lib/tier";
+import { rateLimit } from "@/lib/rate-limit";
 import { eventBus } from "@/lib/mc-event-bus";
 
 // GET /api/mission-control/stream — SSE endpoint
@@ -11,6 +13,23 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Ultra plan check (P1.5.4)
+  const { data: sub } = await supabase
+    .from("subscriptions")
+    .select("plan")
+    .eq("user_id", user.id)
+    .single();
+
+  if (!hasAccess(sub?.plan || "starter", "ultra")) {
+    return new Response("Ultra plan required", { status: 403 });
+  }
+
+  // Rate limit SSE connections (P1.6.1)
+  const rl = rateLimit(`mc-stream:${user.id}`, 5, 60000);
+  if (!rl.success) {
+    return new Response("Too many connections", { status: 429 });
   }
 
   const encoder = new TextEncoder();
@@ -67,6 +86,8 @@ export async function GET(request: NextRequest) {
         clearInterval(pingInterval);
         eventBus.off(`mc:${user.id}`, handler);
         try {
+          // Send closing event before closing (P1.5.8)
+          controller.enqueue(encoder.encode("event: closing\ndata: {}\n\n"));
           controller.close();
         } catch {}
       }, 5 * 60 * 1000);

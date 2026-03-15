@@ -113,14 +113,11 @@ export async function DELETE(
     // 12. Delete Supabase auth user
     await admin.auth.admin.deleteUser(userId);
 
-    console.log(`[admin] Deleted customer ${targetUser.email} (${userId})`);
-
     const ip = getClientIp(_request);
     logAudit({ adminId: user.id, action: "customer_deleted", entityType: "customer", entityId: userId, details: { email: targetUser.email }, ip });
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    console.error("[admin/delete] Error:", err);
     return NextResponse.json(
       { error: "Failed to delete customer" },
       { status: 500 }

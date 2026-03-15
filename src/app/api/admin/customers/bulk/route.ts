@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
     .in("user_id", userIds);
 
   if (error) {
-    console.error("[admin/bulk] Error:", error);
     return NextResponse.json(
       { error: "Failed to update subscriptions" },
       { status: 500 }

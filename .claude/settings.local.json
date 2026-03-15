@@ -93,7 +93,8 @@
       "WebFetch(domain:21st.dev)",
       "WebFetch(domain:tweakcn.com)",
       "Bash(ls /d/openclaw/src/components/ui/*.tsx)",
-      "WebFetch(domain:www.draftly.space)"
+      "WebFetch(domain:www.draftly.space)",
+      "Bash(ls:*)"
     ]
   }
 }

@@ -1,32 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
+import { vpsDataFetch } from "@/lib/vps-data-api";
 
 // GET /api/mission-control/tasks/[id]/reviews
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+  const supabase = await createClient();
 
   const { id: taskId } = await params;
 
   try {
+    // Verify the task belongs to the user
+    const { data: task, error: taskError } = await supabase
+      .from("mc_tasks")
+      .select("id")
+      .eq("id", taskId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (taskError || !task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // Fetch ALL reviews for this task (not just the user's)
     const { data, error } = await supabase
       .from("mc_reviews")
       .select("*")
       .eq("task_id", taskId)
-      .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
@@ -42,10 +48,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+  const supabase = await createClient();
 
   const { id: taskId } = await params;
   const body = await request.json();
@@ -92,15 +98,36 @@ export async function POST(
 
     if (error) throw error;
 
-    // Also log activity
-    await supabase.from("mc_task_activities").insert({
-      user_id: user.id,
-      task_id: taskId,
-      actor: reviewer || profile?.name || "reviewer",
-      action: "added_review",
-      old_value: null,
-      new_value: status,
-    });
+    // Log activity to VPS (historical data)
+    vpsDataFetch(user.id, "/api/activities", {
+      method: "POST",
+      body: {
+        task_id: taskId,
+        actor: profile?.name || user.email || "reviewer",
+        action: "added_review",
+        old_value: null,
+        new_value: status,
+      },
+    }).catch(() => {}); // non-blocking
+
+    // FIX-09: Auto-move task to Done on approval
+    if (status === "approved") {
+      const now = new Date().toISOString();
+      await supabase
+        .from("mc_tasks")
+        .update({ column_id: "done", completed_at: now, updated_at: now })
+        .eq("id", taskId)
+        .eq("user_id", user.id);
+
+      vpsDataFetch(user.id, "/api/activities", {
+        method: "POST",
+        body: {
+          task_id: taskId,
+          actor: profile?.name || "reviewer",
+          action: "Review approved — task moved to Done",
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ review: data }, { status: 201 });
   } catch {

@@ -4,18 +4,21 @@ import {
   CreditCard,
   Brain,
   Cpu,
-  MessageSquare,
-  Bot,
-  Ticket,
-  ExternalLink,
   ArrowRight,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { vpsStatusConfig } from "@/lib/vps-status";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { SystemAlerts } from "@/components/dashboard/system-alerts";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { VpsHealthCard } from "@/components/dashboard/vps-health-card";
+import { GettingStartedGuide } from "@/components/dashboard/getting-started-guide";
+import { OverviewSparklines } from "@/components/dashboard/overview-sparklines";
+import { QuickActions } from "@/components/dashboard/quick-actions";
+import { UsageSummaryCard } from "@/components/dashboard/usage-summary-card";
 
 function formatContext(limit: number | null) {
   if (limit == null) return "Unlimited";
@@ -29,7 +32,10 @@ export default async function OverviewPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   let subscription: any = null;
   let vps: any = null;
@@ -71,6 +77,10 @@ export default async function OverviewPage() {
         .eq("user_id", user.id)
         .in("status", ["open", "in_progress"]),
     ]);
+    // Subscription/VPS/model queries can return null (no rows) — that's OK
+    // But a real error (permissions, network) should throw
+    if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
+    if (vpsRes.error && vpsRes.error.code !== "PGRST116") throw vpsRes.error;
     subscription = subRes.data;
     vps = vpsRes.data;
     model = modelRes.data;
@@ -144,22 +154,35 @@ export default async function OverviewPage() {
       <h1 className="text-2xl font-bold mb-1">Overview</h1>
       <p className="text-muted-foreground mb-6">Your ClawHQ dashboard at a glance.</p>
 
+      {/* System Alerts */}
+      <div className="mb-4">
+        <SystemAlerts
+          vpsStatus={vps.status}
+          channelsConnected={channelsConnected ?? 0}
+          agentsDeployed={agentsDeployed ?? 0}
+        />
+      </div>
+
+      {/* Getting Started Guide (brand new users only) */}
+      <div className="mb-4">
+        <GettingStartedGuide />
+      </div>
+
+      {/* Onboarding Checklist (in-progress users) */}
+      <div className="mb-6">
+        <OnboardingChecklist />
+      </div>
+
       {/* Top row: VPS Status, Plan, Model, Context */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <Card className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">VPS Status</CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <Badge className={statusConfig.className}>{statusConfig.label}</Badge>
-            {vps.cpu_cores && (
-              <p className="text-xs text-muted-foreground mt-2">
-                {vps.cpu_cores} vCPU &middot; {vps.ram_gb}GB RAM &middot; {vps.storage_gb}GB
-              </p>
-            )}
-          </CardContent>
-        </Card>
+        <VpsHealthCard
+          vpsStatus={vps.status}
+          statusLabel={statusConfig.label}
+          statusClassName={statusConfig.className}
+          cpuCores={vps.cpu_cores}
+          ramGb={vps.ram_gb}
+          storageGb={vps.storage_gb}
+        />
 
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -205,72 +228,22 @@ export default async function OverviewPage() {
         </Card>
       </div>
 
-      {/* Second row: Channels, Agents, Tickets */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Channels Connected</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{channelsConnected ?? 0}</p>
-            {(channelsConnected ?? 0) === 0 && (
-              <Link href="/channels" className="text-xs text-primary hover:underline mt-1 inline-block">
-                Connect a channel
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Agents Deployed</CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{agentsDeployed ?? 0}</p>
-            {(agentsDeployed ?? 0) === 0 && (
-              <Link href="/store" className="text-xs text-primary hover:underline mt-1 inline-block">
-                Deploy your first agent
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-border">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Open Tickets</CardTitle>
-            <Ticket className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{openTickets ?? 0}</p>
-          </CardContent>
-        </Card>
+      {/* Second row: Channels, Agents, Messages/Tickets — with sparklines */}
+      <div className="mb-6">
+        <OverviewSparklines
+          channelsConnected={channelsConnected ?? 0}
+          agentsDeployed={agentsDeployed ?? 0}
+          openTickets={openTickets ?? 0}
+        />
       </div>
 
       {/* Quick Actions */}
-      <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
-      <div className="flex flex-wrap gap-3">
-        {vps.openclaw_dashboard_url && (
-          <Button asChild>
-            <a href={vps.openclaw_dashboard_url} target="_blank" rel="noopener noreferrer">
-              Open OpenClaw
-              <ExternalLink className="ml-2 h-4 w-4" />
-            </a>
-          </Button>
-        )}
-        <Button variant="outline" asChild>
-          <Link href="/vps">
-            Manage VPS
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <Link href="/support">
-            Raise Ticket
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Link>
-        </Button>
+      <QuickActions openclawUrl={vps.openclaw_dashboard_url} />
+
+      {/* Usage + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+        <UsageSummaryCard />
+        <RecentActivity />
       </div>
     </div>
   );

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Lock, Loader2, Calendar, Shield } from "lucide-react";
+import Link from "next/link";
+import { User, Lock, Loader2, Calendar, Shield, MessageSquare, Bot, Key, Globe } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,13 @@ interface Profile {
   created_at: string;
 }
 
-export function AccountSettings({ profile }: { profile: Profile }) {
+interface AccountStats {
+  channels_connected: number;
+  agents_deployed: number;
+  open_tickets: number;
+}
+
+export function AccountSettings({ profile, stats }: { profile: Profile; stats?: AccountStats }) {
   const router = useRouter();
   const [name, setName] = useState(profile.name || "");
   const [savingName, setSavingName] = useState(false);
@@ -31,6 +38,10 @@ export function AccountSettings({ profile }: { profile: Profile }) {
   const handleUpdateName = async () => {
     if (!name.trim() || name.trim().length < 2) {
       toast.error("Name must be at least 2 characters");
+      return;
+    }
+    if (name.trim().length > 100) {
+      toast.error("Name must be 100 characters or less");
       return;
     }
 
@@ -218,6 +229,43 @@ export function AccountSettings({ profile }: { profile: Profile }) {
           </form>
         </CardContent>
       </Card>
+
+      {/* Connected Services */}
+      {stats && (
+        <Card className="border-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-muted-foreground" />
+              <CardTitle className="text-lg">Connected Services</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Link href="/channels" className="flex items-center gap-3 p-3 border border-border hover:bg-muted/50 transition-colors">
+                <MessageSquare className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-bold">{stats.channels_connected}</p>
+                  <p className="text-xs text-muted-foreground">Channels connected</p>
+                </div>
+              </Link>
+              <Link href="/agents" className="flex items-center gap-3 p-3 border border-border hover:bg-muted/50 transition-colors">
+                <Bot className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-bold">{stats.agents_deployed}</p>
+                  <p className="text-xs text-muted-foreground">Agents deployed</p>
+                </div>
+              </Link>
+              <Link href="/support" className="flex items-center gap-3 p-3 border border-border hover:bg-muted/50 transition-colors">
+                <Key className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="text-lg font-bold">{stats.open_tickets}</p>
+                  <p className="text-xs text-muted-foreground">Open tickets</p>
+                </div>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

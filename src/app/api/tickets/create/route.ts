@@ -72,11 +72,20 @@ export async function POST(request: NextRequest) {
   }
 
   // Insert the first message
-  await admin.from("ticket_messages").insert({
+  const { error: msgError } = await admin.from("ticket_messages").insert({
     ticket_id: ticket.id,
     sender_role: "customer",
     message: description.trim(),
   });
+
+  if (msgError) {
+    // Ticket was created but message failed — delete the orphan ticket
+    await admin.from("support_tickets").delete().eq("id", ticket.id);
+    return NextResponse.json(
+      { error: "Failed to create ticket" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true, ticket_id: ticket.id });
 }

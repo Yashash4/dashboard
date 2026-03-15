@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Read(//c/Users/yasha/OneDrive/Desktop/yash/dashboard/**)",
+      "Bash(npx next:*)",
+      "Bash(grep:*)",
+      "Read(//c/Users/yasha/AppData/Local/**)",
+      "Read(//c/Users/yasha/AppData/Roaming/**)",
+      "Read(//c/Users/yasha/.config/**)"
+    ]
+  }
+}

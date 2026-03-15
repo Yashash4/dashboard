@@ -129,12 +129,14 @@ export function SSLChecker({ hostname }: { hostname: string }) {
                     className={`font-medium font-mono ${
                       result.daysRemaining < 0
                         ? "text-red-500"
-                        : result.daysRemaining < 14
-                          ? "text-yellow-500"
-                          : ""
+                        : result.daysRemaining < 7
+                          ? "text-red-500"
+                          : result.daysRemaining < 30
+                            ? "text-yellow-500"
+                            : "text-green-500"
                     }`}
                   >
-                    {result.daysRemaining}
+                    {result.daysRemaining}d
                   </p>
                 </div>
               )}
@@ -151,6 +153,45 @@ export function SSLChecker({ hostname }: { hostname: string }) {
                 </div>
               )}
             </div>
+
+            {/* Auto-renew status */}
+            {result.valid && result.issuer && (
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="h-3 w-3 text-green-500" />
+                  <span className="text-xs text-muted-foreground">
+                    Auto-renew: {result.issuer.toLowerCase().includes("encrypt") ? "Enabled (Let's Encrypt)" : "Check provider"}
+                  </span>
+                </div>
+                {result.daysRemaining !== undefined && result.daysRemaining < 7 && result.daysRemaining >= 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-xs text-yellow-500 border-yellow-500/30"
+                    onClick={async () => {
+                      toast.info("Certificate renewal initiated. This may take a few minutes.");
+                      try {
+                        const res = await fetch("/api/vps/ssl-check", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ renew: true }),
+                        });
+                        if (res.ok) {
+                          toast.success("Certificate renewed successfully.");
+                          handleCheck();
+                        } else {
+                          toast.error("Renewal failed. Contact support.");
+                        }
+                      } catch {
+                        toast.error("Renewal failed. Contact support.");
+                      }
+                    }}
+                  >
+                    Renew Now
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

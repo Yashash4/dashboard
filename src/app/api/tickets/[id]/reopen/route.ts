@@ -1,0 +1,59 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
+import { rateLimit } from "@/lib/rate-limit";
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:ticket_reopen`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+  }
+
+  // Verify the ticket belongs to this user and is reopenable
+  const { data: ticket } = await supabase
+    .from("support_tickets")
+    .select("id, status, user_id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!ticket) {
+    return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+  }
+
+  if (ticket.status !== "resolved" && ticket.status !== "closed") {
+    return NextResponse.json(
+      { error: "Ticket is already open" },
+      { status: 400 }
+    );
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("support_tickets")
+    .update({ status: "open", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    return NextResponse.json(
+      { error: "Failed to reopen ticket" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true });
+}

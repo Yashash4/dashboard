@@ -19,9 +19,11 @@ const DASHBOARD_PATHS = [
   "/analytics",
   "/knowledge-base",
   "/webhooks",
-  "/smart-routing",
+
   "/api-access",
   "/audit-log",
+  "/model-playground",
+  "/agent-builder",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -171,8 +173,10 @@ export const config = {
     "/analytics/:path*",
     "/knowledge-base/:path*",
     "/webhooks/:path*",
-    "/smart-routing/:path*",
+
     "/api-access/:path*",
     "/audit-log/:path*",
+    "/model-playground/:path*",
+    "/agent-builder/:path*",
   ],
 };

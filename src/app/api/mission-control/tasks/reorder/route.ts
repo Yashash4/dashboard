@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
 
 // PATCH /api/mission-control/tasks/reorder — bulk position update for drag-drop
 export async function PATCH(request: NextRequest) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 }, maxBodySize: 51200 });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const body = await request.json();
   const { updates } = body as {
     updates?: Array<{
@@ -32,10 +25,16 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  if (updates.length > 100) {
+    return NextResponse.json(
+      { error: "Max 100 items per reorder" },
+      { status: 400 }
+    );
+  }
+
   try {
     const now = new Date().toISOString();
 
-    // Update each task's column and position
     const promises = updates.map((u) =>
       supabase
         .from("mc_tasks")
@@ -43,7 +42,6 @@ export async function PATCH(request: NextRequest) {
           column_id: u.column_id,
           position: u.position,
           updated_at: now,
-          // Auto-set completed_at
           ...(u.column_id === "done" ? { completed_at: now } : {}),
         })
         .eq("id", u.id)

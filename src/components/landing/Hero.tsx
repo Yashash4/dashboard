@@ -76,9 +76,9 @@ export default function Hero() {
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.08] mb-6"
           style={{ color: "#eeeeee" }}
         >
-          Your AI agents,{" "}
+          Your AI Agents.{" "}
           <span style={{ color: "oklch(0.6762 0.0567 132.4479)" }}>
-            managed for you
+            Managed.
           </span>
         </motion.h1>
 
@@ -88,8 +88,8 @@ export default function Hero() {
           className="text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
           style={{ color: "#b4b4b4" }}
         >
-          Dedicated VPS, bundled AI models, all messaging channels, and a full
-          dashboard. One price. No API keys. No hidden fees. Live in 24 hours.
+          Deploy AI agents on WhatsApp, Telegram, Discord, and more.
+          Dedicated VPS. Bundled AI models. Zero DevOps. Live in 24 hours.
         </motion.p>
 
         {/* CTAs */}
@@ -124,7 +124,7 @@ export default function Hero() {
             />
           </a>
           <a
-            href="#pricing"
+            href="#product-tour"
             className="flex items-center gap-2 px-6 py-3 text-sm transition-colors duration-200 hover:text-[#eeeeee]"
             style={{
               borderRadius: "var(--radius)",
@@ -138,7 +138,7 @@ export default function Hero() {
               e.currentTarget.style.borderColor = "#201e18";
             }}
           >
-            View Plans
+            See It In Action ↓
           </a>
         </motion.div>
 

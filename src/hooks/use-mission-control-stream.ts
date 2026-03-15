@@ -67,6 +67,11 @@ export function useMissionControlStream() {
         es.close();
         eventSourceRef.current = null;
 
+        // Stop retrying on auth errors (P1.5.7)
+        if (retryCountRef.current > 10) {
+          return; // Give up after many retries
+        }
+
         // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
         const delay = Math.min(
           1000 * Math.pow(2, retryCountRef.current),

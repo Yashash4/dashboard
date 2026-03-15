@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -81,12 +82,14 @@ export function UsageAnalytics() {
       <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
         <AlertTriangle className="h-8 w-8 mb-2" />
         <p>Failed to load analytics</p>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
           onClick={() => refetch()}
-          className="mt-3 text-sm text-primary hover:underline"
         >
           Try again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -214,6 +217,11 @@ export function UsageAnalytics() {
         </CardHeader>
         <CardContent>
           <div className="h-[280px]">
+            {daily.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                No data yet
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={daily}>
                 <defs>
@@ -259,7 +267,9 @@ export function UsageAnalytics() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
+          {daily.length > 0 && (
           <div className="flex items-center gap-4 mt-2 justify-center">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5" style={{ backgroundColor: "hsl(var(--primary))" }} />
@@ -270,6 +280,7 @@ export function UsageAnalytics() {
               <span className="text-xs text-muted-foreground">Errors</span>
             </div>
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -283,6 +294,11 @@ export function UsageAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px]">
+              {hourly.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                  No data yet
+                </div>
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={hourly}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -307,6 +323,7 @@ export function UsageAnalytics() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -385,6 +402,11 @@ export function UsageAnalytics() {
         </CardHeader>
         <CardContent>
           <div className="h-[250px]">
+            {daily.length === 0 ? (
+              <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                No data yet
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={daily}>
                 <defs>
@@ -430,7 +452,9 @@ export function UsageAnalytics() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            )}
           </div>
+          {daily.length > 0 && (
           <div className="flex items-center gap-4 mt-2 justify-center">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5" style={{ backgroundColor: "hsl(142, 76%, 36%)" }} />
@@ -441,6 +465,7 @@ export function UsageAnalytics() {
               <span className="text-xs text-muted-foreground">Messages</span>
             </div>
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -100,7 +100,6 @@ export async function POST(
       .eq("user_id", userId);
 
     if (error) {
-      console.error("[admin/subscription] Update error:", error);
       return NextResponse.json(
         { error: "Failed to update subscription" },
         { status: 500 }
@@ -110,7 +109,6 @@ export async function POST(
     const { error } = await admin.from("subscriptions").insert(subscriptionData);
 
     if (error) {
-      console.error("[admin/subscription] Insert error:", error);
       return NextResponse.json(
         { error: "Failed to create subscription" },
         { status: 500 }

@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         .from("vps_instances")
         .select("ip_address, ssh_user, ssh_password, ssh_port, hostname, status")
         .eq("user_id", change.user_id)
-        .eq("status", "active")
+        .eq("status", "running")
         .single();
 
       if (!vps) {

@@ -48,11 +48,21 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { url, events, enabled, description } = body as {
+  const {
+    url, events, enabled, description,
+    filter_conditions, transformation,
+    retry_max_attempts, retry_interval_seconds,
+    paused_at,
+  } = body as {
     url?: string;
     events?: string[];
     enabled?: boolean;
     description?: string;
+    filter_conditions?: any;
+    transformation?: string | null;
+    retry_max_attempts?: number;
+    retry_interval_seconds?: number;
+    paused_at?: string | null;
   };
 
   const updates: Record<string, unknown> = {};
@@ -75,8 +85,9 @@ export async function PATCH(
       return NextResponse.json({ error: "At least one event is required" }, { status: 400 });
     }
     const validEvents = [
-      "message.received", "agent.deployed", "vps.status_changed",
-      "channel.connected", "channel.disconnected",
+      "message.received", "agent.deployed", "agent.undeployed",
+      "vps.status_changed", "channel.connected", "channel.disconnected",
+      "api.request", "kb.document.indexed", "session.started",
     ];
     const invalid = events.filter((e) => !validEvents.includes(e));
     if (invalid.length > 0) {
@@ -91,6 +102,32 @@ export async function PATCH(
 
   if (description !== undefined) {
     updates.description = description.trim() || null;
+  }
+
+  // 6.3 Event filtering
+  if (filter_conditions !== undefined) {
+    updates.filter_conditions = filter_conditions;
+  }
+
+  // 6.5 Payload transformation
+  if (transformation !== undefined) {
+    updates.transformation = transformation;
+  }
+
+  // 6.4 Configurable retry policy
+  if (retry_max_attempts !== undefined) {
+    const clamped = Math.max(1, Math.min(10, retry_max_attempts));
+    updates.retry_max_attempts = clamped;
+  }
+  if (retry_interval_seconds !== undefined) {
+    const validIntervals = [10, 30, 60, 300, 900];
+    updates.retry_interval_seconds = validIntervals.includes(retry_interval_seconds)
+      ? retry_interval_seconds : 30;
+  }
+
+  // 6.6 Pause/Resume
+  if (paused_at !== undefined) {
+    updates.paused_at = paused_at;
   }
 
   if (Object.keys(updates).length === 0) {

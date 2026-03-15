@@ -1,20 +1,14 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
 
 // GET /api/mission-control/agents/status — all agent statuses
-export async function GET() {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+export async function GET(request: NextRequest) {
+  const guard = await guardMCRoute(request, { rateLimit: { max: 60, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+
+  const supabase = await createClient();
 
   try {
     const { data, error } = await supabase
@@ -29,6 +23,9 @@ export async function GET() {
 
     return NextResponse.json({ agents: data || [] });
   } catch {
-    return NextResponse.json({ agents: [] });
+    return NextResponse.json(
+      { error: "Failed to fetch agent status" },
+      { status: 500 }
+    );
   }
 }

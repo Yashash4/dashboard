@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   MessageSquare,
@@ -18,6 +18,10 @@ import {
   MessageCircle,
   HelpCircle,
   RefreshCw,
+  ArrowUp,
+  ArrowDown,
+  PlugZap,
+  KeyRound,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ChannelSetupWizard } from "@/components/dashboard/channel-setup-wizard";
+import { ChannelStatusHistory } from "@/components/dashboard/channel-status-history";
 
 interface Channel {
   id: string;
@@ -148,6 +153,8 @@ const SELF_CONFIGURABLE = ["telegram", "discord", "slack", "teams", "webchat"];
 // Channels that require admin/manual setup
 const REQUIRES_SETUP = ["whatsapp", "signal"];
 
+const CHANNEL_ORDER_KEY = "clawhq-channel-order";
+
 const STATUS_CONFIG: Record<
   string,
   { label: string; className: string; icon: React.ComponentType<{ className?: string }> }
@@ -169,13 +176,66 @@ const STATUS_CONFIG: Record<
   },
 };
 
+function getRelativeTime(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffSec < 60) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay < 30) return `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function loadSavedOrder(): string[] {
+  try {
+    const saved = localStorage.getItem(CHANNEL_ORDER_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {
+    // ignore
+  }
+  return [];
+}
+
+function saveOrder(ids: string[]) {
+  try {
+    localStorage.setItem(CHANNEL_ORDER_KEY, JSON.stringify(ids));
+  } catch {
+    // ignore
+  }
+}
+
+function sortChannels(channels: Channel[]): Channel[] {
+  const savedOrder = loadSavedOrder();
+  if (savedOrder.length === 0) return channels;
+
+  const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+  return [...channels].sort((a, b) => {
+    const aIdx = orderMap.get(a.id) ?? 9999;
+    const bIdx = orderMap.get(b.id) ?? 9999;
+    if (aIdx !== bIdx) return aIdx - bIdx;
+    // Fallback: configured_at desc
+    const aTime = a.configured_at ? new Date(a.configured_at).getTime() : 0;
+    const bTime = b.configured_at ? new Date(b.configured_at).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
 export function ChannelManager({
   channels: initialChannels,
 }: {
   channels: Channel[];
 }) {
   const router = useRouter();
-  const [channels, setChannels] = useState(initialChannels);
+  const [channels, setChannels] = useState(() => sortChannels(initialChannels));
   const [connectType, setConnectType] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [disconnectChannel, setDisconnectChannel] = useState<Channel | null>(
@@ -183,6 +243,93 @@ export function ChannelManager({
   );
   const [disconnecting, setDisconnecting] = useState(false);
   const [checkingHealth, setCheckingHealth] = useState(false);
+  const [testingChannel, setTestingChannel] = useState<string | null>(null);
+  const [reconnectingId, setReconnectingId] = useState<string | null>(null);
+  const [reconnectFailedId, setReconnectFailedId] = useState<string | null>(null);
+  const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
+
+  // 7.5: Fetch last message timestamps for each channel
+  const fetchLastMessages = useCallback(async () => {
+    const connected = channels.filter((c) => c.status === "connected");
+    if (connected.length === 0) return;
+
+    const results: Record<string, string> = {};
+    await Promise.all(
+      connected.map(async (ch) => {
+        try {
+          const res = await fetch(`/api/channels/${ch.id}/messages`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.messages && data.messages.length > 0) {
+              results[ch.id] = data.messages[0].created_at;
+            }
+          }
+        } catch {
+          // ignore individual failures
+        }
+      })
+    );
+    setLastMessages(results);
+  }, [channels]);
+
+  useEffect(() => {
+    fetchLastMessages();
+  }, [fetchLastMessages]);
+
+  // 7.7: Channel ordering
+  const moveChannel = (index: number, direction: "up" | "down") => {
+    setChannels((prev) => {
+      const next = [...prev];
+      const targetIdx = direction === "up" ? index - 1 : index + 1;
+      if (targetIdx < 0 || targetIdx >= next.length) return prev;
+      [next[index], next[targetIdx]] = [next[targetIdx], next[index]];
+      saveOrder(next.map((c) => c.id));
+      return next;
+    });
+  };
+
+  // 7.6: Reconnect handler
+  const handleReconnect = async (channel: Channel) => {
+    setReconnectingId(channel.id);
+    setReconnectFailedId(null);
+    try {
+      const res = await fetch("/api/channels/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel_type: channel.channel_type,
+          credentials: {},
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setReconnectFailedId(channel.id);
+        toast.error(data.error || "Reconnect failed");
+        return;
+      }
+
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.id === channel.id
+            ? {
+                ...c,
+                status: "connected",
+                configured_at: new Date().toISOString(),
+              }
+            : c
+        )
+      );
+      toast.success(
+        `${CHANNEL_TYPES[channel.channel_type]?.label || channel.channel_type} reconnected`
+      );
+    } catch {
+      setReconnectFailedId(channel.id);
+      toast.error("Reconnect failed");
+    } finally {
+      setReconnectingId(null);
+    }
+  };
 
   const handleHealthCheck = async () => {
     setCheckingHealth(true);
@@ -222,7 +369,9 @@ export function ChannelManager({
   const connectedCount = channels.filter(
     (c) => c.status === "connected"
   ).length;
-  const connectedTypes = channels.map((c) => c.channel_type);
+  const connectedTypes = channels
+    .filter((c) => c.status === "connected")
+    .map((c) => c.channel_type);
   const availableSelfConfig = SELF_CONFIGURABLE.filter(
     (t) => !connectedTypes.includes(t)
   );
@@ -240,6 +389,14 @@ export function ChannelManager({
       if (missing.length > 0) {
         toast.error(`Please fill in: ${missing.map((f) => f.label).join(", ")}`);
         return;
+      }
+      // Basic token format validation
+      for (const field of config.fields) {
+        const val = creds[field.key]?.trim();
+        if (val && val.length < 10) {
+          toast.error(`${field.label} seems too short. Please check the value.`);
+          return;
+        }
       }
     }
 
@@ -288,6 +445,9 @@ export function ChannelManager({
           ...prev,
         ]);
       }
+
+      // Clear reconnect failed state if it was for this type
+      setReconnectFailedId(null);
 
       toast.success(`${config.label} connected successfully`);
       setConnectType(null);
@@ -362,14 +522,18 @@ export function ChannelManager({
         </Card>
       )}
 
-      {/* Connected Channel Cards */}
+      {/* Channel Cards */}
       {channels.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {channels.map((channel) => {
+          {channels.map((channel, index) => {
             const config = CHANNEL_TYPES[channel.channel_type];
             const status = STATUS_CONFIG[channel.status] || STATUS_CONFIG.disconnected;
             const Icon = config?.icon || MessageSquare;
             const StatusIcon = status.icon;
+            const isDisconnected = channel.status !== "connected";
+            const isReconnecting = reconnectingId === channel.id;
+            const reconnectFailed = reconnectFailedId === channel.id;
+            const lastMsgTime = lastMessages[channel.id];
 
             return (
               <Card
@@ -389,11 +553,38 @@ export function ChannelManager({
                       <h3 className="font-semibold">
                         {config?.label || channel.channel_type}
                       </h3>
+                      {/* 7.7: Primary badge for first channel */}
+                      {index === 0 && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                          Primary
+                        </Badge>
+                      )}
                     </div>
-                    <Badge className={`${status.className} text-xs`}>
-                      <StatusIcon className="mr-1 h-3 w-3" />
-                      {status.label}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                      {/* 7.7: Ordering buttons */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        disabled={index === 0}
+                        onClick={() => moveChannel(index, "up")}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        disabled={index === channels.length - 1}
+                        onClick={() => moveChannel(index, "down")}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                      <Badge className={`${status.className} text-xs ml-1`}>
+                        <StatusIcon className="mr-1 h-3 w-3" />
+                        {status.label}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Health indicator */}
@@ -443,21 +634,71 @@ export function ChannelManager({
                     </p>
                   )}
 
+                  {/* 7.5: Last message preview */}
+                  {lastMsgTime && (
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Last message: {getRelativeTime(lastMsgTime)}
+                    </p>
+                  )}
+
                   {!channel.configured_at && channel.status === "pending" && (
                     <p className="text-xs text-muted-foreground mb-4">
                       Setup in progress
                     </p>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setDisconnectChannel(channel)}
-                  >
-                    <Unplug className="mr-2 h-3 w-3" />
-                    Disconnect
-                  </Button>
+                  {/* 7.1: Status History (expandable) */}
+                  <ChannelStatusHistory
+                    channelType={channel.channel_type}
+                    status={channel.status}
+                    configuredAt={channel.configured_at}
+                    healthStatus={channel.health_status}
+                    lastHealthCheck={channel.last_health_check}
+                    errorMessage={channel.error_message}
+                  />
+
+                  {/* 7.6: Reconnect button for disconnected channels */}
+                  {isDisconnected && !reconnectFailed && (
+                    <Button
+                      size="sm"
+                      className="w-full mt-3"
+                      onClick={() => handleReconnect(channel)}
+                      disabled={isReconnecting}
+                    >
+                      {isReconnecting ? (
+                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      ) : (
+                        <PlugZap className="mr-2 h-3 w-3" />
+                      )}
+                      {isReconnecting ? "Reconnecting..." : "Reconnect"}
+                    </Button>
+                  )}
+
+                  {/* 7.6: Update Credentials button when reconnect fails */}
+                  {isDisconnected && reconnectFailed && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-3 border-yellow-600/50 text-yellow-500 hover:text-yellow-400"
+                      onClick={() => setConnectType(channel.channel_type)}
+                    >
+                      <KeyRound className="mr-2 h-3 w-3" />
+                      Update Credentials
+                    </Button>
+                  )}
+
+                  {/* Disconnect button for connected channels */}
+                  {!isDisconnected && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full mt-3"
+                      onClick={() => setDisconnectChannel(channel)}
+                    >
+                      <Unplug className="mr-2 h-3 w-3" />
+                      Disconnect
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );

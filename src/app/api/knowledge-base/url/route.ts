@@ -5,6 +5,7 @@ import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { indexDocument, stripHTML, isPrivateUrl } from "@/lib/knowledge-base";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -76,9 +77,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create document record
+    // Check storage limit (100 MB total) — must match upload/route.ts and knowledge-base-manager.tsx
     const contentSize = Buffer.byteLength(textContent, "utf-8");
 
+    const { data: existingDocs } = await admin
+      .from("kb_documents")
+      .select("file_size")
+      .eq("user_id", user.id);
+    const currentUsage = (existingDocs || []).reduce(
+      (sum: number, d: { file_size: number }) => sum + (d.file_size || 0),
+      0
+    );
+    if (currentUsage + contentSize > 100 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "Storage limit reached (100 MB). Delete some documents first." },
+        { status: 400 }
+      );
+    }
+
+    // Create document record
     const { data: doc, error: docError } = await admin
       .from("kb_documents")
       .insert({
@@ -103,7 +120,7 @@ export async function POST(request: NextRequest) {
       doc.id,
       user.id,
       textContent,
-      false
+      "html"
     );
 
     const { data: fullDoc } = await admin
@@ -122,6 +139,12 @@ export async function POST(request: NextRequest) {
       ip: getClientIp(request),
     });
 
+    dispatchWebhooks(user.id, "kb.document.indexed", {
+      document_name: new URL(url).hostname + new URL(url).pathname,
+      chunk_count: chunkCount,
+      file_size: contentSize,
+    }).catch(() => {});
+
     return NextResponse.json({ document: fullDoc, chunkCount });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
@@ -130,7 +153,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.error("[kb/url] Error:", err);
+    console.warn("[kb/url] Error processing URL:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json(
       { error: "Failed to process URL" },
       { status: 500 }

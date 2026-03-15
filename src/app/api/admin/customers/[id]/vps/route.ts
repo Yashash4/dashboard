@@ -83,7 +83,6 @@ export async function PATCH(
     .eq("user_id", userId);
 
   if (error) {
-    console.error("[admin/vps] Update error:", error);
     return NextResponse.json(
       { error: "Failed to update VPS details" },
       { status: 500 }

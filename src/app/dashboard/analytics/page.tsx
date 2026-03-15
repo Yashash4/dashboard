@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { UsageAnalytics } from "@/components/dashboard/usage-analytics";
+import { AnalyticsTabs } from "./analytics-tabs";
 
 export default async function AnalyticsPage() {
   const supabase = await createClient();
@@ -24,7 +24,7 @@ export default async function AnalyticsPage() {
       <div>
         <h1 className="text-2xl font-bold mb-1">Usage Analytics</h1>
         <p className="text-muted-foreground mb-6">
-          Track token usage, conversations, and performance metrics.
+          Track conversations, performance metrics, and insights.
         </p>
         <UpgradePrompt requiredPlan="pro" />
       </div>
@@ -35,9 +35,9 @@ export default async function AnalyticsPage() {
     <div>
       <h1 className="text-2xl font-bold mb-1">Usage Analytics</h1>
       <p className="text-muted-foreground mb-6">
-        Track token usage, conversations, and performance metrics.
+        Track conversations, performance metrics, and insights.
       </p>
-      <UsageAnalytics />
+      <AnalyticsTabs />
     </div>
   );
 }

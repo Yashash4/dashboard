@@ -1,0 +1,26 @@
+export const API_CHANGELOG = [
+  {
+    date: "2026-03-15",
+    version: "2026-03-15",
+    changes: [
+      { type: "added" as const, description: "Rate limit headers on all V1 API responses (X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset)" },
+      { type: "added" as const, description: "Request IDs on all responses (X-Request-Id, X-Client-Request-Id)" },
+      { type: "added" as const, description: "Structured error codes with machine-readable error types" },
+      { type: "added" as const, description: "GET /v1/models — List available AI models" },
+      { type: "added" as const, description: "JSON mode with response_format parameter on POST /v1/chat" },
+      { type: "added" as const, description: "GET /v1/usage — Per-key usage analytics" },
+      { type: "added" as const, description: "Idempotency-Key header support for deduplication" },
+      { type: "added" as const, description: "POST /v1/threads — Persistent conversation threads" },
+      { type: "added" as const, description: "POST /v1/threads/:id/messages — Send messages within threads" },
+      { type: "added" as const, description: "GET /v1/threads — List threads" },
+      { type: "added" as const, description: "Content moderation with moderation parameter" },
+      { type: "added" as const, description: "Context caching with cache_key parameter" },
+      { type: "added" as const, description: "Tool use / function calling via tools parameter" },
+      { type: "added" as const, description: "SSE streaming with stream: true" },
+      { type: "added" as const, description: "GET /v1/health — Key validation endpoint with agents list" },
+      { type: "added" as const, description: "GET /v1/conversations — Conversation history API" },
+      { type: "added" as const, description: "Per-key rate limit configuration (30/60/120/300 RPM)" },
+      { type: "added" as const, description: "API versioning via ClawHQ-Version header" },
+    ],
+  },
+];

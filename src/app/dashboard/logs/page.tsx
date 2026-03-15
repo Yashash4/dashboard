@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { LogsExplorer } from "@/components/dashboard/logs-explorer";
+import { LogsTabs } from "./logs-tabs";
 
 export default async function LogsPage() {
   const supabase = await createClient();
@@ -37,7 +37,7 @@ export default async function LogsPage() {
       <p className="text-muted-foreground mb-6">
         Search and filter your VPS logs in real-time.
       </p>
-      <LogsExplorer />
+      <LogsTabs />
     </div>
   );
 }

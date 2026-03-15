@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { vpsStatusConfig } from "@/lib/vps-status";
 import { hasAccess } from "@/lib/tier";
 import { CopyButton } from "@/components/ui/copy-button";
+import { MonitoringDashboard } from "@/components/dashboard/monitoring-dashboard";
 
 export default async function MonitoringPage() {
   const supabase = await createClient();
@@ -23,22 +24,39 @@ export default async function MonitoringPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
-  const [{ data: vps }, { data: subscription }] = await Promise.all([
-    supabase
-      .from("vps_instances")
-      .select(
-        "status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url"
-      )
-      .eq("user_id", user.id)
-      .single(),
-    supabase
-      .from("subscriptions")
-      .select("plan")
-      .eq("user_id", user.id)
-      .single(),
-  ]);
+  let vps: any = null;
+  let subscription: any = null;
+
+  try {
+    const [vpsRes, subRes] = await Promise.all([
+      supabase
+        .from("vps_instances")
+        .select(
+          "status, hostname, ip_address, cpu_cores, ram_gb, storage_gb, bandwidth_tb, openclaw_dashboard_url"
+        )
+        .eq("user_id", user.id)
+        .single(),
+      supabase
+        .from("subscriptions")
+        .select("plan")
+        .eq("user_id", user.id)
+        .single(),
+    ]);
+    vps = vpsRes.data;
+    subscription = subRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load monitoring data. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   if (!vps) {
     return (
@@ -66,6 +84,7 @@ export default async function MonitoringPage() {
   const statusConfig = vpsStatusConfig[vps.status] || vpsStatusConfig.error;
   const plan = (subscription?.plan as string) || "starter";
   const isPro = hasAccess(plan, "pro");
+  const isRunning = vps.status === "running";
 
   return (
     <div>
@@ -92,11 +111,13 @@ export default async function MonitoringPage() {
                   <CopyButton value={vps.hostname} />
                 </div>
               )}
+              {vps.ip_address && (
               <div className="flex items-center gap-1">
                 <span className="text-muted-foreground">IP:</span>
                 <code className="font-mono text-xs">{vps.ip_address}</code>
                 <CopyButton value={vps.ip_address} />
               </div>
+              )}
               {vps.openclaw_dashboard_url && (
                 <Button variant="ghost" size="sm" className="h-7 px-2" asChild>
                   <a
@@ -114,13 +135,11 @@ export default async function MonitoringPage() {
         </CardContent>
       </Card>
 
-      {/* Resource Cards */}
+      {/* Provisioned Specs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              CPU
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">CPU</CardTitle>
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -128,12 +147,9 @@ export default async function MonitoringPage() {
             <p className="text-xs text-muted-foreground">vCPU cores</p>
           </CardContent>
         </Card>
-
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Memory
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Memory</CardTitle>
             <MemoryStick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -141,12 +157,9 @@ export default async function MonitoringPage() {
             <p className="text-xs text-muted-foreground">GB RAM</p>
           </CardContent>
         </Card>
-
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Storage
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Storage</CardTitle>
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -154,12 +167,9 @@ export default async function MonitoringPage() {
             <p className="text-xs text-muted-foreground">GB SSD</p>
           </CardContent>
         </Card>
-
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Bandwidth
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Bandwidth</CardTitle>
             <Globe className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -169,6 +179,12 @@ export default async function MonitoringPage() {
         </Card>
       </div>
 
+      {/* Live Monitoring Gauges */}
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold mb-4">Live Usage</h2>
+        <MonitoringDashboard isRunning={isRunning} />
+      </div>
+
       {/* Pro Upsell */}
       {!isPro && (
         <Card className="border-primary/20 bg-primary/5">
@@ -176,11 +192,11 @@ export default async function MonitoringPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h3 className="font-semibold mb-1">
-                  Want live CPU, memory, and network charts?
+                  Want real-time charts, process management, and historical data?
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Upgrade to Pro for real-time monitoring, process management,
-                  and advanced analytics.
+                  Upgrade to Pro for continuous monitoring, auto-refresh charts,
+                  process list, and advanced analytics.
                 </p>
               </div>
               <Button variant="outline" asChild className="shrink-0">

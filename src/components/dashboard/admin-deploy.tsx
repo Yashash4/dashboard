@@ -401,7 +401,7 @@ export function AdminDeploy({ customers }: { customers: Customer[] }) {
             <div className="space-y-2">
               <Label>VPS IP Address</Label>
               <Input
-                placeholder="72.61.232.87"
+                placeholder="192.0.2.1"
                 value={ip}
                 onChange={(e) => setIp(e.target.value)}
               />

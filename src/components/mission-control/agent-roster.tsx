@@ -1,18 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
   Bot,
   Wrench,
   Clock,
   TrendingUp,
   ChevronRight,
-  Gauge,
+  AlertTriangle,
+  Play,
+  Square,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
   Sheet,
@@ -21,45 +28,106 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatusIndicator } from "./status-indicator";
-import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
-import { mockAgentStatuses } from "@/lib/mock-data/mission-control";
+import { formatTimeAgo } from "@/lib/format-time";
 import type { MCAgentStatus } from "@/types/mission-control";
 
-function formatTimeAgo(dateStr: string | null): string {
-  if (!dateStr) return "Never";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
 export function AgentRoster() {
-  useMissionControlStream();
-
-  const { data: agents = mockAgentStatuses } = useQuery<MCAgentStatus[]>({
+  const {
+    data: agents = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<MCAgentStatus[]>({
     queryKey: ["mc-agents"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/agents/status");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.agents?.length > 0 ? json.agents : mockAgentStatuses;
-      } catch {
-        return mockAgentStatuses;
-      }
+      const res = await fetch("/api/mission-control/agents/status");
+      if (!res.ok) throw new Error("Failed to fetch agents");
+      const json = await res.json();
+      return json.agents || [];
     },
     refetchInterval: 2000,
   });
 
-  const [selectedAgent, setSelectedAgent] = useState<MCAgentStatus | null>(null);
+  // Use ref for selected ID to avoid useEffect infinite loop (FIX-16)
+  const selectedAgentIdRef = useRef<string | null>(null);
+  const selectedAgent = useMemo(
+    () => agents.find((a) => a.id === selectedAgentIdRef.current) || null,
+    [agents]
+  );
+
+  function selectAgent(agent: MCAgentStatus | null) {
+    selectedAgentIdRef.current = agent?.id || null;
+    // Force re-render by updating a dummy state
+    setForceRender((v) => v + 1);
+  }
+  const [, setForceRender] = useState(0);
+  const [agentSearch, setAgentSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filteredAgents = useMemo(() => {
+    return agents.filter((a) => {
+      if (agentSearch) {
+        const q = agentSearch.toLowerCase();
+        if (!(a.agent?.name || "").toLowerCase().includes(q) && !(a.agent?.description || "").toLowerCase().includes(q)) return false;
+      }
+      if (statusFilter !== "all" && a.status !== statusFilter) return false;
+      return true;
+    });
+  }, [agents, agentSearch, statusFilter]);
 
   const statusCounts: Record<string, number> = {};
   for (const a of agents) {
     statusCounts[a.status] = (statusCounts[a.status] || 0) + 1;
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-16">
+        <AlertTriangle className="h-10 w-10 text-red-400/50 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">Failed to load agent status</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i} className="border-border">
+              <CardContent className="p-3">
+                <Skeleton className="h-8 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (agents.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <Bot className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+        <p className="text-lg font-medium text-muted-foreground mb-1">
+          No agents registered yet
+        </p>
+        <p className="text-sm text-muted-foreground/60 mb-4">
+          Deploy an agent from your Agents page to see it here
+        </p>
+        <Button variant="outline" size="sm" asChild>
+          <a href="/agents">Go to Agents</a>
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -92,13 +160,24 @@ export function AgentRoster() {
         ))}
       </div>
 
+      {/* Search/Filter (FIX-27) */}
+      <div className="flex items-center gap-2 mb-4">
+        <Input
+          placeholder="Search agents..."
+          value={agentSearch}
+          onChange={(e) => setAgentSearch(e.target.value)}
+          className="h-8 text-xs max-w-[250px]"
+        />
+        <span className="text-xs text-muted-foreground ml-auto">{filteredAgents.length} agents</span>
+      </div>
+
       {/* Agent List */}
       <div className="space-y-2">
-        {agents.map((agent) => (
+        {filteredAgents.map((agent) => (
           <Card
             key={agent.id}
             className="border-border cursor-pointer hover:border-primary/30 transition-colors"
-            onClick={() => setSelectedAgent(agent)}
+            onClick={() => selectAgent(agent)}
           >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
@@ -109,7 +188,7 @@ export function AgentRoster() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold truncate">
-                        {agent.agent?.name}
+                        {agent.agent?.name || agent.agent_id}
                       </p>
                       <StatusIndicator status={agent.status} size="sm" />
                     </div>
@@ -162,14 +241,14 @@ export function AgentRoster() {
       </div>
 
       {/* Agent Detail Sheet */}
-      <Sheet open={!!selectedAgent} onOpenChange={() => setSelectedAgent(null)}>
+      <Sheet open={!!selectedAgent} onOpenChange={() => selectAgent(null)}>
         <SheetContent className="w-[400px] sm:w-[500px] overflow-y-auto">
           {selectedAgent && (
             <>
               <SheetHeader>
                 <SheetTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
-                  {selectedAgent.agent?.name}
+                  {selectedAgent.agent?.name || selectedAgent.agent_id}
                 </SheetTitle>
               </SheetHeader>
 
@@ -183,6 +262,9 @@ export function AgentRoster() {
                     </p>
                   )}
                 </div>
+
+                {/* Agent Actions */}
+                <AgentActions agentId={selectedAgent.agent_id} status={selectedAgent.status} onRefresh={() => refetch()} />
 
                 <Separator />
 
@@ -275,5 +357,81 @@ export function AgentRoster() {
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+// ─── Agent Action Buttons ──────────────────────────────────
+function AgentActions({
+  agentId,
+  status,
+  onRefresh,
+}: {
+  agentId: string;
+  status: string;
+  onRefresh: () => void;
+}) {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function executeAction(action: "start" | "stop" | "restart") {
+    setLoading(action);
+    try {
+      const res = await fetch(`/api/mission-control/agents/${agentId}/${action}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || `Failed to ${action} agent`);
+      }
+      toast.success(`Agent ${action === "start" ? "started" : action === "stop" ? "stopped" : "restarted"}`);
+      onRefresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `Failed to ${action} agent`);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  const isOffline = status === "offline" || status === "sleeping";
+  const isOnline = status === "online" || status === "working" || status === "idle";
+
+  return (
+    <div className="flex gap-2">
+      {isOffline && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="flex-1 text-green-400 border-green-500/30 hover:bg-green-500/10"
+          onClick={() => executeAction("start")}
+          disabled={!!loading}
+        >
+          {loading === "start" ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Play className="h-3 w-3 mr-1.5" />}
+          Start
+        </Button>
+      )}
+      {isOnline && (
+        <>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 text-red-400 border-red-500/30 hover:bg-red-500/10"
+            onClick={() => executeAction("stop")}
+            disabled={!!loading}
+          >
+            {loading === "stop" ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <Square className="h-3 w-3 mr-1.5" />}
+            Stop
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => executeAction("restart")}
+            disabled={!!loading}
+          >
+            {loading === "restart" ? <Loader2 className="h-3 w-3 mr-1.5 animate-spin" /> : <RotateCcw className="h-3 w-3 mr-1.5" />}
+            Restart
+          </Button>
+        </>
+      )}
+    </div>
   );
 }

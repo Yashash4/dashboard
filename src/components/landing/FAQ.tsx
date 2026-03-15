@@ -7,11 +7,39 @@ import { ChevronDown } from "lucide-react";
 const faqs = [
   {
     q: "What AI models are included?",
-    a: "Every plan includes production-ready AI models like Kimi K2.5 and MiniMax M2.5. Pro and Ultra plans get access to the full model library with instant switching. No API keys needed. No per-token billing.",
+    a: "Every plan includes production-ready AI models like Kimi K2.5 and MiniMax M2.5, plus a rotating third model. No API keys needed. No per-token billing. Pro and Ultra plans get access to the full model library with instant switching.",
   },
   {
     q: "What messaging channels are supported?",
     a: "ClawHQ supports 7 channels: WhatsApp, Telegram, Discord, Slack, Microsoft Teams, Signal, and Webchat. All are included on every plan at no extra cost. 5 are self-service from your dashboard. WhatsApp and Signal require a one-time setup by our team.",
+  },
+  {
+    q: "Can I use my own domain?",
+    a: "Yes. Every plan includes custom domain support with free auto-renewing SSL certificates. Point your domain to your ClawHQ instance and we handle the rest.",
+  },
+  {
+    q: "How does the Agent Builder work?",
+    a: "Available on Pro and above. Describe what you want your agent to do, or fill in a structured form. AI generates the agent configuration, personality, and instructions. One-click deploy. You can also build agents manually with full control over every setting.",
+  },
+  {
+    q: "What agents come pre-built?",
+    a: "The Agent Store includes 7 free agents at launch: Support, Research, Writer, Data Analyst, Sales Rep, Code Reviewer, and Manager. Deploy any of them in one click. Each comes with tested prompts and configurations.",
+  },
+  {
+    q: "Is my data secure?",
+    a: "Your data stays on YOUR dedicated VPS. We don't access your conversations, documents, knowledge base, or agent configurations. Account data (email, name, subscription) is stored securely on our servers. VPS credentials are encrypted at rest.",
+  },
+  {
+    q: "Can I access my agents via API?",
+    a: "Pro plan and above includes full REST API access with SSE streaming, Python and JavaScript SDKs, and 22 enterprise API features. Send messages, manage agents, configure webhooks, and more programmatically.",
+  },
+  {
+    q: "What's Mission Control?",
+    a: "Mission Control is the Ultra-exclusive command center for managing AI agent teams. It includes kanban task boards with drag-drop, real-time agent monitoring, session traces with Gantt timelines, automation rules, and time tracking. Think of it as a project management tool specifically designed for AI agents.",
+  },
+  {
+    q: "What's the Knowledge Base?",
+    a: "Available on Pro and above. Upload documents, URLs, or paste text. ClawHQ processes them into searchable chunks with vector embeddings. Your agents can then search this knowledge base to answer questions accurately — this is called RAG (Retrieval-Augmented Generation).",
   },
   {
     q: "Is this shared hosting?",
@@ -26,10 +54,6 @@ const faqs = [
     a: "No. Your plan price includes everything: dedicated VPS, AI models, all messaging channels, dashboard access, managed infrastructure, updates, backups, and support. No API fees. No channel add-ons. No bandwidth overage charges.",
   },
   {
-    q: "Is there a free trial?",
-    a: "No. We provision dedicated infrastructure for each customer, which costs real money from minute one. Instead, we give you full transparency: every spec, every feature, every limitation is on this page. You know exactly what you're getting before you pay.",
-  },
-  {
     q: "Can I upgrade or downgrade my plan?",
     a: "Yes. Upgrade anytime from your dashboard — the change takes effect immediately. Your channels, agents, and data all carry over. No migration. No downtime. Downgrade anytime — it takes effect at the end of your current billing cycle.",
   },
@@ -37,39 +61,20 @@ const faqs = [
     q: "What happens if my server crashes?",
     a: "Your instance automatically restarts on crash. Automated health checks run every 2 minutes — if the gateway becomes unresponsive, it triggers automatic recovery. Downtime is measured in seconds, not minutes.",
   },
-  {
-    q: "Do you offer refunds?",
-    a: "We do not offer refunds after provisioning, because we allocate dedicated resources for your instance immediately. You can cancel anytime — your service continues until the end of your billing period.",
-  },
-  {
-    q: "What happens if ClawHQ shuts down?",
-    a: "Your instance runs standard OpenClaw — the same open-source platform anyone can run. If ClawHQ ever ceases operations, we provide advance notice, full data exports, and documentation to help you migrate. You are never locked into proprietary technology.",
-  },
 ];
 
-function FAQItem({ faq, isOpen, onToggle }: { faq: typeof faqs[0]; isOpen: boolean; onToggle: () => void }) {
+function FAQItem({ faq, isOpen, onToggle }: { faq: (typeof faqs)[0]; isOpen: boolean; onToggle: () => void }) {
   return (
     <div className="border-b border-border">
-      <button
-        onClick={onToggle}
-        className="flex items-center justify-between w-full py-5 text-left"
-      >
+      <button onClick={onToggle} className="flex items-center justify-between w-full py-5 text-left">
         <span className="text-sm font-medium pr-4">{faq.q}</span>
         <ChevronDown
           size={16}
-          className={`shrink-0 text-muted-foreground transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-      <div
-        className={`overflow-hidden transition-all duration-200 ${
-          isOpen ? "max-h-96 pb-5" : "max-h-0"
-        }`}
-      >
-        <p className="text-sm text-muted-foreground leading-relaxed pr-8">
-          {faq.a}
-        </p>
+      <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-96 pb-5" : "max-h-0"}`}>
+        <p className="text-sm text-muted-foreground leading-relaxed pr-8">{faq.a}</p>
       </div>
     </div>
   );
@@ -88,12 +93,8 @@ export default function FAQ() {
           transition={{ duration: 0.5 }}
           className="text-center mb-12"
         >
-          <p className="text-xs text-primary uppercase tracking-widest mb-3">
-            FAQ
-          </p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
-            Questions? Straight answers.
-          </h2>
+          <p className="text-xs text-primary uppercase tracking-widest mb-3">FAQ</p>
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight">Questions? Straight answers.</h2>
         </motion.div>
 
         <motion.div
@@ -103,12 +104,7 @@ export default function FAQ() {
           transition={{ duration: 0.5, delay: 0.1 }}
         >
           {faqs.map((faq, i) => (
-            <FAQItem
-              key={faq.q}
-              faq={faq}
-              isOpen={openIndex === i}
-              onToggle={() => setOpenIndex(openIndex === i ? -1 : i)}
-            />
+            <FAQItem key={faq.q} faq={faq} isOpen={openIndex === i} onToggle={() => setOpenIndex(openIndex === i ? -1 : i)} />
           ))}
         </motion.div>
       </div>

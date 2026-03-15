@@ -23,7 +23,12 @@ export async function POST(
 
   const { id: ticketId } = await params;
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { message } = body as { message?: string };
 
   if (!message?.trim()) {

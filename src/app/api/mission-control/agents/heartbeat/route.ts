@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
+import { emitMCEvent } from "@/lib/mc-event-bus";
+import { processAutomationRules } from "@/lib/mc-automation";
 
 // POST /api/mission-control/agents/heartbeat — agent reports status, gets work items
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 60, window: 60 }, maxBodySize: 51200 });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const body = await request.json();
   const { agent_id, status, current_task_id, capacity_used, metadata } =
     body as {
@@ -77,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     if (upsertError) throw upsertError;
 
-    // If status changed, insert an event
+    // If status changed, insert an event and emit SSE (P1.2.1)
     if (statusChanged) {
       await supabase.from("mc_events").insert({
         user_id: user.id,
@@ -90,6 +85,19 @@ export async function POST(request: NextRequest) {
           new_status: status,
         },
       });
+
+      emitMCEvent(user.id, "agent_status_changed", {
+        agent_id,
+        status,
+        old_status: existing.status,
+      });
+
+      // FIX-01: Fire automation rules when agent goes offline/blocked
+      if (status === "offline" || status === "blocked") {
+        processAutomationRules(user.id, "agent_goes_offline", agent_id, {
+          agentId: agent_id, oldValue: existing.status, newValue: status,
+        }).catch(() => {});
+      }
     }
 
     // Get assigned tasks for this agent (work items)

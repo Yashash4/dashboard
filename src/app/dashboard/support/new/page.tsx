@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,22 +19,44 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+const TICKET_CATEGORIES = [
+  { value: "general", label: "General" },
+  { value: "billing", label: "Billing" },
+  { value: "technical", label: "Technical" },
+  { value: "account", label: "Account" },
+  { value: "channels", label: "Channels" },
+  { value: "agents", label: "Agents" },
+  { value: "feature", label: "Feature Request" },
+];
+
+const ticketSchema = z.object({
+  subject: z.string().min(3, "Subject must be at least 3 characters").max(200, "Subject must be 200 characters or less"),
+  description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be 5000 characters or less"),
+  priority: z.enum(["low", "medium", "high"]),
+  category: z.string().optional(),
+});
+
 export default function NewTicketPage() {
   const router = useRouter();
   const [subject, setSubject] = useState("");
   const [priority, setPriority] = useState("medium");
+  const [category, setCategory] = useState("general");
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
 
-    if (!subject.trim()) {
-      toast.error("Subject is required");
-      return;
-    }
-    if (!description.trim()) {
-      toast.error("Description is required");
+    const result = ticketSchema.safeParse({ subject, description, priority, category });
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        const field = err.path[0] as string;
+        if (!fieldErrors[field]) fieldErrors[field] = err.message;
+      });
+      setErrors(fieldErrors);
       return;
     }
 
@@ -42,7 +65,7 @@ export default function NewTicketPage() {
       const res = await fetch("/api/tickets/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, description, priority }),
+        body: JSON.stringify({ subject, description, priority, category }),
       });
       const data = await res.json();
 
@@ -91,21 +114,40 @@ export default function NewTicketPage() {
                 placeholder="Brief summary of your issue"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
+                maxLength={200}
               />
+              {errors.subject && (
+                <p className="text-xs text-destructive">{errors.subject}</p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TICKET_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="priority">Priority</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -116,7 +158,12 @@ export default function NewTicketPage() {
                 rows={6}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                maxLength={5000}
               />
+              {errors.description && (
+                <p className="text-xs text-destructive">{errors.description}</p>
+              )}
+              <p className="text-xs text-muted-foreground text-right">{description.length}/5000</p>
             </div>
 
             <div className="flex gap-3 pt-2">

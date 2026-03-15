@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Read(//c/Users/yasha/OneDrive/Desktop/yash/dashboard/**)",
+      "Bash(npx supabase:*)",
+      "Bash(mv:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

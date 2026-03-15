@@ -112,7 +112,16 @@ export async function POST(request: NextRequest) {
         healthStatus = "down";
         errorMessage = "Channel is disabled in config";
       } else {
-        healthStatus = "healthy";
+        // Config exists and is enabled — check if OpenClaw process is running
+        const processCheck = await ssh.execCommand(
+          "pgrep -f 'openclaw' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
+        );
+        if (processCheck.stdout.trim() !== "running") {
+          healthStatus = "down";
+          errorMessage = "OpenClaw process is not running";
+        } else {
+          healthStatus = "healthy";
+        }
       }
 
       // Update DB

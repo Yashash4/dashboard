@@ -115,8 +115,9 @@ export async function POST(request: NextRequest) {
   }
 
   const validEvents = [
-    "message.received", "agent.deployed", "vps.status_changed",
-    "channel.connected", "channel.disconnected",
+    "message.received", "agent.deployed", "agent.undeployed",
+    "vps.status_changed", "channel.connected", "channel.disconnected",
+    "api.request", "kb.document.indexed", "session.started",
   ];
   const invalidEvents = events.filter((e) => !validEvents.includes(e));
   if (invalidEvents.length > 0) {

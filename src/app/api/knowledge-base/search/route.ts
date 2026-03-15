@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
+import { searchKBChunks } from "@/lib/knowledge-base";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -28,6 +29,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const q = request.nextUrl.searchParams.get("q");
+  const mode = request.nextUrl.searchParams.get("mode") || "content";
+
   if (!q || q.length < 2) {
     return NextResponse.json(
       { error: "Query must be at least 2 characters" },
@@ -35,40 +38,44 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Use Postgres full-text search via RPC function
-  const { data: chunks, error } = await admin.rpc("search_kb_chunks_fts", {
-    p_user_id: user.id,
-    p_query: q.trim(),
-    p_limit: 20,
-  });
+  if (mode === "name") {
+    // Search by document name
+    const { data: docs } = await admin
+      .from("kb_documents")
+      .select("id, name, type, file_size, chunk_count, status, created_at")
+      .eq("user_id", user.id)
+      .ilike("name", `%${q.trim()}%`)
+      .order("created_at", { ascending: false })
+      .limit(20);
 
-  if (error) {
+    return NextResponse.json({
+      results: (docs || []).map((d) => ({
+        id: d.id,
+        documentName: d.name,
+        type: d.type,
+        fileSize: d.file_size,
+        chunkCount: d.chunk_count,
+        status: d.status,
+      })),
+    });
+  }
+
+  // Content search — uses vector search (primary) with FTS fallback
+  try {
+    const kbResults = await searchKBChunks(user.id, q.trim(), 20);
+
+    return NextResponse.json({
+      results: kbResults.map((r, i) => ({
+        id: `result-${i}`,
+        content: r.content,
+        documentName: r.documentName,
+        similarity: r.similarity || null,
+      })),
+    });
+  } catch {
     return NextResponse.json(
       { error: "Search failed" },
       { status: 500 }
     );
   }
-
-  // Get document names (with user_id filter for defense-in-depth)
-  const docIds = [...new Set((chunks || []).map((c: any) => c.chunk_document_id))];
-  let docMap = new Map<string, string>();
-  if (docIds.length > 0) {
-    const { data: docs } = await admin
-      .from("kb_documents")
-      .select("id, name")
-      .in("id", docIds)
-      .eq("user_id", user.id);
-    docMap = new Map(docs?.map((d) => [d.id, d.name]) || []);
-  }
-
-  const results = (chunks || []).map((c: any) => ({
-    id: c.chunk_id,
-    content: c.chunk_content,
-    chunkIndex: c.chunk_index,
-    documentId: c.chunk_document_id,
-    documentName: docMap.get(c.chunk_document_id) || "Unknown",
-    rank: c.rank,
-  }));
-
-  return NextResponse.json({ results });
 }

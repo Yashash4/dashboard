@@ -9,7 +9,7 @@ export default async function CustomersPage() {
   const { data: customers } = await admin
     .from("users")
     .select(
-      "id, name, email, created_at, subscriptions(plan, status), vps_instances(status, ip_address)"
+      "id, name, email, created_at, subscriptions(plan, status, price), vps_instances(status, ip_address, hostname)"
     )
     .eq("role", "customer")
     .order("created_at", { ascending: false });

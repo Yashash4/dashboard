@@ -125,13 +125,13 @@ export interface MCSession {
 }
 
 export interface MCMetrics {
-  system_health_percent: number;
+  system_health_percent: number | null;
   active_agents: number;
   total_agents: number;
   tasks_in_progress: number;
   tasks_completed_today: number;
-  cost_today_usd: number;
-  success_rate_percent: number;
+  success_rate_percent: number | null;
+  status?: string;
 }
 
 export interface MCComment {

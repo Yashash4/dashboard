@@ -5,25 +5,29 @@ import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 
 export default function CTA() {
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [mousePos, setMousePos] = useState({ x: -1000, y: -1000 });
+  const textRef = useRef<HTMLDivElement>(null);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = textRef.current?.getBoundingClientRect();
     if (rect) {
       setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     }
   };
 
+  const handleMouseLeave = () => {
+    setMousePos({ x: -1000, y: -1000 });
+  };
+
   return (
-    <section className="py-24 px-6">
+    <section className="px-6">
       {/* CTA content */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="max-w-3xl mx-auto text-center mb-16"
+        className="max-w-3xl mx-auto text-center pt-24 pb-16"
       >
         <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
           Ready to stop managing infrastructure?
@@ -52,27 +56,43 @@ export default function CTA() {
         </div>
       </motion.div>
 
-      {/* Giant brand text with cursor spotlight */}
+      {/* Giant brand text — top fades out, bottom visible and bleeds naturally */}
       <div
-        ref={containerRef}
+        ref={textRef}
         onMouseMove={handleMouseMove}
-        className="relative max-w-7xl mx-auto overflow-hidden rounded-[var(--radius)] select-none"
-        style={{ background: "#111111" }}
+        onMouseLeave={handleMouseLeave}
+        className="relative max-w-7xl mx-auto select-none cursor-default flex items-start justify-center"
       >
+        {/* Bottom fade mask — hides the bottom portion of the letters */}
         <div
-          className="absolute inset-0 pointer-events-none z-10"
+          className="absolute inset-x-0 bottom-0 h-[80%] z-20 pointer-events-none"
           style={{
-            background: `radial-gradient(300px circle at ${mousePos.x}px ${mousePos.y}px, rgba(107,143,113,0.15), transparent 80%)`,
+            background: "linear-gradient(to top, #111111 0%, transparent 100%)",
           }}
         />
-        <div className="flex items-center justify-center py-12 md:py-16 lg:py-20">
-          <span
-            className="text-[8rem] md:text-[12rem] lg:text-[16rem] font-bold tracking-tighter leading-none"
-            style={{ color: "#1a1a1a" }}
-          >
-            CLAWHQ
-          </span>
-        </div>
+
+        {/* Base text */}
+        <span
+          className="text-[10rem] md:text-[16rem] lg:text-[22rem] font-bold tracking-tighter leading-[0.75] whitespace-nowrap"
+          style={{ color: "#1e1e1e" }}
+          aria-hidden="true"
+        >
+          CLAWHQ
+        </span>
+
+        {/* Glow layer clipped to letters */}
+        <span
+          className="absolute inset-0 flex items-start justify-center text-[10rem] md:text-[16rem] lg:text-[22rem] font-bold tracking-tighter leading-[0.75] whitespace-nowrap pointer-events-none z-10"
+          style={{
+            backgroundImage: `radial-gradient(300px circle at ${mousePos.x}px ${mousePos.y}px, rgba(107,143,113,0.6), transparent 70%)`,
+            WebkitBackgroundClip: "text",
+            backgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            color: "transparent",
+          }}
+        >
+          CLAWHQ
+        </span>
       </div>
     </section>
   );

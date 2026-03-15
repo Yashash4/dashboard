@@ -105,13 +105,14 @@ export async function POST(request: NextRequest) {
   }
 
   // Check change limit based on plan
-  const maxChanges = subscription.plan === "starter" ? 1 : 999;
+  const isStarter = subscription.plan === "starter";
+  const maxChanges = isStarter ? 5 : Infinity;
   if ((modelConfig.changes_this_month || 0) >= maxChanges) {
     return NextResponse.json(
       {
         error:
           subscription.plan === "starter"
-            ? "You've used your model change for this month. Upgrade to Pro for unlimited changes."
+            ? "You've used all 5 model changes for this billing cycle. Upgrade to Pro for unlimited changes."
             : "Change limit reached",
       },
       { status: 400 }
@@ -125,7 +126,7 @@ export async function POST(request: NextRequest) {
 
   if (isInstant) {
     // Instant: atomically claim a change slot to prevent race conditions
-    const { data: claimed } = await admin
+    let updateQuery = admin
       .from("models")
       .update({
         current_model: model,
@@ -135,17 +136,19 @@ export async function POST(request: NextRequest) {
         changes_this_month: (modelConfig.changes_this_month || 0) + 1,
         last_change_at: new Date().toISOString(),
       })
-      .eq("id", modelConfig.id)
-      .lt("changes_this_month", maxChanges)
-      .select("id");
+      .eq("id", modelConfig.id);
+
+    // Only enforce limit for starter plans (pro/ultra are unlimited)
+    if (isStarter) {
+      updateQuery = updateQuery.lt("changes_this_month", maxChanges);
+    }
+
+    const { data: claimed } = await updateQuery.select("id");
 
     if (!claimed?.length) {
       return NextResponse.json(
         {
-          error:
-            subscription.plan === "starter"
-              ? "You've used your model change for this month. Upgrade to Pro for unlimited changes."
-              : "Change limit reached",
+          error: "You've used all 5 model changes for this billing cycle. Upgrade to Pro for unlimited changes.",
         },
         { status: 400 }
       );
@@ -186,16 +189,30 @@ export async function POST(request: NextRequest) {
               contextLimit: availableModel.context_limit,
             }
           );
+        } else {
+          // No API keys configured — model updated in DB but can't push to VPS
+          return NextResponse.json({
+            success: true,
+            model: availableModel.display_name,
+            effective_date: effectiveDate,
+            instant: isInstant,
+            warning: "Model updated in settings but no API keys are configured. Configure API keys to apply the change to your VPS.",
+          });
         }
       }
-    } catch (sshErr) {
-      // SSH push failed but DB is updated — log and continue
-      // User can retry or admin can re-push via API keys route
-      // SSH push failed but DB is updated — user can retry or admin can re-push
+    } catch {
+      // SSH push failed but DB is updated — return warning so frontend can inform user
+      return NextResponse.json({
+        success: true,
+        model: availableModel.display_name,
+        effective_date: effectiveDate,
+        instant: isInstant,
+        warning: "Model updated in settings but may take a moment to apply. If the change doesn't take effect, try restarting your VPS.",
+      });
     }
   } else {
     // Scheduled: atomically claim a change slot
-    const { data: claimed } = await admin
+    let scheduledQuery = admin
       .from("models")
       .update({
         requested_model: model,
@@ -203,14 +220,18 @@ export async function POST(request: NextRequest) {
         changes_this_month: (modelConfig.changes_this_month || 0) + 1,
         last_change_at: new Date().toISOString(),
       })
-      .eq("id", modelConfig.id)
-      .lt("changes_this_month", maxChanges)
-      .select("id");
+      .eq("id", modelConfig.id);
+
+    if (isStarter) {
+      scheduledQuery = scheduledQuery.lt("changes_this_month", maxChanges);
+    }
+
+    const { data: claimed } = await scheduledQuery.select("id");
 
     if (!claimed?.length) {
       return NextResponse.json(
         {
-          error: "You've used your model change for this month. Upgrade to Pro for unlimited changes.",
+          error: "You've used all 5 model changes for this billing cycle. Upgrade to Pro for unlimited changes.",
         },
         { status: 400 }
       );
@@ -234,6 +255,11 @@ export async function DELETE() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const rl = rateLimit(`${user.id}:model_cancel`, 3, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
   const admin = createAdminClient();

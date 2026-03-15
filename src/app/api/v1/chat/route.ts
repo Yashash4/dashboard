@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { searchKBChunks } from "@/lib/knowledge-base";
+import { shouldSearchKB } from "@/lib/rag-classifier";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
+import { createRequestContext, apiError, type RequestContext } from "@/lib/api-errors";
 
 function sanitizeAgentName(name: string): string {
   return name
@@ -14,21 +17,17 @@ function sanitizeAgentName(name: string): string {
 
 /** POST /api/v1/chat — API key authenticated chat endpoint */
 export async function POST(request: NextRequest) {
+  const ctx = createRequestContext(request);
+
   // Extract Bearer token
   const authHeader = request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return NextResponse.json(
-      { error: "Missing Authorization: Bearer <api_key> header" },
-      { status: 401 }
-    );
+    return apiError("invalid_api_key", "Missing Authorization: Bearer <api_key> header", ctx);
   }
 
   const rawKey = authHeader.slice(7).trim();
   if (!rawKey.startsWith("clw_") || rawKey.length !== 36) {
-    return NextResponse.json(
-      { error: "Invalid API key format" },
-      { status: 401 }
-    );
+    return apiError("invalid_api_key", "Invalid API key format", ctx);
   }
 
   // Validate key via SHA-256 lookup
@@ -42,13 +41,13 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (keyError || !apiKey) {
-    return NextResponse.json({ error: "Invalid API key" }, { status: 401 });
+    return apiError("invalid_api_key", "Invalid API key", ctx);
   }
 
   if (apiKey.status !== "active") {
     return NextResponse.json(
-      { error: "API key has been revoked" },
-      { status: 401 }
+      { error: { code: "revoked_api_key", message: "API key has been revoked", type: "authentication_error", request_id: ctx.requestId } },
+      { status: 401, headers: { "X-Request-Id": ctx.requestId } }
     );
   }
 
@@ -61,8 +60,8 @@ export async function POST(request: NextRequest) {
   const plan = (sub?.plan as string) || "starter";
   if (!["pro", "ultra", "enterprise"].includes(plan)) {
     return NextResponse.json(
-      { error: "API access requires a Pro plan or higher" },
-      { status: 403 }
+      { error: { code: "plan_required", message: "API access requires a Pro plan or higher", type: "authorization_error", request_id: ctx.requestId } },
+      { status: 403, headers: { "X-Request-Id": ctx.requestId } }
     );
   }
 
@@ -71,8 +70,8 @@ export async function POST(request: NextRequest) {
   const rl = rateLimit(`apikey:${apiKey.id}`, rpm, 60_000);
   if (!rl.success) {
     return NextResponse.json(
-      { error: "Rate limit exceeded. Try again later." },
-      { status: 429 }
+      { error: { code: "rate_limited", message: "Rate limit exceeded. Try again later.", type: "api_error", request_id: ctx.requestId } },
+      { status: 429, headers: { "X-Request-Id": ctx.requestId, "Retry-After": "60" } }
     );
   }
 
@@ -85,10 +84,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { message, agent, session_id } = body as {
+  const { message, agent, session_id, stream } = body as {
     message?: string;
     agent?: string;
     session_id?: string;
+    stream?: boolean;
   };
 
   if (!message?.trim()) {
@@ -197,16 +197,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Search Knowledge Base for context (skip short messages)
+    // Search Knowledge Base for relevant context
+    // Use RAG classifier to skip KB search for greetings, follow-ups, etc.
     let kbContext = "";
     const trimmedMsg = message.trim();
-    const wordCount = trimmedMsg.split(/\s+/).length;
-    if (trimmedMsg.length >= 20 && wordCount >= 3) {
+    const kbDecision = shouldSearchKB(trimmedMsg);
+    if (kbDecision !== "skip" && trimmedMsg.length >= 2) {
       try {
         const kbResults = await searchKBChunks(userId, trimmedMsg, 3);
         if (kbResults.length > 0) {
           kbContext = kbResults
-            .map((r) => `[From: ${r.documentName}]\n${r.content}`)
+            .map((r) => `[Source: ${r.documentName}]\n${r.content}`)
             .join("\n\n---\n\n");
         }
       } catch {
@@ -237,30 +238,35 @@ export async function POST(request: NextRequest) {
       headers["Authorization"] = `Basic ${basicAuth}`;
     }
 
+    const openclawBody: Record<string, unknown> = {
+      model: `openclaw:${agentSlug}`,
+      messages: [
+        ...(kbContext
+          ? [
+              {
+                role: "system" as const,
+                content: `Use the following knowledge base context to answer the user's question. Cite the document name when using information from it. If the context is not relevant to the question, ignore it and answer normally.\n\n${kbContext}`,
+              },
+            ]
+          : []),
+        { role: "user", content: trimmedMsg },
+      ],
+    };
+
+    if (stream) {
+      openclawBody.stream = true;
+    }
+
     const openclawResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        model: `openclaw:${agentSlug}`,
-        messages: [
-          ...(kbContext
-            ? [
-                {
-                  role: "system" as const,
-                  content: `Use the following knowledge base context to help answer the user's question. Only reference it if relevant.\n\n${kbContext}`,
-                },
-              ]
-            : []),
-          { role: "user", content: trimmedMsg },
-        ],
-      }),
+      body: JSON.stringify(openclawBody),
       signal: controller.signal,
     });
 
     clearTimeout(timeout);
 
     if (!openclawResponse.ok) {
-      const errText = await openclawResponse.text().catch(() => "");
       // Track error analytics
       admin
         .from("agent_analytics")
@@ -272,7 +278,7 @@ export async function POST(request: NextRequest) {
           response_time_ms: Date.now() - analyticsStart,
           metadata: { error: `upstream_${openclawResponse.status}` },
         })
-        .then(() => {}, () => {});
+        .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
 
       return NextResponse.json(
         { error: "Failed to get response from agent" },
@@ -280,6 +286,79 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // --- Streaming response ---
+    if (stream && openclawResponse.body) {
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      const reader = openclawResponse.body.getReader();
+
+      const sseStream = new ReadableStream({
+        async start(controller) {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+
+              const chunk = decoder.decode(value, { stream: true });
+              // Forward SSE chunks, stripping thinking tags from content
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  const data = line.slice(6).trim();
+                  if (data === "[DONE]") {
+                    controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+                    continue;
+                  }
+                  try {
+                    const parsed = JSON.parse(data);
+                    const content = parsed.choices?.[0]?.delta?.content || "";
+                    if (content) {
+                      controller.enqueue(
+                        encoder.encode(`data: ${JSON.stringify({ content })}\n\n`)
+                      );
+                    }
+                  } catch {
+                    // Forward unparseable chunks as-is
+                    controller.enqueue(encoder.encode(`${line}\n`));
+                  }
+                }
+              }
+            }
+          } finally {
+            controller.close();
+            const responseTimeMs = Date.now() - analyticsStart;
+            // Track analytics (non-blocking)
+            admin
+              .rpc("increment_api_key_usage", { p_key_id: apiKey.id })
+              .then(() => {}, (e) => console.warn("[v1/chat] increment_api_key_usage failed:", e?.message));
+            admin
+              .from("agent_analytics")
+              .insert({
+                user_id: userId,
+                agent_id: agentId,
+                api_key_id: apiKey.id,
+                metric_type: "message",
+                response_time_ms: responseTimeMs,
+              })
+              .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
+            dispatchWebhooks(userId, "api.request", {
+              agent: agentSlug,
+              response_time_ms: responseTimeMs,
+            }).catch(() => {});
+          }
+        },
+      });
+
+      return new Response(sseStream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // --- Non-streaming response ---
     const data = await openclawResponse.json();
     const msg = data.choices?.[0]?.message;
     let rawContent = msg?.content || "";
@@ -296,10 +375,12 @@ export async function POST(request: NextRequest) {
       .replace(/<\|think_start\|>[\s\S]*?<\|think_end\|>/gi, "")
       .trim() || "No response from agent";
 
+    const responseTimeMs = Date.now() - analyticsStart;
+
     // Atomic usage_count increment (non-blocking)
     admin
       .rpc("increment_api_key_usage", { p_key_id: apiKey.id })
-      .then(() => {}, () => {});
+      .then(() => {}, (e) => console.warn("[v1/chat] increment_api_key_usage failed:", e?.message));
 
     // Track analytics (non-blocking)
     admin
@@ -309,14 +390,24 @@ export async function POST(request: NextRequest) {
         agent_id: agentId,
         api_key_id: apiKey.id,
         metric_type: "message",
-        response_time_ms: Date.now() - analyticsStart,
+        response_time_ms: responseTimeMs,
       })
-      .then(() => {}, () => {});
+      .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
+
+    // Fire api.request webhook (non-blocking)
+    dispatchWebhooks(userId, "api.request", {
+      agent: agentSlug,
+      response_time_ms: responseTimeMs,
+    }).catch(() => {});
+
+    const successHeaders: Record<string, string> = { "X-Request-Id": ctx.requestId };
+    if (ctx.clientRequestId) successHeaders["X-Client-Request-Id"] = ctx.clientRequestId;
 
     return NextResponse.json({
       response: assistantContent,
       agent: agentSlug,
-    });
+      request_id: ctx.requestId,
+    }, { headers: successHeaders });
   } catch (err) {
     // Track error analytics
     admin
@@ -329,7 +420,7 @@ export async function POST(request: NextRequest) {
         response_time_ms: Date.now() - analyticsStart,
         metadata: { error: err instanceof Error ? err.message : "unknown" },
       })
-      .then(() => {}, () => {});
+      .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
 
     if (err instanceof Error && err.name === "AbortError") {
       return NextResponse.json(

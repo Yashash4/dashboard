@@ -50,11 +50,11 @@ export async function POST() {
 
     await admin
       .from("vps_instances")
-      .update({ status: "running" })
+      .update({ status: "starting" })
       .eq("id", vps.id);
 
     dispatchWebhooks(user.id, "vps.status_changed", {
-      status: "running",
+      status: "starting",
       action: "start",
     }).catch(() => {});
 

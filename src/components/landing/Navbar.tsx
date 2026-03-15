@@ -35,9 +35,9 @@ const dropdowns: Record<string, { links: { icon: typeof Server; label: string; d
   },
   Resources: {
     links: [
-      { icon: BookOpen, label: "Documentation", desc: "Guides, API reference, tutorials", href: "#" },
+      { icon: BookOpen, label: "Documentation", desc: "Guides, API reference, tutorials", href: "/docs" },
       { icon: HelpCircle, label: "FAQ", desc: "Common questions answered", href: "#faq" },
-      { icon: FileText, label: "Blog", desc: "Updates, tutorials, case studies", href: "#" },
+      { icon: FileText, label: "Terms", desc: "Terms of service", href: "/terms" },
     ],
     preview: {
       tag: "GUIDE",

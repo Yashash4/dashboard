@@ -1,32 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
 
 // GET /api/mission-control/tasks/[id]/comments
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+  const supabase = await createClient();
 
   const { id: taskId } = await params;
 
   try {
+    // Verify the task belongs to the user
+    const { data: task, error: taskError } = await supabase
+      .from("mc_tasks")
+      .select("id")
+      .eq("id", taskId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (taskError || !task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    // Fetch ALL comments for this task (not just the user's)
     const { data, error } = await supabase
       .from("mc_comments")
       .select("*")
       .eq("task_id", taskId)
-      .eq("user_id", user.id)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
@@ -42,10 +47,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+  const supabase = await createClient();
 
   const { id: taskId } = await params;
   const body = await request.json();

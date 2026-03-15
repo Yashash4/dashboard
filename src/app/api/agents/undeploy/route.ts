@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", userAgent.id);
 
-    dispatchWebhooks(user.id, "agent.deployed", {
+    dispatchWebhooks(user.id, "agent.undeployed", {
       agent_id,
       agent_name: agent.name,
       action: "undeployed",
@@ -122,6 +122,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    return NextResponse.json({ error: "Failed to undeploy agent." }, { status: 500 });
+    const message = err instanceof Error ? err.message : "Unknown SSH error";
+    // Log for debugging — generic message to client
+    void message;
+    return NextResponse.json({ error: "Failed to undeploy agent. Ensure your server is running." }, { status: 500 });
   }
 }

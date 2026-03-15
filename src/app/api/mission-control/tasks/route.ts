@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
 
 // GET /api/mission-control/tasks — list tasks (filterable)
 export async function GET(request: NextRequest) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const url = request.nextUrl;
   const column = url.searchParams.get("column");
   const priority = url.searchParams.get("priority");
@@ -41,7 +34,6 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    // Map the joined agent data to match our frontend type
     const tasks = (data || []).map((t: Record<string, unknown>) => ({
       ...t,
       assigned_agent: t.agents || null,
@@ -50,17 +42,20 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ tasks, total: count || 0, page, limit });
   } catch {
-    return NextResponse.json({ tasks: [], total: 0, page, limit });
+    return NextResponse.json(
+      { error: "Failed to fetch tasks" },
+      { status: 500 }
+    );
   }
 }
 
 // POST /api/mission-control/tasks — create task
 export async function POST(request: NextRequest) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 }, maxBodySize: 51200 });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
 
+  const supabase = await createClient();
   const body = await request.json();
   const {
     title,
@@ -89,7 +84,6 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Get next position in the target column
     const { count } = await supabase
       .from("mc_tasks")
       .select("id", { count: "exact", head: true })
@@ -124,7 +118,7 @@ export async function POST(request: NextRequest) {
     emitMCEvent(user.id, "task_created", { taskId: data.id });
 
     return NextResponse.json({ task: data }, { status: 201 });
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to create task" },
       { status: 500 }

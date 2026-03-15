@@ -1,19 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { mockMetrics } from "@/lib/mock-data/mission-control";
+import { guardMCRoute } from "@/lib/mc-route-guard";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+
+  const supabase = await createClient();
+
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Try real data from mc_ tables
     const [
       { count: activeAgents },
       { count: totalAgents },
@@ -43,41 +39,33 @@ export async function GET() {
         .gte("completed_at", new Date().toISOString().split("T")[0]),
       supabase
         .from("mc_sessions")
-        .select("cost_usd, success")
+        .select("success")
         .eq("user_id", user.id)
         .gte("started_at", new Date().toISOString().split("T")[0]),
     ]);
 
-    // If we got real data (tables exist), compute metrics
-    if (totalAgents !== null && totalAgents > 0) {
-      const costToday = (todaySessions || []).reduce(
-        (sum, s) => sum + Number(s.cost_usd || 0),
-        0
-      );
-      const totalSessions = (todaySessions || []).length;
-      const successfulSessions = (todaySessions || []).filter(
-        (s) => s.success
-      ).length;
-      const successRate =
-        totalSessions > 0
-          ? Math.round((successfulSessions / totalSessions) * 1000) / 10
-          : 100;
+    const totalSessions = (todaySessions || []).length;
+    const successfulSessions = (todaySessions || []).filter(
+      (s) => s.success
+    ).length;
+    const successRate =
+      totalSessions > 0
+        ? Math.round((successfulSessions / totalSessions) * 1000) / 10
+        : null;
 
-      return NextResponse.json({
-        system_health_percent: 94.5, // Placeholder until VPS health check is wired
-        active_agents: activeAgents || 0,
-        total_agents: totalAgents || 0,
-        tasks_in_progress: tasksInProgress || 0,
-        tasks_completed_today: tasksCompletedToday || 0,
-        cost_today_usd: Math.round(costToday * 100) / 100,
-        success_rate_percent: successRate,
-      });
-    }
-
-    // Fallback to mock data if tables are empty or don't exist
-    return NextResponse.json(mockMetrics);
+    return NextResponse.json({
+      system_health_percent: null,
+      active_agents: activeAgents || 0,
+      total_agents: totalAgents || 0,
+      tasks_in_progress: tasksInProgress || 0,
+      tasks_completed_today: tasksCompletedToday || 0,
+      success_rate_percent: successRate,
+      status: totalAgents === 0 && tasksInProgress === 0 ? "no_data" : "ok",
+    });
   } catch {
-    // Tables probably don't exist yet — return mock data
-    return NextResponse.json(mockMetrics);
+    return NextResponse.json(
+      { error: "Failed to fetch metrics" },
+      { status: 500 }
+    );
   }
 }

@@ -60,6 +60,11 @@ export async function POST() {
 
     return NextResponse.json({ success: true });
   } catch (err) {
+    await admin
+      .from("vps_instances")
+      .update({ status: "error" })
+      .eq("id", vps.id);
+
     return NextResponse.json({ error: "Failed to stop server. Try again." }, { status: 500 });
   }
 }

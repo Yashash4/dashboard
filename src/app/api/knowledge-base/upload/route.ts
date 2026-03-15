@@ -4,7 +4,9 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { indexDocument } from "@/lib/knowledge-base";
+import { processFile } from "@/lib/file-processors";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -39,10 +41,10 @@ export async function POST(request: NextRequest) {
   // Validate file type
   const fileName = file.name;
   const ext = fileName.split(".").pop()?.toLowerCase();
-  const validTypes = ["pdf", "txt", "md", "csv"];
+  const validTypes = ["pdf", "txt", "md", "csv", "docx", "xlsx", "xls", "pptx"];
   if (!ext || !validTypes.includes(ext)) {
     return NextResponse.json(
-      { error: "Unsupported file type. Use PDF, TXT, MD, or CSV." },
+      { error: "Unsupported file type. Use PDF, TXT, MD, CSV, DOCX, XLSX, or PPTX." },
       { status: 400 }
     );
   }
@@ -64,6 +66,7 @@ export async function POST(request: NextRequest) {
     (sum, d) => sum + (d.file_size || 0),
     0
   );
+  // 100 MB limit — must match url/route.ts and knowledge-base-manager.tsx STORAGE_LIMIT
   if (currentUsage + file.size > 100 * 1024 * 1024) {
     return NextResponse.json(
       { error: "Storage limit reached (100 MB). Delete some documents first." },
@@ -125,6 +128,8 @@ export async function POST(request: NextRequest) {
       const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
       const parsed = await pdfParse(buffer);
       textContent = parsed.text;
+    } else if (["docx", "xlsx", "xls", "pptx"].includes(ext!)) {
+      textContent = await processFile(buffer, fileName, file.type || "application/octet-stream");
     } else {
       textContent = buffer.toString("utf-8");
     }
@@ -143,11 +148,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const fileType = ext || "txt";
     const { chunkCount } = await indexDocument(
       doc.id,
       user.id,
       textContent,
-      ext === "csv"
+      fileType
     );
 
     // Fetch complete document
@@ -167,9 +173,15 @@ export async function POST(request: NextRequest) {
       ip: getClientIp(request),
     });
 
+    dispatchWebhooks(user.id, "kb.document.indexed", {
+      document_name: fileName,
+      chunk_count: chunkCount,
+      file_size: file.size,
+    }).catch(() => {});
+
     return NextResponse.json({ document: fullDoc, chunkCount });
   } catch (err) {
-    console.error("[kb/upload] Error:", err);
+    console.warn("[kb/upload] Error processing document:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json(
       { error: "Failed to process document" },
       { status: 500 }

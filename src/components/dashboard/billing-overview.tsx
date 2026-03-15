@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Check,
   CreditCard,
@@ -9,6 +10,8 @@ import {
   Mail,
   ArrowRight,
   Loader2,
+  Bell,
+  HelpCircle,
 } from "lucide-react";
 import { usePayment } from "@/hooks/use-payment";
 import { hasAccess, type Plan } from "@/lib/tier";
@@ -24,6 +27,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { PlanComparison } from "@/components/dashboard/plan-comparison";
+import { BillingUsage } from "@/components/dashboard/billing-usage";
+import { UpgradeDialog } from "@/components/dashboard/upgrade-dialog";
+import { InvoiceDownload } from "@/components/dashboard/invoice-download";
+import { CouponInput } from "@/components/dashboard/coupon-input";
 
 interface Subscription {
   plan: string;
@@ -65,7 +73,7 @@ const PLANS = [
     features: [
       "2 vCPU, 8GB RAM, 100GB storage",
       "128K context window",
-      "Model change once per month",
+      "5 model changes per billing cycle",
       "All messaging channels",
       "Chat with agents from dashboard",
       "OpenClaw dashboard access",
@@ -137,7 +145,7 @@ export function BillingOverview({
   subscription: Subscription;
   payments: Payment[];
 }) {
-  const subStatus = SUB_STATUS_CONFIG[subscription.status] || SUB_STATUS_CONFIG.active;
+  const subStatus = SUB_STATUS_CONFIG[subscription.status] || { label: "Unknown", className: "bg-secondary text-secondary-foreground border-secondary" };
   const isCancelled = subscription.status === "cancelled";
   const cycleLabel = subscription.billing_cycle === "annual" ? "yr" : "mo";
 
@@ -145,8 +153,17 @@ export function BillingOverview({
     onSuccess: () => window.location.reload(),
   });
 
+  const [upgradeTarget, setUpgradeTarget] = useState<string | null>(null);
+  const [showAnnual, setShowAnnual] = useState(subscription.billing_cycle === "annual");
+
+  const PLAN_PRICES: Record<string, number> = {
+    starter: 59,
+    pro: 129,
+    ultra: 350,
+  };
+
   const handleUpgrade = async (plan: (typeof PLANS)[number]) => {
-    const amount = parseFloat(plan.price.replace(/[^0-9.]/g, ""));
+    const amount = PLAN_PRICES[plan.name];
     if (!amount) return;
 
     await initiatePayment({
@@ -160,6 +177,7 @@ export function BillingOverview({
         billing_cycle: subscription.billing_cycle || "monthly",
       },
     });
+    setUpgradeTarget(null);
   };
 
   return (
@@ -218,9 +236,63 @@ export function BillingOverview({
         </CardContent>
       </Card>
 
+      {/* Next Invoice Preview */}
+      {subscription.expires_at && subscription.status === "active" && (
+        <Card className="border-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Next Invoice</p>
+                <p className="text-2xl font-bold">
+                  ${Number(subscription.price).toFixed(2)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground mb-1">Due Date</p>
+                <p className="text-sm font-medium">
+                  {formatDate(subscription.expires_at)}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">Auto-renew enabled</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Plan Comparison */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Plans</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Plans</h2>
+          <div className="flex items-center gap-3">
+            {showAnnual && (
+              <span className="text-xs text-green-500 font-medium">
+                Save up to ${(350 * 12) - 3499}/yr with annual billing
+              </span>
+            )}
+            <div className="flex items-center gap-2 border border-border p-1">
+              <button
+                onClick={() => setShowAnnual(false)}
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  !showAnnual
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setShowAnnual(true)}
+                className={`px-3 py-1 text-xs font-medium transition-colors ${
+                  showAnnual
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Annual
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {PLANS.map((plan) => {
             const isCurrent = subscription.plan === plan.name;
@@ -241,19 +313,37 @@ export function BillingOverview({
                 )}
                 <CardContent className="pt-6">
                   <h3 className="text-xl font-bold mb-1">{plan.label}</h3>
-                  <p className="text-2xl font-bold mb-1">
-                    {plan.price}
-                    {!plan.contactUs && <span className="text-sm font-normal text-muted-foreground">/mo</span>}
-                  </p>
-                  {!plan.contactUs && (
-                    <p className="text-xs text-muted-foreground mb-4">
-                      or {plan.annual}
-                    </p>
+                  {!plan.contactUs && !showAnnual && (
+                    <>
+                      <p className="text-2xl font-bold mb-1">
+                        {plan.price}
+                        <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        or {plan.annual}
+                      </p>
+                    </>
+                  )}
+                  {!plan.contactUs && showAnnual && (
+                    <>
+                      <p className="text-2xl font-bold mb-1">
+                        {plan.annual}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        {plan.price}/mo billed monthly
+                      </p>
+                    </>
                   )}
                   {plan.contactUs && (
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Custom pricing
-                    </p>
+                    <>
+                      <p className="text-2xl font-bold mb-1">
+                        {showAnnual ? "Custom" : plan.price}
+                        {!showAnnual && <span className="text-sm font-normal text-muted-foreground">/mo</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Custom pricing
+                      </p>
+                    </>
                   )}
 
                   <ul className="space-y-2 mb-6">
@@ -285,13 +375,9 @@ export function BillingOverview({
                       className="w-full"
                       variant="outline"
                       disabled={isProcessing}
-                      onClick={() => handleUpgrade(plan)}
+                      onClick={() => setUpgradeTarget(plan.name)}
                     >
-                      {isProcessing ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <ArrowRight className="mr-2 h-4 w-4" />
-                      )}
+                      <ArrowRight className="mr-2 h-4 w-4" />
                       Upgrade
                     </Button>
                   ) : null}
@@ -301,6 +387,69 @@ export function BillingOverview({
           })}
         </div>
       </div>
+
+      {/* Plan Comparison Matrix */}
+      <PlanComparison currentPlan={subscription.plan} />
+
+      {/* Usage Summary */}
+      <BillingUsage currentPlan={subscription.plan} />
+
+      {/* Payment Method */}
+      <Card className="border-border">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <CardTitle className="text-lg">Payment Method</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-3">
+            <HelpCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Contact support to update your payment method.
+              </p>
+              <Button variant="link" className="px-0 h-auto text-sm" asChild>
+                <a href="/support/new">Open a support ticket</a>
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Coupon / Referral Code */}
+      <CouponInput />
+
+      {/* Billing Alerts */}
+      <Card className="border-border">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 text-muted-foreground shrink-0" />
+            <div>
+              <p className="text-sm font-medium">Billing Alerts</p>
+              <p className="text-xs text-muted-foreground">
+                Billing alerts are delivered via the notification bell in your dashboard header.
+                You will be notified before renewals and when payments are processed.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upgrade Confirmation Dialog */}
+      {upgradeTarget && (
+        <UpgradeDialog
+          currentPlan={subscription.plan}
+          targetPlan={upgradeTarget}
+          onConfirm={() => {
+            const plan = PLANS.find((p) => p.name === upgradeTarget);
+            if (plan) handleUpgrade(plan);
+          }}
+          isLoading={isProcessing}
+          open={!!upgradeTarget}
+          onOpenChange={(val) => { if (!val) setUpgradeTarget(null); }}
+        />
+      )}
 
       {/* Payment History */}
       <div>
@@ -330,12 +479,13 @@ export function BillingOverview({
                     <TableHead>Description</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payments.map((payment) => {
                     const payStatus =
-                      PAY_STATUS_CONFIG[payment.status] || PAY_STATUS_CONFIG.paid;
+                      PAY_STATUS_CONFIG[payment.status] || { label: "Unknown", className: "bg-secondary text-secondary-foreground border-secondary" };
 
                     return (
                       <TableRow key={payment.id}>
@@ -352,6 +502,16 @@ export function BillingOverview({
                           <Badge className={`${payStatus.className} text-xs`}>
                             {payStatus.label}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <InvoiceDownload
+                            paymentId={payment.id}
+                            date={payment.created_at}
+                            amount={payment.amount}
+                            description={payment.description}
+                            status={payment.status}
+                            plan={subscription.plan}
+                          />
                         </TableCell>
                       </TableRow>
                     );

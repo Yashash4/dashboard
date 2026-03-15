@@ -95,6 +95,8 @@ export function LogsExplorer() {
   const {
     data: rawLogs,
     isLoading,
+    isError,
+    error: queryError,
     refetch,
     dataUpdatedAt,
   } = useQuery({
@@ -102,8 +104,8 @@ export function LogsExplorer() {
     queryFn: async () => {
       const res = await fetch(`/api/vps/logs?lines=${lineCount}`);
       if (!res.ok) {
-        const err = await res.json();
-        return err.error || "Failed to fetch logs";
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to fetch logs");
       }
       const data = await res.json();
       return data.logs as string;
@@ -187,7 +189,6 @@ export function LogsExplorer() {
               <SelectItem value="100">100 lines</SelectItem>
               <SelectItem value="200">200 lines</SelectItem>
               <SelectItem value="500">500 lines</SelectItem>
-              <SelectItem value="1000">1000 lines</SelectItem>
             </SelectContent>
           </Select>
 
@@ -295,8 +296,22 @@ export function LogsExplorer() {
         </span>
       </div>
 
+      {/* Error state */}
+      {isError && (
+        <Card className="border-destructive/50">
+          <CardContent className="p-6 text-center">
+            <p className="text-sm text-destructive mb-2">
+              {queryError instanceof Error ? queryError.message : "Failed to fetch logs"}
+            </p>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Retry
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Log entries */}
-      <Card className="border-border">
+      {!isError && <Card className="border-border">
         <CardContent className="p-0">
           {isLoading && !rawLogs ? (
             <div className="p-4 space-y-2">
@@ -354,7 +369,7 @@ export function LogsExplorer() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
 
       {/* Scroll to bottom button */}
       {!autoScroll && filtered.length > 0 && (
@@ -389,7 +404,7 @@ function HighlightText({
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        part.toLowerCase().includes(search.toLowerCase()) ? (
           <mark key={i} className="bg-primary/30 text-primary px-0.5">
             {part}
           </mark>

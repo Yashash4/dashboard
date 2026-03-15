@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { ApiAccessManager } from "@/components/dashboard/api-access-manager";
+import { ApiPlayground } from "@/components/dashboard/api-playground";
+import { ApiAccessTabs } from "./tabs";
 
 export default async function ApiAccessPage() {
   const supabase = await createClient();
@@ -44,7 +46,7 @@ export default async function ApiAccessPage() {
       <p className="text-muted-foreground mb-6">
         Direct API access to your OpenClaw instance.
       </p>
-      <ApiAccessManager hostname={vps?.hostname || null} />
+      <ApiAccessTabs hostname={vps?.hostname || null} />
     </div>
   );
 }

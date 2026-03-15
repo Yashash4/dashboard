@@ -52,8 +52,25 @@ export async function GET() {
           .eq("id", vps.id);
         vps.status = hostingerState;
       }
-    } catch {
-      // Hostinger API failed — keep DB status
+    } catch (err) {
+      // Hostinger API failed — keep DB status but log for debugging
+      const message = err instanceof Error ? err.message : "Unknown error";
+      // Return a header hint so frontend could show a stale-data warning if needed
+      return NextResponse.json(
+        {
+          status: vps.status,
+          hostname: vps.hostname,
+          ip_address: vps.ip_address,
+          cpu_cores: vps.cpu_cores,
+          ram_gb: vps.ram_gb,
+          storage_gb: vps.storage_gb,
+          bandwidth_tb: vps.bandwidth_tb,
+          openclaw_dashboard_url: vps.openclaw_dashboard_url,
+          created_at: vps.created_at,
+          _stale: true,
+          _stale_reason: `Status sync failed: ${message}`,
+        }
+      );
     }
   }
 

@@ -7,19 +7,37 @@ export default async function StorePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
-  const [{ data: agents }, { data: userAgents }] = await Promise.all([
-    supabase
-      .from("agents")
-      .select("id, name, description, category, price, is_premium")
-      .eq("is_active", true)
-      .order("name"),
-    supabase
-      .from("user_agents")
-      .select("agent_id")
-      .eq("user_id", user.id),
-  ]);
+  let agents: any[] | null = null;
+  let userAgents: any[] | null = null;
+
+  try {
+    const [agentsRes, userAgentsRes] = await Promise.all([
+      supabase
+        .from("agents")
+        .select("id, name, description, category, price, is_premium")
+        .eq("is_active", true)
+        .order("name"),
+      supabase
+        .from("user_agents")
+        .select("agent_id")
+        .eq("user_id", user.id),
+    ]);
+    if (agentsRes.error) throw agentsRes.error;
+    agents = agentsRes.data;
+    userAgents = userAgentsRes.data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load the store. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   const ownedAgentIds = (userAgents || []).map((ua: any) => ua.agent_id);
 

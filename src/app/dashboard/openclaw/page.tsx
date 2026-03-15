@@ -15,13 +15,25 @@ export default async function OpenClawPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
-  const { data: subscription } = await supabase
+  const { data: subscription, error: subError } = await supabase
     .from("subscriptions")
     .select("plan")
     .eq("user_id", user.id)
     .single();
+
+  if (subError && subError.code !== "PGRST116") {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your subscription. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   const plan = (subscription?.plan as string) || "starter";
 
@@ -38,11 +50,22 @@ export default async function OpenClawPage() {
   }
 
   const admin = createAdminClient();
-  const { data: vps } = await admin
-    .from("vps_instances")
-    .select("openclaw_dashboard_url, dashboard_username, dashboard_password")
-    .eq("user_id", user.id)
-    .single();
+  let vps: any = null;
+  try {
+    const { data } = await admin
+      .from("vps_instances")
+      .select("openclaw_dashboard_url, dashboard_username, dashboard_password")
+      .eq("user_id", user.id)
+      .single();
+    vps = data;
+  } catch {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <h2 className="text-lg font-semibold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground text-sm">We couldn&apos;t load your VPS data. Please refresh the page.</p>
+      </div>
+    );
+  }
 
   const dashboardUrl = vps?.openclaw_dashboard_url?.replace(/\/$/, "");
 
@@ -84,7 +107,7 @@ export default async function OpenClawPage() {
           </a>
         </Button>
       </div>
-      {vps.dashboard_username && vps.dashboard_password && (
+      {vps?.dashboard_username && vps?.dashboard_password && (
         <OpenClawCredentialsBanner
           username={vps.dashboard_username}
           password={vps.dashboard_password}
@@ -92,7 +115,7 @@ export default async function OpenClawPage() {
       )}
       <OpenClawEmbed
         dashboardUrl={dashboardUrl}
-        embedKey={vps.dashboard_password || ""}
+        embedKey={vps?.dashboard_password || ""}
       />
     </div>
   );

@@ -13,18 +13,22 @@ export default async function AgentsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   let userAgents: any[] | null = null;
   let subscription: any = null;
   let vps: any = null;
+  let availableModels: any[] = [];
 
   try {
-    const [agentsRes, subRes, vpsRes] = await Promise.all([
+    const [agentsRes, subRes, vpsRes, modelsRes] = await Promise.all([
       supabase
         .from("user_agents")
         .select(
-          "id, agent_id, deployed, deployed_at, purchased_at, custom_config, agents(id, name, description, category, config_files)"
+          "id, agent_id, deployed, deployed_at, purchased_at, custom_config, primary_model, fallback_model, agents(id, name, description, category, config_files)"
         )
         .eq("user_id", user.id)
         .order("purchased_at", { ascending: false }),
@@ -38,10 +42,17 @@ export default async function AgentsPage() {
         .select("status")
         .eq("user_id", user.id)
         .single(),
+      supabase
+        .from("available_models")
+        .select("name, display_name")
+        .eq("is_available", true)
+        .order("sort_order", { ascending: true }),
     ]);
+    if (agentsRes.error) throw agentsRes.error;
     userAgents = agentsRes.data;
     subscription = subRes.data;
     vps = vpsRes.data;
+    availableModels = modelsRes.data || [];
   } catch {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -114,6 +125,7 @@ export default async function AgentsPage() {
       <AgentManager
         userAgents={normalizedAgents}
         plan={subscription?.plan || "starter"}
+        availableModels={availableModels}
       />
 
       {/* Usage Analytics */}

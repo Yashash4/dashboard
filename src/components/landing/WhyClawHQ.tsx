@@ -1,102 +1,125 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap } from "lucide-react";
+import { Zap, Server, Lock, Globe, Store, BarChart3 } from "lucide-react";
 
-const stats = [
+const differentiators = [
   {
-    number: "$59",
-    label: "per month, all-in",
-    sublabel: "Hosting + AI + Channels + Dashboard",
+    icon: Zap,
+    title: "All-inclusive pricing",
+    description: "$59 includes VPS + AI models + all 7 channels + dashboard. Competitors charge $19 hosting + $30-60 API fees separately.",
+    stat: "$59/mo",
+    statLabel: "all-in",
   },
   {
-    number: "24h",
-    label: "to go live",
-    sublabel: "From signup to running agents",
+    icon: Lock,
+    title: "Your data, your server",
+    description: "All data stays on your dedicated VPS. We never access your conversations, documents, or agent configurations.",
+    stat: "100%",
+    statLabel: "private",
   },
   {
-    number: "$0",
-    label: "hidden fees",
-    sublabel: "No API costs. No channel add-ons.",
+    icon: Globe,
+    title: "7 channels, day one",
+    description: "WhatsApp, Telegram, Discord, Slack, Teams, Signal, Webchat — all included. No per-channel fees. No limits.",
+    stat: "7",
+    statLabel: "channels",
+  },
+  {
+    icon: Server,
+    title: "Zero DevOps",
+    description: "We handle setup, updates, backups, SSL, crash recovery. Your VPS runs 24/7 with health checks every 2 minutes.",
+    stat: "24h",
+    statLabel: "to go live",
+  },
+  {
+    icon: Store,
+    title: "Agent Store",
+    description: "7 pre-built agents free. Deploy in one click. Build custom agents with AI on Pro. No coding required.",
+    stat: "7",
+    statLabel: "free agents",
+  },
+  {
+    icon: BarChart3,
+    title: "Enterprise tools, startup prices",
+    description: "Webhooks, API, analytics, audit logs, knowledge base — features that competitors charge $500+ for. Included from $129/mo.",
+    stat: "91+",
+    statLabel: "Pro features",
   },
 ];
 
 export default function WhyClawHQ() {
   return (
-    <section className="py-32 px-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Centered Feature Highlight */}
+    <section className="py-24 px-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-20"
+          className="text-center mb-16"
         >
-          <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Zap size={22} className="text-primary" />
-            </div>
-          </div>
-
-          <p className="text-xs text-primary uppercase tracking-widest mb-4">
-            WHY CLAWHQ
-          </p>
-
+          <p className="text-xs text-primary uppercase tracking-widest mb-3">Why ClawHQ</p>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight mb-5">
             Built different. Priced honestly.
           </h2>
-
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-8">
-            Most providers charge you for hosting, then send a separate bill for
-            AI access. They give you a shared container and call it
-            &ldquo;dedicated.&rdquo; We don&rsquo;t. One price. One server.
-            Everything included.
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Most providers charge you for hosting, then send a separate bill for AI access. They give you a shared container and call it &ldquo;dedicated.&rdquo; We don&rsquo;t. One price. One server. Everything included.
           </p>
-
-          <div className="flex items-center justify-center gap-4">
-            <a
-              href="#pricing"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-sm transition-colors"
-              style={{
-                backgroundColor: "var(--cream)",
-                color: "var(--cream-foreground)",
-              }}
-            >
-              See Plans
-              <span aria-hidden="true">&rarr;</span>
-            </a>
-            <a
-              href="#faq"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-sm border border-border text-foreground hover:border-primary/30 transition-colors"
-            >
-              Read the FAQ
-              <span aria-hidden="true">&rarr;</span>
-            </a>
-          </div>
         </motion.div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="rounded-lg bg-card border border-border p-8 text-center"
-            >
-              <p className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-2">
-                {stat.number}
-              </p>
-              <p className="text-sm font-medium text-foreground mb-1">
-                {stat.label}
-              </p>
-              <p className="text-xs text-muted-foreground">{stat.sublabel}</p>
-            </motion.div>
-          ))}
+        {/* Differentiator cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {differentiators.map((item, i) => {
+            const Icon = item.icon;
+            return (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                className="rounded-lg bg-card border border-border p-6 hover:border-primary/20 transition-colors duration-300"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+                    <Icon size={18} className="text-primary" />
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-foreground">{item.stat}</p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{item.statLabel}</p>
+                  </div>
+                </div>
+                <h3 className="text-sm font-semibold mb-2">{item.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+              </motion.div>
+            );
+          })}
         </div>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="flex items-center justify-center gap-4 mt-12"
+        >
+          <a
+            href="#pricing"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-sm transition-colors"
+            style={{ backgroundColor: "var(--cream)", color: "var(--cream-foreground)" }}
+          >
+            See Plans <span aria-hidden="true">&rarr;</span>
+          </a>
+          <a
+            href="#faq"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg font-medium text-sm border border-border text-foreground hover:border-primary/30 transition-colors"
+          >
+            Read the FAQ <span aria-hidden="true">&rarr;</span>
+          </a>
+        </motion.div>
       </div>
     </section>
   );

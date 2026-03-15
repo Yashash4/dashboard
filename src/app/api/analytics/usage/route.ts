@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (error) {
-    console.error("[analytics/usage] RPC error:", error);
+    console.warn("[analytics/usage] RPC error:", error.message);
     return NextResponse.json(
       { error: "Failed to fetch analytics" },
       { status: 500 }

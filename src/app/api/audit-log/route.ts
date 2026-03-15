@@ -34,12 +34,13 @@ export async function GET(request: NextRequest) {
   const search = params.get("search");
   const offset = (page - 1) * limit;
 
-  // Build query — use user client (RLS enforces user_id = auth.uid())
+  // Build query — RLS enforces user_id = auth.uid(), .eq is defense-in-depth
   let query = supabase
     .from("audit_logs")
     .select("id, action, entity_type, entity_id, category, actor_type, details, ip_address, created_at", {
       count: "exact",
     })
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    const safe = search.replace(/[,%().\\/]/g, "");
+    const safe = search.replace(/[,%().\\/_]/g, "");
     if (safe.trim()) {
       query = query.or(
         `action.ilike.%${safe}%,entity_type.ilike.%${safe}%`

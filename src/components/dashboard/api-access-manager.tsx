@@ -14,6 +14,8 @@ import {
   Code,
   AlertTriangle,
   Loader2,
+  Gauge,
+  Edit2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -43,6 +45,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ApiKey {
   id: string;
@@ -51,73 +60,190 @@ interface ApiKey {
   usage_count: number;
   last_used_at: string | null;
   status: "active" | "revoked";
+  rate_limit_per_min: number | null;
   created_at: string;
 }
 
-function getCodeExamples(endpoint: string) {
+const RATE_LIMITS = [
+  { value: 30, label: "30 RPM" },
+  { value: 60, label: "60 RPM" },
+  { value: 120, label: "120 RPM" },
+  { value: 300, label: "300 RPM" },
+];
+
+function getCodeExamples(endpoint: string, baseUrl: string) {
   return {
-    curl: `curl -X POST "${endpoint}" \\
+    chat: {
+      curl: `# Send a message
+curl -X POST "${endpoint}" \\
   -H "Authorization: Bearer clw_your_key_here" \\
   -H "Content-Type: application/json" \\
-  -d '{"message": "Hello, how can you help me?", "agent": "default"}'`,
-    python: `import requests
+  -d '{"message": "Hello!", "agent": "default"}'
 
+# Streaming response
+curl -X POST "${endpoint}" \\
+  -H "Authorization: Bearer clw_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Hello!", "agent": "default", "stream": true}'
+
+# With session persistence
+curl -X POST "${endpoint}" \\
+  -H "Authorization: Bearer clw_your_key_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Follow up question", "session_id": "my-session-1"}'`,
+      python: `import requests
+
+# Basic chat
 response = requests.post(
     "${endpoint}",
-    headers={
-        "Authorization": "Bearer clw_your_key_here",
-        "Content-Type": "application/json",
-    },
-    json={
-        "message": "Hello, how can you help me?",
-        "agent": "default",
-    },
+    headers={"Authorization": "Bearer clw_your_key_here"},
+    json={"message": "Hello!", "agent": "default"},
 )
+print(response.json()["response"])
 
-print(response.json())`,
-    javascript: `const response = await fetch(
-  "${endpoint}",
-  {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer clw_your_key_here",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: "Hello, how can you help me?",
-      agent: "default",
-    }),
+# Streaming
+import json
+response = requests.post(
+    "${endpoint}",
+    headers={"Authorization": "Bearer clw_your_key_here"},
+    json={"message": "Hello!", "stream": True},
+    stream=True,
+)
+for line in response.iter_lines():
+    if line and line.startswith(b"data: "):
+        data = line[6:]
+        if data == b"[DONE]":
+            break
+        chunk = json.loads(data)
+        print(chunk.get("content", ""), end="", flush=True)`,
+      javascript: `// Basic chat
+const response = await fetch("${endpoint}", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer clw_your_key_here",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ message: "Hello!", agent: "default" }),
+});
+const { response: reply } = await response.json();
+
+// Streaming
+const stream = await fetch("${endpoint}", {
+  method: "POST",
+  headers: {
+    "Authorization": "Bearer clw_your_key_here",
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({ message: "Hello!", stream: true }),
+});
+const reader = stream.body.getReader();
+const decoder = new TextDecoder();
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  const chunk = decoder.decode(value);
+  // Parse SSE data lines
+  for (const line of chunk.split("\\n")) {
+    if (line.startsWith("data: ") && line !== "data: [DONE]") {
+      const { content } = JSON.parse(line.slice(6));
+      process.stdout.write(content);
+    }
   }
-);
-
-const data = await response.json();
-console.log(data);`,
-    powershell: `$response = Invoke-RestMethod \`
+}`,
+      powershell: `# Basic chat
+$response = Invoke-RestMethod \`
   -Uri "${endpoint}" \`
   -Method POST \`
   -Headers @{
     "Authorization" = "Bearer clw_your_key_here"
     "Content-Type"  = "application/json"
   } \`
-  -Body '{"message": "Hello, how can you help me?", "agent": "default"}'
+  -Body '{"message": "Hello!", "agent": "default"}'
 
-$response | ConvertTo-Json`,
+$response.response`,
+    },
+    health: {
+      curl: `# Health check — validate your key without using tokens
+curl -H "Authorization: Bearer clw_your_key_here" \\
+  "${baseUrl}/api/v1/health"
+
+# Response: {"status":"ok","plan":"pro","key_name":"...","rate_limit":60,"agents":["agent1"]}`,
+      python: `# Health check
+response = requests.get(
+    "${baseUrl}/api/v1/health",
+    headers={"Authorization": "Bearer clw_your_key_here"},
+)
+info = response.json()
+print(f"Plan: {info['plan']}, Agents: {info['agents']}")`,
+      javascript: `// Health check
+const health = await fetch("${baseUrl}/api/v1/health", {
+  headers: { "Authorization": "Bearer clw_your_key_here" },
+});
+const info = await health.json();
+console.log(info.status, info.agents);`,
+      powershell: `# Health check
+$health = Invoke-RestMethod \`
+  -Uri "${baseUrl}/api/v1/health" \`
+  -Headers @{ "Authorization" = "Bearer clw_your_key_here" }
+
+$health | ConvertTo-Json`,
+    },
+    conversations: {
+      curl: `# List conversations
+curl -H "Authorization: Bearer clw_your_key_here" \\
+  "${baseUrl}/api/v1/conversations?limit=10"
+
+# Get messages for a conversation
+curl -H "Authorization: Bearer clw_your_key_here" \\
+  "${baseUrl}/api/v1/conversations/CONVERSATION_ID/messages?limit=50"`,
+      python: `# List conversations
+convos = requests.get(
+    "${baseUrl}/api/v1/conversations",
+    headers={"Authorization": "Bearer clw_your_key_here"},
+    params={"limit": 10, "agent": "default"},
+).json()
+
+# Get messages
+messages = requests.get(
+    f"${baseUrl}/api/v1/conversations/{convos['conversations'][0]['id']}/messages",
+    headers={"Authorization": "Bearer clw_your_key_here"},
+).json()`,
+      javascript: `// List conversations
+const convos = await fetch(
+  "${baseUrl}/api/v1/conversations?limit=10",
+  { headers: { "Authorization": "Bearer clw_your_key_here" } }
+).then(r => r.json());
+
+// Get messages
+const msgs = await fetch(
+  \`${baseUrl}/api/v1/conversations/\${convos.conversations[0].id}/messages\`,
+  { headers: { "Authorization": "Bearer clw_your_key_here" } }
+).then(r => r.json());`,
+      powershell: `# List conversations
+$convos = Invoke-RestMethod \`
+  -Uri "${baseUrl}/api/v1/conversations?limit=10" \`
+  -Headers @{ "Authorization" = "Bearer clw_your_key_here" }
+
+$convos.conversations`,
+    },
   };
 }
 
 export function ApiAccessManager({ hostname }: { hostname: string | null }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [keyName, setKeyName] = useState("");
+  const [keyRateLimit, setKeyRateLimit] = useState("60");
   const [newFullKey, setNewFullKey] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [editRateLimitId, setEditRateLimitId] = useState<string | null>(null);
+  const [editRateLimitValue, setEditRateLimitValue] = useState("60");
   const queryClient = useQueryClient();
 
   const appUrl = typeof window !== "undefined" ? window.location.origin : "";
   const endpoint = `${appUrl}/api/v1/chat`;
-  const codeExamples = getCodeExamples(endpoint);
+  const codeExamples = getCodeExamples(endpoint, appUrl);
 
-  // Fetch keys
   const {
     data: keysData,
     isLoading,
@@ -133,15 +259,15 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
   });
 
   const keys: ApiKey[] = keysData?.keys || [];
+  const keyStats: Record<string, { today: number; week: number; errors: number }> = keysData?.keyStats || {};
   const activeCount = keys.filter((k) => k.status === "active").length;
 
-  // Create key
   const createMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async (payload: { name: string; rate_limit_per_min: number }) => {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -160,7 +286,6 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
     },
   });
 
-  // Revoke key
   const revokeMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
@@ -178,6 +303,26 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
     },
   });
 
+  const updateRateLimitMutation = useMutation({
+    mutationFn: async ({ id, rate_limit_per_min }: { id: string; rate_limit_per_min: number }) => {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rate_limit_per_min }),
+      });
+      if (!res.ok) throw new Error("Failed to update rate limit");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["api-keys"] });
+      setEditRateLimitId(null);
+      toast.success("Rate limit updated");
+    },
+    onError: () => {
+      toast.error("Failed to update rate limit");
+    },
+  });
+
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
     setCopied(id);
@@ -187,7 +332,10 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
 
   const handleCreate = () => {
     if (keyName.trim()) {
-      createMutation.mutate(keyName.trim());
+      createMutation.mutate({
+        name: keyName.trim(),
+        rate_limit_per_min: parseInt(keyRateLimit),
+      });
     }
   };
 
@@ -196,6 +344,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
     if (!open) {
       setNewFullKey(null);
       setKeyName("");
+      setKeyRateLimit("60");
       setShowKey(false);
     }
   };
@@ -206,25 +355,27 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            API Endpoint
+            API Endpoints
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-2">
           <div className="flex items-center gap-2">
-            <code className="flex-1 bg-black/50 px-4 py-2.5 font-mono text-sm text-green-400">
-              {endpoint}
+            <Badge variant="outline" className="text-[10px] shrink-0">POST</Badge>
+            <code className="flex-1 bg-black/50 px-3 py-1.5 font-mono text-xs text-green-400">
+              /api/v1/chat
             </code>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => handleCopy(endpoint, "endpoint")}
-            >
-              {copied === "endpoint" ? (
-                <Check className="h-4 w-4" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-            </Button>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] shrink-0">GET</Badge>
+            <code className="flex-1 bg-black/50 px-3 py-1.5 font-mono text-xs text-green-400">
+              /api/v1/health
+            </code>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-[10px] shrink-0">GET</Badge>
+            <code className="flex-1 bg-black/50 px-3 py-1.5 font-mono text-xs text-green-400">
+              /api/v1/conversations
+            </code>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
             Authenticate with <code className="text-foreground">Authorization: Bearer clw_your_key</code>
@@ -258,7 +409,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                 <DialogDescription>
                   {newFullKey
                     ? "Copy your key now. You won't be able to see it again."
-                    : "Give your key a name to identify it later."}
+                    : "Give your key a name and set a rate limit."}
                 </DialogDescription>
               </DialogHeader>
               {newFullKey ? (
@@ -292,18 +443,37 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                   </div>
                 </div>
               ) : (
-                <div className="py-4">
-                  <label className="text-sm font-medium mb-1.5 block">
-                    Key Name
-                  </label>
-                  <Input
-                    placeholder="e.g., Production, Development"
-                    value={keyName}
-                    onChange={(e) => setKeyName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && keyName.trim()) handleCreate();
-                    }}
-                  />
+                <div className="py-4 space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">
+                      Key Name
+                    </label>
+                    <Input
+                      placeholder="e.g., Production, Development"
+                      value={keyName}
+                      onChange={(e) => setKeyName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && keyName.trim()) handleCreate();
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">
+                      Rate Limit
+                    </label>
+                    <Select value={keyRateLimit} onValueChange={setKeyRateLimit}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RATE_LIMITS.map((rl) => (
+                          <SelectItem key={rl.value} value={String(rl.value)}>
+                            {rl.label} ({rl.value} requests per minute)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
               <DialogFooter>
@@ -349,12 +519,9 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
             <div className="text-center py-8 text-muted-foreground">
               <AlertTriangle className="h-8 w-8 mx-auto mb-3 opacity-50" />
               <p className="text-sm">Failed to load keys</p>
-              <button
-                onClick={() => refetch()}
-                className="mt-2 text-sm text-primary hover:underline"
-              >
+              <Button variant="link" size="sm" onClick={() => refetch()}>
                 Try again
-              </button>
+              </Button>
             </div>
           ) : keys.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -389,7 +556,21 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                         {key.usage_count > 0 && (
                           <>
                             <span>&middot;</span>
-                            <span>{key.usage_count} requests</span>
+                            <span>{key.usage_count} total</span>
+                          </>
+                        )}
+                        {keyStats[key.id] && (
+                          <>
+                            <span>&middot;</span>
+                            <span>{keyStats[key.id].today} today</span>
+                            <span>&middot;</span>
+                            <span>{keyStats[key.id].week} this week</span>
+                            {keyStats[key.id].errors > 0 && (
+                              <>
+                                <span>&middot;</span>
+                                <span className="text-red-400">{keyStats[key.id].errors} errors</span>
+                              </>
+                            )}
                           </>
                         )}
                         {key.last_used_at && (
@@ -406,6 +587,47 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Rate limit badge */}
+                    {key.status === "active" && (
+                      editRateLimitId === key.id ? (
+                        <div className="flex items-center gap-1">
+                          <Select
+                            value={editRateLimitValue}
+                            onValueChange={(v) => {
+                              setEditRateLimitValue(v);
+                              updateRateLimitMutation.mutate({
+                                id: key.id,
+                                rate_limit_per_min: parseInt(v),
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="h-7 w-24 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {RATE_LIMITS.map((rl) => (
+                                <SelectItem key={rl.value} value={String(rl.value)}>
+                                  {rl.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setEditRateLimitId(key.id);
+                            setEditRateLimitValue(String(key.rate_limit_per_min || 60));
+                          }}
+                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                          title="Click to edit rate limit"
+                        >
+                          <Gauge className="h-3 w-3" />
+                          {key.rate_limit_per_min || 60} RPM
+                          <Edit2 className="h-2.5 w-2.5 opacity-50" />
+                        </button>
+                      )
+                    )}
                     <Badge
                       variant="outline"
                       className={
@@ -463,42 +685,60 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
           <div className="flex items-center gap-2">
             <Code className="h-4 w-4 text-muted-foreground" />
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Quick Start
+              API Reference
             </CardTitle>
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="curl">
-            <TabsList>
-              <TabsTrigger value="curl">cURL</TabsTrigger>
-              <TabsTrigger value="python">Python</TabsTrigger>
-              <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-              <TabsTrigger value="powershell">PowerShell</TabsTrigger>
+          <Tabs defaultValue="chat">
+            <TabsList className="mb-3">
+              <TabsTrigger value="chat">Chat</TabsTrigger>
+              <TabsTrigger value="health">Health</TabsTrigger>
+              <TabsTrigger value="conversations">Conversations</TabsTrigger>
             </TabsList>
-            {(
-              Object.entries(codeExamples) as [string, string][]
-            ).map(([lang, code]) => (
-              <TabsContent key={lang} value={lang}>
-                <div className="relative">
-                  <pre className="bg-black/50 p-4 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre">
-                    {code}
-                  </pre>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 h-7 w-7"
-                    onClick={() => handleCopy(code, lang)}
-                  >
-                    {copied === lang ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                </div>
+
+            {(["chat", "health", "conversations"] as const).map((section) => (
+              <TabsContent key={section} value={section}>
+                <Tabs defaultValue="curl">
+                  <TabsList>
+                    <TabsTrigger value="curl">cURL</TabsTrigger>
+                    <TabsTrigger value="python">Python</TabsTrigger>
+                    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
+                    <TabsTrigger value="powershell">PowerShell</TabsTrigger>
+                  </TabsList>
+                  {(["curl", "python", "javascript", "powershell"] as const).map((lang) => (
+                    <TabsContent key={lang} value={lang}>
+                      <div className="relative">
+                        <pre className="bg-black/50 p-4 font-mono text-xs text-green-400 overflow-x-auto whitespace-pre">
+                          {codeExamples[section][lang]}
+                        </pre>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute top-2 right-2 h-7 w-7"
+                          onClick={() => handleCopy(codeExamples[section][lang], `${section}-${lang}`)}
+                        >
+                          {copied === `${section}-${lang}` ? (
+                            <Check className="h-3.5 w-3.5" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
               </TabsContent>
             ))}
           </Tabs>
+
+          {/* Agent parameter docs */}
+          <div className="mt-4 p-3 border border-border text-xs text-muted-foreground space-y-2">
+            <p className="font-medium text-foreground">Agent Parameter</p>
+            <p>The <code className="text-foreground">agent</code> parameter specifies which deployed agent to talk to. Use the agent name as shown in your Agents page.</p>
+            <p>If omitted, defaults to the first deployed agent. Use <code className="text-foreground">GET /api/v1/health</code> to see available agents.</p>
+            <p>The <code className="text-foreground">session_id</code> parameter maintains conversation state across requests. Same session_id = continued conversation.</p>
+          </div>
         </CardContent>
       </Card>
     </div>

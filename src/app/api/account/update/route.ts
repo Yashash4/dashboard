@@ -33,6 +33,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (name.trim().length > 100) {
+    return NextResponse.json(
+      { error: "Name must be 100 characters or less" },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
 
   // Update users table
@@ -49,9 +56,16 @@ export async function POST(request: NextRequest) {
   }
 
   // Update Supabase auth metadata
-  await admin.auth.admin.updateUserById(user.id, {
+  const { error: authError } = await admin.auth.admin.updateUserById(user.id, {
     user_metadata: { name: name.trim() },
   });
+
+  if (authError) {
+    return NextResponse.json(
+      { error: "Profile updated but metadata sync failed. Try again." },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }

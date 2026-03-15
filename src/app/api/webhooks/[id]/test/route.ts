@@ -35,10 +35,10 @@ export async function POST(
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  // Get webhook
+  // Get webhook with events
   const { data: webhook } = await admin
     .from("webhooks")
-    .select("id, url, secret")
+    .select("id, url, secret, events")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -54,13 +54,35 @@ export async function POST(
     );
   }
 
+  // Try to use a real recent delivery payload for the test
+  let testEvent = "test";
+  let testData: Record<string, unknown> = {
+    message: "This is a test event from ClawHQ",
+    webhook_id: webhook.id,
+  };
+
+  if (webhook.events && webhook.events.length > 0) {
+    const { data: recentDelivery } = await admin
+      .from("webhook_deliveries")
+      .select("event_type, payload")
+      .eq("webhook_id", id)
+      .eq("user_id", user.id)
+      .in("event_type", webhook.events)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (recentDelivery?.payload) {
+      const realPayload = recentDelivery.payload as any;
+      testEvent = realPayload.event || recentDelivery.event_type;
+      testData = realPayload.data || testData;
+    }
+  }
+
   const timestamp = new Date().toISOString();
   const payload = {
-    event: "test",
-    data: {
-      message: "This is a test event from ClawHQ",
-      webhook_id: webhook.id,
-    },
+    event: testEvent,
+    data: testData,
     timestamp,
   };
   const body = JSON.stringify(payload);

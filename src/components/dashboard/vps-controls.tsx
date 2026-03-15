@@ -110,11 +110,31 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showLogs, setShowLogs] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
-  const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  // Persist chart data in sessionStorage so it survives navigation
+  const [chartData, setChartData] = useState<ChartPoint[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = sessionStorage.getItem("vps-chart-data");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const prevNetRef = useRef<{ rx: number; tx: number; ts: number } | null>(
     null
   );
   const [netRate, setNetRate] = useState({ inRate: 0, outRate: 0 });
+
+  // Save chart data to sessionStorage whenever it changes
+  useEffect(() => {
+    if (chartData.length > 0) {
+      try {
+        sessionStorage.setItem("vps-chart-data", JSON.stringify(chartData));
+      } catch {
+        // sessionStorage full or unavailable — ignore
+      }
+    }
+  }, [chartData]);
 
   // Poll VPS status
   const { data: statusData } = useQuery({

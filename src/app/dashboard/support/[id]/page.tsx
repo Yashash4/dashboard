@@ -15,12 +15,15 @@ export default async function TicketDetailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   // Fetch ticket (RLS ensures user can only see their own)
   const { data: ticket } = await supabase
     .from("support_tickets")
-    .select("id, subject, status, priority, created_at")
+    .select("id, subject, status, priority, created_at, updated_at, satisfaction_rating, category")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -35,6 +38,16 @@ export default async function TicketDetailPage({
     .select("id, sender_role, message, created_at")
     .eq("ticket_id", id)
     .order("created_at", { ascending: true });
+
+  // Mark ticket as read by user (non-blocking)
+  const { createAdminClient } = await import("@/lib/supabase-admin");
+  const admin = createAdminClient();
+  admin
+    .from("support_tickets")
+    .update({ user_read_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .then(() => {}, () => {});
 
   return <TicketThread ticket={ticket} messages={messages || []} />;
 }

@@ -32,7 +32,9 @@ const STEPS = [
   "Generate SSL certificate",  // step 8
   "Install Nginx",             // step 9
   "Configure Nginx",           // step 10
-  "Verify",                    // step 11
+  "Install embedding service", // step 11
+  "Install Data API",          // step 12
+  "Verify",                    // step 13
 ];
 
 async function runStep(
@@ -382,10 +384,104 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Step 11: Verify — test gateway, nginx (Basic Auth), and embed cookie bypass
+    // Step 11: Install embedding service for KB RAG
+    const embeddingServerJs = [
+      'const http = require("http");',
+      'let pipeline = null;',
+      'async function loadModel() {',
+      '  const { pipeline: p } = await import("@xenova/transformers");',
+      '  pipeline = await p("feature-extraction", "Xenova/all-MiniLM-L6-v2");',
+      '  console.log("Embedding model loaded");',
+      '}',
+      'const server = http.createServer(async (req, res) => {',
+      '  if (req.method === "POST" && req.url === "/embed") {',
+      '    let body = "";',
+      '    req.on("data", c => body += c);',
+      '    req.on("end", async () => {',
+      '      try {',
+      '        const { texts } = JSON.parse(body);',
+      '        if (!Array.isArray(texts)) { res.writeHead(400); res.end("texts must be array"); return; }',
+      '        const vectors = [];',
+      '        for (const t of texts) {',
+      '          const out = await pipeline(t, { pooling: "mean", normalize: true });',
+      '          vectors.push(Array.from(out.data));',
+      '        }',
+      '        res.writeHead(200, { "Content-Type": "application/json" });',
+      '        res.end(JSON.stringify({ vectors }));',
+      '      } catch (e) { res.writeHead(500); res.end(e.message); }',
+      '    });',
+      '  } else if (req.method === "GET" && req.url === "/health") {',
+      '    res.writeHead(200); res.end("ok");',
+      '  } else { res.writeHead(404); res.end("not found"); }',
+      '});',
+      'loadModel().then(() => server.listen(5555, "0.0.0.0", () => console.log("Embedding service on :5555")));',
+    ].join("\n");
+    const embeddingServerB64 = Buffer.from(embeddingServerJs).toString("base64");
+
+    const embeddingServiceFile = [
+      "[Unit]",
+      "Description=ClawHQ Embedding Service",
+      "After=network.target",
+      "",
+      "[Service]",
+      "Type=simple",
+      "User=root",
+      "WorkingDirectory=/opt/clawhq-embeddings",
+      "ExecStart=/usr/bin/node server.js",
+      "Restart=always",
+      "RestartSec=5",
+      "Environment=NODE_ENV=production",
+      "",
+      "[Install]",
+      "WantedBy=multi-user.target",
+    ].join("\n");
+    const serviceFileB64 = Buffer.from(embeddingServiceFile).toString("base64");
+
+    const embeddingInstallScript = [
+      "#!/bin/bash",
+      "set -e",
+      "export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH",
+      "mkdir -p /opt/clawhq-embeddings",
+      `echo '${embeddingServerB64}' | base64 -d > /opt/clawhq-embeddings/server.js`,
+      "cd /opt/clawhq-embeddings",
+      "if [ ! -f package.json ]; then npm init -y > /dev/null 2>&1; fi",
+      "npm install @xenova/transformers --save 2>&1 | tail -3",
+      `echo '${serviceFileB64}' | base64 -d > /etc/systemd/system/clawhq-embeddings.service`,
+      "systemctl daemon-reload",
+      "systemctl enable clawhq-embeddings",
+      "systemctl restart clawhq-embeddings",
+      "sleep 5",
+      // Don't fail if model is still downloading — it takes time on first run
+      "curl -sf http://127.0.0.1:5555/health > /dev/null 2>&1 && echo 'Embedding service running' || echo 'Embedding service starting (model downloading)'",
+    ].join("\n");
+    const embeddingScriptB64 = Buffer.from(embeddingInstallScript).toString("base64");
+
     await runStep(
       ssh,
       11,
+      `echo '${embeddingScriptB64}' | base64 -d > /tmp/install-embeddings.sh && chmod +x /tmp/install-embeddings.sh && bash /tmp/install-embeddings.sh`,
+      onProgress
+    );
+
+    // Step 12: Install Data API (SQLite + Express on port 5556)
+    const dataApiToken = require("crypto").randomBytes(32).toString("hex");
+    const dataApiFiles = require("./vps-data-api-bundle").getBundle(dataApiToken);
+    const dataApiBundleB64 = Buffer.from(dataApiFiles).toString("base64");
+
+    await runStep(
+      ssh,
+      12,
+      `echo '${dataApiBundleB64}' | base64 -d > /tmp/install-data-api.sh && chmod +x /tmp/install-data-api.sh && bash /tmp/install-data-api.sh`,
+      onProgress
+    );
+
+    // Save data API token to database
+    // (Caller in route.ts should save this — we return it in the result)
+
+    // Step 13: Verify — test gateway, nginx (Basic Auth), and embed cookie bypass
+    await runStep(
+      ssh,
+      13,
       [
         "curl -sf http://127.0.0.1:18789/ > /dev/null",
         config.dashboardUsername && config.dashboardPassword

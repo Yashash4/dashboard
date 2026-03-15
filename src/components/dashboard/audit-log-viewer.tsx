@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Download,
@@ -16,7 +16,9 @@ import {
   RefreshCw,
   BookOpen,
   Webhook,
+  ShieldCheck,
 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -103,16 +105,22 @@ export function AuditLogViewer() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(1);
-  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup debounce timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, []);
 
   const handleSearchChange = (value: string) => {
     setSearch(value);
-    if (searchTimeout) clearTimeout(searchTimeout);
-    const timeout = setTimeout(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
       setDebouncedSearch(value);
       setPage(1);
     }, 400);
-    setSearchTimeout(timeout);
   };
 
   const handleCategoryChange = (value: string) => {
@@ -200,9 +208,44 @@ export function AuditLogViewer() {
             size="sm"
             onClick={handleExport}
             disabled={logs.length === 0}
+            title="Exports the current page of results only"
           >
             <Download className="h-4 w-4 mr-1" />
             Export Page
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              window.open("/api/audit-log/export?format=csv", "_blank");
+            }}
+            title="Export all audit logs (up to 10K entries)"
+          >
+            <Download className="h-4 w-4 mr-1" />
+            Export All
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/audit-log/verify");
+                const data = await res.json();
+                if (data.valid) {
+                  toast.success(`Chain verified: ${data.verified} of ${data.total} entries intact`);
+                } else {
+                  toast.error(`Chain broken at entry ${data.broken_at}. ${data.verified} entries verified before break.`);
+                }
+              } catch {
+                toast.error("Verification failed");
+              }
+            }}
+            title="Verify audit log hash chain integrity"
+          >
+            <ShieldCheck className="h-4 w-4 mr-1" />
+            Verify
           </Button>
         </div>
       </div>

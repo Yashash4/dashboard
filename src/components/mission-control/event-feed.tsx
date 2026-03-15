@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -14,11 +14,16 @@ import {
   Square,
   Filter,
   ChevronDown,
+  Activity,
+  Pause,
+  PlayIcon,
+  Link2,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Collapsible,
   CollapsibleContent,
@@ -29,8 +34,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
-import { mockEvents } from "@/lib/mock-data/mission-control";
+import { formatTimeAgo } from "@/lib/format-time";
 import type { MCEvent } from "@/types/mission-control";
 
 const SEVERITY_CONFIG: Record<
@@ -65,7 +69,6 @@ const EVENT_TYPE_CONFIG: Record<
     label: "Tool",
     className: "text-violet-400",
   },
-  error: { icon: AlertTriangle, label: "Error", className: "text-red-400" },
   task_complete: {
     icon: CheckCircle2,
     label: "Task Done",
@@ -78,6 +81,7 @@ const EVENT_TYPE_CONFIG: Record<
   },
   session_start: { icon: Play, label: "Session", className: "text-emerald-400" },
   session_end: { icon: Square, label: "Session", className: "text-zinc-400" },
+  error: { icon: AlertTriangle, label: "Error", className: "text-red-400" },
 };
 
 function formatTime(dateStr: string): string {
@@ -89,38 +93,63 @@ function formatTime(dateStr: string): string {
   });
 }
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hrs = Math.floor(min / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+// Severity border colors for left border
+const SEVERITY_BORDER: Record<string, string> = {
+  success: "border-l-green-500",
+  info: "border-l-blue-500",
+  warning: "border-l-yellow-500",
+  error: "border-l-red-500",
+};
 
 export function EventFeed() {
-  useMissionControlStream();
-
-  const { data: events = mockEvents } = useQuery<MCEvent[]>({
-    queryKey: ["mc-events"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/events");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.events?.length > 0 ? json.events : mockEvents;
-      } catch {
-        return mockEvents;
-      }
-    },
-    refetchInterval: 2000,
-  });
-
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [isLive, setIsLive] = useState(true);
+  const [newEventCount, setNewEventCount] = useState(0);
+  const prevEventCountRef = useRef(0);
 
+  // Build URL with filter params sent to server (P1.3.2)
+  const fetchUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (typeFilter) params.set("type", typeFilter);
+    if (severityFilter) params.set("severity", severityFilter);
+    params.set("limit", "50");
+    params.set("page", String(page));
+    return `/api/mission-control/events?${params.toString()}`;
+  }, [typeFilter, severityFilter, page]);
+
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<{ events: MCEvent[]; total: number }>({
+    queryKey: ["mc-events", typeFilter, severityFilter, page],
+    queryFn: async () => {
+      const res = await fetch(fetchUrl);
+      if (!res.ok) throw new Error("Failed to fetch events");
+      return res.json();
+    },
+    refetchInterval: isLive ? 5000 : false,
+  });
+
+  const events = data?.events || [];
+  const total = data?.total || 0;
+
+  // Track new events when paused
+  useEffect(() => {
+    if (!isLive && events.length > prevEventCountRef.current) {
+      setNewEventCount(events.length - prevEventCountRef.current);
+    }
+    if (isLive) {
+      prevEventCountRef.current = events.length;
+      setNewEventCount(0);
+    }
+  }, [events.length, isLive]);
+
+  // Client-side filtering for instant response (keep server filters too)
   const filteredEvents = useMemo(() => {
     return events.filter((e) => {
       if (typeFilter && e.event_type !== typeFilter) return false;
@@ -129,8 +158,30 @@ export function EventFeed() {
     });
   }, [events, typeFilter, severityFilter]);
 
-  const eventTypes = [...new Set(events.map((e) => e.event_type))];
-  const severities = [...new Set(events.map((e) => e.severity))];
+  const eventTypes = Object.keys(EVENT_TYPE_CONFIG);
+  const severities = ["success", "info", "warning", "error"];
+
+  if (isError) {
+    return (
+      <div className="text-center py-16">
+        <AlertTriangle className="h-10 w-10 text-red-400/50 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">Failed to load events</p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} className="h-14 w-full" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -152,7 +203,7 @@ export function EventFeed() {
           <PopoverContent className="w-48 p-2" align="start">
             <button
               className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!typeFilter ? "bg-accent" : ""}`}
-              onClick={() => setTypeFilter(null)}
+              onClick={() => { setTypeFilter(null); setPage(1); }}
             >
               All Types
             </button>
@@ -162,7 +213,7 @@ export function EventFeed() {
                 <button
                   key={type}
                   className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${typeFilter === type ? "bg-accent" : ""}`}
-                  onClick={() => setTypeFilter(type)}
+                  onClick={() => { setTypeFilter(type); setPage(1); }}
                 >
                   {config?.label || type}
                 </button>
@@ -187,7 +238,7 @@ export function EventFeed() {
           <PopoverContent className="w-36 p-2" align="start">
             <button
               className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent ${!severityFilter ? "bg-accent" : ""}`}
-              onClick={() => setSeverityFilter(null)}
+              onClick={() => { setSeverityFilter(null); setPage(1); }}
             >
               All
             </button>
@@ -195,7 +246,7 @@ export function EventFeed() {
               <button
                 key={sev}
                 className={`w-full text-left px-2 py-1.5 text-sm rounded-sm hover:bg-accent capitalize ${severityFilter === sev ? "bg-accent" : ""}`}
-                onClick={() => setSeverityFilter(sev)}
+                onClick={() => { setSeverityFilter(sev); setPage(1); }}
               >
                 {sev}
               </button>
@@ -211,6 +262,7 @@ export function EventFeed() {
             onClick={() => {
               setTypeFilter(null);
               setSeverityFilter(null);
+              setPage(1);
             }}
           >
             Clear filters
@@ -219,97 +271,160 @@ export function EventFeed() {
 
         <span className="text-xs text-muted-foreground ml-auto">
           {filteredEvents.length} events
+          {total > filteredEvents.length && ` of ${total}`}
         </span>
+
+        {/* Live/Paused toggle */}
+        <Button
+          variant={isLive ? "default" : "outline"}
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => { setIsLive(!isLive); if (!isLive) refetch(); }}
+        >
+          {isLive ? (
+            <><Pause className="h-3 w-3" />Live</>
+          ) : (
+            <><PlayIcon className="h-3 w-3" />Paused {newEventCount > 0 && <Badge variant="secondary" className="text-[9px] h-4 px-1">{newEventCount} new</Badge>}</>
+          )}
+        </Button>
       </div>
 
       {/* Event List */}
-      <div className="space-y-1">
-        {filteredEvents.map((event) => {
-          const sev = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
-          const eventType =
-            EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.webhook;
-          const SevIcon = sev.icon;
-          const TypeIcon = eventType.icon;
-          const isExpanded = expandedId === event.id;
+      {filteredEvents.length === 0 ? (
+        <div className="text-center py-16">
+          <Activity className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-lg font-medium text-muted-foreground mb-1">
+            No events recorded
+          </p>
+          <p className="text-sm text-muted-foreground/60">
+            Events will appear here when your agents perform actions, tasks change status, or sessions start
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {filteredEvents.map((event) => {
+            const sev = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
+            const eventType =
+              EVENT_TYPE_CONFIG[event.event_type] || EVENT_TYPE_CONFIG.webhook;
+            const SevIcon = sev.icon;
+            const TypeIcon = eventType.icon;
+            const isExpanded = expandedId === event.id;
 
-          return (
-            <Collapsible
-              key={event.id}
-              open={isExpanded}
-              onOpenChange={() =>
-                setExpandedId(isExpanded ? null : event.id)
-              }
-            >
-              <CollapsibleTrigger asChild>
-                <Card
-                  className={`border-border cursor-pointer hover:border-primary/20 transition-colors ${isExpanded ? "border-primary/30" : ""}`}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-3">
-                      {/* Timestamp */}
-                      <span className="text-[10px] font-mono text-muted-foreground shrink-0 w-14">
-                        {formatTime(event.created_at)}
-                      </span>
-
-                      {/* Severity Icon */}
-                      <div
-                        className={`h-6 w-6 flex items-center justify-center shrink-0 ${sev.bg}`}
-                      >
-                        <SevIcon className={`h-3.5 w-3.5 ${sev.className}`} />
-                      </div>
-
-                      {/* Type Badge */}
-                      <Badge
-                        variant="outline"
-                        className={`text-[9px] font-mono shrink-0 ${eventType.className} border-current/20`}
-                      >
-                        <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
-                        {eventType.label}
-                      </Badge>
-
-                      {/* Message */}
-                      <p className="text-sm truncate flex-1 min-w-0">
-                        {event.message}
-                      </p>
-
-                      {/* Agent */}
-                      {event.agent && (
-                        <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">
-                          {event.agent.name}
+            return (
+              <Collapsible
+                key={event.id}
+                open={isExpanded}
+                onOpenChange={() =>
+                  setExpandedId(isExpanded ? null : event.id)
+                }
+              >
+                <CollapsibleTrigger asChild>
+                  <Card
+                    className={`border-border cursor-pointer hover:border-primary/20 transition-colors border-l-[3px] ${SEVERITY_BORDER[event.severity] || ""} ${isExpanded ? "border-primary/30" : ""}`}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Timestamp */}
+                        <span className="text-[10px] font-mono text-muted-foreground shrink-0 w-14">
+                          {formatTime(event.created_at)}
                         </span>
-                      )}
 
-                      {/* Time ago */}
-                      <span className="text-[10px] text-muted-foreground shrink-0">
-                        {formatTimeAgo(event.created_at)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </CollapsibleTrigger>
+                        {/* Severity Icon */}
+                        <div
+                          className={`h-6 w-6 flex items-center justify-center shrink-0 ${sev.bg}`}
+                        >
+                          <SevIcon className={`h-3.5 w-3.5 ${sev.className}`} />
+                        </div>
 
-              <CollapsibleContent>
-                <Card className="border-border border-t-0 rounded-t-none">
-                  <CardContent className="p-4">
-                    <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">
-                      Event Payload
-                    </p>
-                    <pre className="text-xs font-mono bg-muted/30 p-3 rounded-sm overflow-x-auto">
-                      {JSON.stringify(event.payload, null, 2)}
-                    </pre>
-                    {event.agent && (
-                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Bot className="h-3 w-3" />
-                        Agent: {event.agent.name}
+                        {/* Type Badge */}
+                        <Badge
+                          variant="outline"
+                          className={`text-[9px] font-mono shrink-0 ${eventType.className} border-current/20`}
+                        >
+                          <TypeIcon className="h-2.5 w-2.5 mr-0.5" />
+                          {eventType.label}
+                        </Badge>
+
+                        {/* Message */}
+                        <p className="text-sm truncate flex-1 min-w-0">
+                          {event.message}
+                        </p>
+
+                        {/* Agent */}
+                        {event.agent && (
+                          <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block">
+                            {event.agent.name}
+                          </span>
+                        )}
+
+                        {/* Session link (P7.2) */}
+                        {event.session_id && (
+                          <a
+                            href={`/mission-control/sessions?highlight=${event.session_id}`}
+                            className="text-primary/60 hover:text-primary shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                            title="View linked session"
+                          >
+                            <Link2 className="h-3 w-3" />
+                          </a>
+                        )}
+
+                        {/* Time ago */}
+                        <span className="text-[10px] text-muted-foreground shrink-0">
+                          {formatTimeAgo(event.created_at)}
+                        </span>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </CollapsibleContent>
-            </Collapsible>
-          );
-        })}
-      </div>
+                    </CardContent>
+                  </Card>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <Card className="border-border border-t-0 rounded-t-none">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wider">
+                        Event Payload
+                      </p>
+                      <pre className="text-xs font-mono bg-muted/30 p-3 rounded-sm overflow-x-auto">
+                        {JSON.stringify(event.payload, null, 2)}
+                      </pre>
+                      <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                        {event.agent && (
+                          <span className="flex items-center gap-1">
+                            <Bot className="h-3 w-3" />
+                            {event.agent.name}
+                          </span>
+                        )}
+                        {event.session_id && (
+                          <a
+                            href={`/mission-control/sessions?highlight=${event.session_id}`}
+                            className="flex items-center gap-1 text-primary/70 hover:text-primary"
+                          >
+                            <Link2 className="h-3 w-3" />
+                            View Session
+                          </a>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pagination: Load More (P1.3.6) */}
+      {total > filteredEvents.length && (
+        <div className="text-center pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Load more events
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

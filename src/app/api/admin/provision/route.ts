@@ -149,7 +149,6 @@ async function runProvisioning(
 
     const dns = await createSubdomain(config.subdomain, config.ip);
     if (!dns.success) {
-      console.error(`[Provision] ✗ DNS failed: ${dns.error}`);
       updateStep(jobId, {
         step: 0,
         label: "Create DNS record",
@@ -173,11 +172,9 @@ async function runProvisioning(
     // Ensure SSL/TLS mode is "Full" + always redirect HTTP→HTTPS (zone-level, idempotent)
     const ssl = await ensureSslFull();
     if (!ssl.success) {
-      console.warn(`[Provision] ⚠ SSL mode set failed: ${ssl.error}`);
     }
     const https = await ensureAlwaysHttps();
     if (!https.success) {
-      console.warn(`[Provision] ⚠ Always HTTPS failed: ${https.error}`);
     }
 
     // Step 1: Open firewall ports (provider-level)
@@ -203,7 +200,6 @@ async function runProvisioning(
       });
     } catch (fwErr: any) {
       // Non-fatal — VPS might not be on Hostinger, or API token expired
-      console.warn(`[Provision] ⚠ Firewall skipped: ${fwErr.message}`);
       updateStep(jobId, {
         step: 1,
         label: "Open firewall ports",
@@ -292,11 +288,9 @@ async function runProvisioning(
         dashboardUrl,
       });
     } else {
-      console.error(`[Provision] ✗ Provisioning failed: ${result.error}`);
       completeJob(jobId, { success: false, error: result.error });
     }
   } catch (err: any) {
-    console.error(`[Provision] ✗ Unexpected error: ${err.message}`);
     completeJob(jobId, {
       success: false,
       error: err.message || "Provisioning failed",

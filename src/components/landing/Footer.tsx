@@ -2,16 +2,16 @@ export default function Footer() {
   return (
     <footer className="border-t border-border py-12 px-6">
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
           {/* Brand */}
-          <div>
+          <div className="md:col-span-2">
             <span className="text-lg font-semibold tracking-tight">
               claw<span className="text-primary">hq</span>
             </span>
-            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-              Managed AI agent hosting.
-              <br />
-              One price. Everything included.
+            <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-xs">
+              Managed AI agent hosting. Dedicated VPS, bundled AI models, 7
+              messaging channels, and a full dashboard. One price. Everything
+              included.
             </p>
           </div>
 
@@ -32,6 +32,11 @@ export default function Footer() {
                 </a>
               </li>
               <li>
+                <a href="#product-tour" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Product Tour
+                </a>
+              </li>
+              <li>
                 <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   FAQ
                 </a>
@@ -39,39 +44,52 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Open Source & Legal */}
+          {/* Resources */}
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-              Open Source
+              Resources
             </p>
             <ul className="space-y-2">
+              <li>
+                <a href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Documentation
+                </a>
+              </li>
               <li>
                 <a href="https://github.com/openclaw" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   OpenClaw on GitHub
                 </a>
               </li>
-            </ul>
-
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 mt-6">
-              Legal
-            </p>
-            <ul className="space-y-2">
               <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Terms of Service
-                </a>
-              </li>
-              <li>
-                <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Privacy Policy
+                <a
+                  href="mailto:hello@clawhq.tech"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  hello@clawhq.tech
                 </a>
               </li>
             </ul>
           </div>
 
-          {/* Account & Contact */}
+          {/* Legal & Account */}
           <div>
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
+              Legal
+            </p>
+            <ul className="space-y-2">
+              <li>
+                <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Terms of Service
+                </a>
+              </li>
+              <li>
+                <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Privacy Policy
+                </a>
+              </li>
+            </ul>
+
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 mt-6">
               Account
             </p>
             <ul className="space-y-2">
@@ -86,26 +104,12 @@ export default function Footer() {
                 </a>
               </li>
             </ul>
-
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 mt-6">
-              Contact
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a
-                  href="mailto:hello@clawhq.tech"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  hello@clawhq.tech
-                </a>
-              </li>
-            </ul>
           </div>
         </div>
 
-        {/* Open-source manifesto */}
+        {/* Open-source note */}
         <p className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 mb-8">
-          All models are open-source. No vendor lock-in. Your data stays yours.
+          Built on open-source technology. No vendor lock-in. Your data stays on your server.
         </p>
 
         {/* Bottom bar */}

@@ -50,6 +50,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Channels requiring admin setup
+  const adminSetupChannels = ["whatsapp", "signal"];
+  if (adminSetupChannels.includes(channel_type)) {
+    return NextResponse.json(
+      { error: "Contact support to set up " + channel_type.charAt(0).toUpperCase() + channel_type.slice(1) + ". This channel requires manual configuration on your server." },
+      { status: 400 }
+    );
+  }
+
   // Webchat doesn't need credentials
   if (channel_type !== "webchat" && (!credentials || Object.keys(credentials).length === 0)) {
     return NextResponse.json(
@@ -132,7 +141,13 @@ export async function POST(request: NextRequest) {
         })
         .select("id")
         .single();
-      channelId = inserted?.id;
+      if (!inserted?.id) {
+        return NextResponse.json(
+          { error: "Failed to create channel record" },
+          { status: 500 }
+        );
+      }
+      channelId = inserted.id;
     }
 
     // Store encrypted credentials for recovery

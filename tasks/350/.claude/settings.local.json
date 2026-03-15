@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(mkdir:*)",
+      "Read(//c/Users/yasha/OneDrive/Desktop/yash/dashboard/**)",
+      "Bash(rm -rf .next/diagnostics .next/package.json .next/trace)",
+      "Bash(npx next:*)",
+      "Bash(for f:*)",
+      "Bash(do echo:*)",
+      "Bash(done)",
+      "Bash(find:*)",
+      "Bash(/tmp/check_fixes.txt:*)",
+      "Read(//tmp/**)"
+    ]
+  }
+}

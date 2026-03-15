@@ -108,7 +108,7 @@ export async function POST(
       id,
       user.id,
       textContent,
-      doc.type === "csv"
+      doc.type || "txt"
     );
 
     logAudit({

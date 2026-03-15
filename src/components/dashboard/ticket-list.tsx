@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CircleDot,
@@ -9,11 +9,15 @@ import {
   XCircle,
   Plus,
   Inbox,
+  Loader2,
+  Search,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatTicketNumber } from "@/lib/format-ticket";
 
 interface TicketMessage {
   sender_role: string;
@@ -25,7 +29,9 @@ interface Ticket {
   subject: string;
   status: string;
   priority: string;
+  category?: string | null;
   created_at: string;
+  user_read_at?: string | null;
   ticket_messages?: TicketMessage[];
 }
 
@@ -83,20 +89,72 @@ const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
   high: { label: "High", className: "border-red-600/50 text-red-500" },
 };
 
+const CATEGORY_CONFIG: Record<string, { label: string; className: string }> = {
+  general: { label: "General", className: "border-muted-foreground/30 text-muted-foreground" },
+  billing: { label: "Billing", className: "border-emerald-600/50 text-emerald-500" },
+  technical: { label: "Technical", className: "border-blue-600/50 text-blue-500" },
+  account: { label: "Account", className: "border-purple-600/50 text-purple-500" },
+  channels: { label: "Channels", className: "border-cyan-600/50 text-cyan-500" },
+  agents: { label: "Agents", className: "border-orange-600/50 text-orange-500" },
+  feature: { label: "Feature Request", className: "border-pink-600/50 text-pink-500" },
+};
+
 function formatTabLabel(tab: string) {
   if (tab === "all") return "All";
   if (tab === "in_progress") return "In Progress";
   return tab.charAt(0).toUpperCase() + tab.slice(1);
 }
 
-export function TicketList({ tickets }: { tickets: Ticket[] }) {
+export function TicketList({
+  tickets: initialTickets,
+  totalCount = 0,
+  pageSize = 20,
+}: {
+  tickets: Ticket[];
+  totalCount?: number;
+  pageSize?: number;
+}) {
   const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
+  const [tickets, setTickets] = useState(initialTickets);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const hasMore = tickets.length < totalCount;
 
-  const filtered =
-    filter === "all"
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/tickets/list?offset=${tickets.length}&limit=${pageSize}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tickets?.length) {
+          setTickets((prev) => [...prev, ...data.tickets]);
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const filtered = useMemo(() => {
+    let result = filter === "all"
       ? tickets
       : tickets.filter((t) => t.status === filter);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((t) =>
+        t.subject.toLowerCase().includes(q) ||
+        formatTicketNumber(t.id).toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [tickets, filter, searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -109,6 +167,16 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
           <Plus className="mr-2 h-4 w-4" />
           New Ticket
         </Button>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search tickets..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <Tabs value={filter} onValueChange={setFilter}>
@@ -125,6 +193,12 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
           })}
         </TabsList>
       </Tabs>
+
+      {searchQuery.trim() && (
+        <p className="text-sm text-muted-foreground">
+          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <div className="text-center py-16">
@@ -151,7 +225,10 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
             const status = STATUS_CONFIG[ticket.status] || STATUS_CONFIG.open;
             const priority = PRIORITY_CONFIG[ticket.priority] || PRIORITY_CONFIG.medium;
             const lastReply = getLastReply(ticket.ticket_messages);
-            const hasAdminReply = lastReply?.sender_role === "admin";
+            // Show "New reply" only if last message is from admin AND user hasn't read it since
+            const hasUnreadAdminReply = lastReply?.sender_role === "admin" && (
+              !ticket.user_read_at || new Date(lastReply.created_at) > new Date(ticket.user_read_at)
+            );
 
             return (
               <button
@@ -162,8 +239,13 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold truncate">{ticket.subject}</h3>
-                      {hasAdminReply && (
+                      <h3 className="font-semibold truncate">
+                        <span className="text-muted-foreground font-mono text-xs mr-1.5">
+                          {formatTicketNumber(ticket.id)}
+                        </span>
+                        {ticket.subject}
+                      </h3>
+                      {hasUnreadAdminReply && (
                         <Badge className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0">
                           New reply
                         </Badge>
@@ -176,6 +258,11 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
                       <Badge variant="outline" className={`${priority.className} text-xs`}>
                         {priority.label}
                       </Badge>
+                      {ticket.category && CATEGORY_CONFIG[ticket.category] && (
+                        <Badge variant="outline" className={`${CATEGORY_CONFIG[ticket.category].className} text-xs`}>
+                          {CATEGORY_CONFIG[ticket.category].label}
+                        </Badge>
+                      )}
                       <span className="text-xs text-muted-foreground">
                         {new Date(ticket.created_at).toLocaleDateString("en-US", {
                           year: "numeric",
@@ -195,6 +282,21 @@ export function TicketList({ tickets }: { tickets: Ticket[] }) {
               </button>
             );
           })}
+          {hasMore && filter === "all" && (
+            <div className="text-center pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Load More ({totalCount - tickets.length} remaining)
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

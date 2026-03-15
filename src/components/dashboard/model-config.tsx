@@ -9,22 +9,17 @@ import {
   Sparkles,
   Loader2,
   X,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ModelDetailDialog } from "@/components/dashboard/model-detail-dialog";
+import { ModelComparisonDialog } from "@/components/dashboard/model-comparison-dialog";
+import { ModelRecommendation } from "@/components/dashboard/model-recommendation";
+import { ModelPerformance } from "@/components/dashboard/model-performance";
 
 interface ModelConfigData {
   current_model: string;
@@ -51,19 +46,23 @@ export function ModelConfig({
   availableModels,
   plan,
   billingDate,
+  deployedAgentCategories = [],
 }: {
   modelConfig: ModelConfigData;
   availableModels: AvailableModel[];
   plan: string;
   billingDate: string | null;
+  deployedAgentCategories?: string[];
 }) {
   const [config, setConfig] = useState(modelConfig);
   const [selectedModel, setSelectedModel] = useState<AvailableModel | null>(null);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [detailModel, setDetailModel] = useState<AvailableModel | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
-  const maxChanges = plan === "starter" ? 1 : 999;
+  const maxChanges = plan === "starter" ? 5 : Infinity;
   const changesUsed = config.changes_this_month || 0;
   const canChange = changesUsed < maxChanges;
 
@@ -79,13 +78,22 @@ export function ModelConfig({
     if (model.name === config.requested_model) return;
     if (!canChange) return;
     setSelectedModel(model);
-    setDialogOpen(true);
+    setComparisonOpen(true);
+  };
+
+  const handleLearnMore = (model: AvailableModel) => {
+    setDetailModel(model);
+    setDetailOpen(true);
+  };
+
+  const handleDetailSelect = (model: AvailableModel) => {
+    handleSelectModel(model);
   };
 
   const handleConfirmChange = async () => {
     if (!selectedModel) return;
     setLoading(true);
-    setDialogOpen(false);
+    setComparisonOpen(false);
 
     try {
       const res = await fetch("/api/models/change", {
@@ -109,7 +117,11 @@ export function ModelConfig({
           change_effective_date: null,
           changes_this_month: (prev.changes_this_month || 0) + 1,
         }));
-        toast.success(`Switched to ${selectedModel.display_name}`);
+        if (data.warning) {
+          toast.warning(data.warning);
+        } else {
+          toast.success(`Switched to ${selectedModel.display_name}`);
+        }
       } else {
         setConfig((prev) => ({
           ...prev,
@@ -228,6 +240,17 @@ export function ModelConfig({
         </CardContent>
       </Card>
 
+      {/* Model Performance */}
+      <ModelPerformance modelName={config.current_model} />
+
+      {/* Model Recommendation */}
+      <ModelRecommendation
+        currentModel={config.current_model}
+        deployedAgentCategories={deployedAgentCategories}
+        availableModels={availableModels}
+        onSelectModel={handleSelectModel}
+      />
+
       {/* Available Models */}
       <Card className="border-border">
         <CardHeader>
@@ -249,8 +272,8 @@ export function ModelConfig({
         <CardContent>
           {!canChange && (
             <div className="mb-4 p-3 rounded-md bg-secondary text-sm text-muted-foreground">
-              You&apos;ve used your model change for this month. Your next
-              change will be available after your billing cycle resets.
+              You&apos;ve used all your model changes for this billing cycle. Your next
+              changes will be available after your billing cycle resets.
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -292,20 +315,31 @@ export function ModelConfig({
                       {model.description}
                     </p>
                   )}
-                  {!isCurrent && !isPending && (
+                  <div className="flex items-center gap-2">
+                    {!isCurrent && !isPending && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1"
+                        disabled={!canChange || loading}
+                        onClick={() => handleSelectModel(model)}
+                      >
+                        {loading && selectedModel?.name === model.name ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : null}
+                        Select
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      variant="outline"
-                      className="w-full"
-                      disabled={!canChange || loading}
-                      onClick={() => handleSelectModel(model)}
+                      variant="ghost"
+                      className={`text-muted-foreground hover:text-foreground ${isCurrent || isPending ? "w-full" : ""}`}
+                      onClick={() => handleLearnMore(model)}
                     >
-                      {loading && selectedModel?.name === model.name ? (
-                        <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-                      ) : null}
-                      Select
+                      <Info className="mr-1 h-3 w-3" />
+                      Learn more
                     </Button>
-                  )}
+                  </div>
                 </div>
               );
             })}
@@ -313,43 +347,26 @@ export function ModelConfig({
         </CardContent>
       </Card>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Switch to {selectedModel?.display_name}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {plan === "starter" ? (
-                <>
-                  This change will take effect on your next billing cycle
-                  {billingDate && (
-                    <>
-                      {" "}(
-                      {new Date(billingDate).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
-                      )
-                    </>
-                  )}
-                  . You can use 1 model change per month on the Starter plan.
-                </>
-              ) : (
-                "This change will take effect immediately."
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmChange}>
-              Confirm Change
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Model Detail Dialog */}
+      <ModelDetailDialog
+        model={detailModel}
+        isCurrentModel={detailModel?.name === config.current_model}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        onSelect={handleDetailSelect}
+      />
+
+      {/* Model Comparison Dialog (replaces old AlertDialog) */}
+      <ModelComparisonDialog
+        currentModel={currentModelInfo || null}
+        newModel={selectedModel}
+        plan={plan}
+        billingDate={billingDate}
+        open={comparisonOpen}
+        onOpenChange={setComparisonOpen}
+        onConfirm={handleConfirmChange}
+        isLoading={loading}
+      />
     </div>
   );
 }

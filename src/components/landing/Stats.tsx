@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const stats = [
   {
-    number: "500+",
-    label: "AI Models",
-    desc: "Production-ready models from OpenAI, Anthropic, Meta, Mistral, Google, and more. All bundled. No API keys. No per-token billing.",
+    number: "7",
+    label: "Free Agents",
+    desc: "Support, Research, Writer, Data, Sales, Reviewer, Manager — all free, pre-built, and ready to deploy in one click from the Agent Store.",
   },
   {
     number: "7",
@@ -20,9 +20,9 @@ const stats = [
     desc: "Automated health checks every 2 minutes. Auto-restart on crash. Dedicated infrastructure means no noisy neighbors degrading your performance.",
   },
   {
-    number: "24h",
-    label: "To Go Live",
-    desc: "Sign up, pick a plan, and your dedicated server is provisioned, configured, and verified within 24 hours. You don't touch a terminal.",
+    number: "274+",
+    label: "Features",
+    desc: "85 Starter features, 91 Pro features, 98+ Ultra features. From health monitoring to Mission Control — every tier delivers serious value.",
   },
 ];
 

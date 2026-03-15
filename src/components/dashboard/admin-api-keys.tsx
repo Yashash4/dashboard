@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 
 const PROVIDERS = [
-  { value: "ollama", label: "Ollama" },
+  { value: "ollama", label: "Local Model Provider" },
   { value: "anthropic", label: "Anthropic (Claude)" },
   { value: "openai", label: "OpenAI" },
   { value: "google", label: "Google (Gemini)" },

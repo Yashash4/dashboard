@@ -54,6 +54,18 @@ export function AdminVpsEditor({ userId, vps }: Props) {
       toast.error("IP address is required");
       return;
     }
+    // Validate IP format
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!ipRegex.test(ipAddress.trim())) {
+      toast.error("Invalid IP address format (e.g. 192.168.1.1)");
+      return;
+    }
+    // Validate port range
+    const port = parseInt(sshPort);
+    if (sshPort && (isNaN(port) || port < 1 || port > 65535)) {
+      toast.error("SSH port must be between 1 and 65535");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -235,7 +247,7 @@ export function AdminVpsEditor({ userId, vps }: Props) {
             type="number"
             value={vmId}
             onChange={(e) => setVmId(e.target.value)}
-            placeholder="Hostinger VM ID"
+            placeholder="Cloud VM ID"
             className="h-8 text-sm font-mono"
           />
         </div>

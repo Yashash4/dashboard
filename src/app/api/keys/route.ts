@@ -34,7 +34,7 @@ export async function GET() {
 
   const { data: keys, error } = await admin
     .from("api_keys")
-    .select("id, name, key_prefix, usage_count, last_used_at, status, created_at")
+    .select("id, name, key_prefix, usage_count, last_used_at, status, rate_limit_per_min, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -42,7 +42,47 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch keys" }, { status: 500 });
   }
 
-  return NextResponse.json({ keys: keys || [] });
+  // Fetch per-key usage stats from agent_analytics
+  const activeKeyIds = (keys || []).filter((k) => k.status === "active").map((k) => k.id);
+  let keyStats: Record<string, { today: number; week: number; errors: number }> = {};
+
+  if (activeKeyIds.length > 0) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Requests today
+    const { data: todayData } = await admin
+      .from("agent_analytics")
+      .select("api_key_id")
+      .in("api_key_id", activeKeyIds)
+      .gte("created_at", todayStart);
+
+    // Requests this week
+    const { data: weekData } = await admin
+      .from("agent_analytics")
+      .select("api_key_id")
+      .in("api_key_id", activeKeyIds)
+      .gte("created_at", weekStart);
+
+    // Errors this week
+    const { data: errorData } = await admin
+      .from("agent_analytics")
+      .select("api_key_id")
+      .in("api_key_id", activeKeyIds)
+      .eq("metric_type", "error")
+      .gte("created_at", weekStart);
+
+    for (const keyId of activeKeyIds) {
+      keyStats[keyId] = {
+        today: (todayData || []).filter((r) => r.api_key_id === keyId).length,
+        week: (weekData || []).filter((r) => r.api_key_id === keyId).length,
+        errors: (errorData || []).filter((r) => r.api_key_id === keyId).length,
+      };
+    }
+  }
+
+  return NextResponse.json({ keys: keys || [], keyStats });
 }
 
 /** POST /api/keys — generate a new API key, return full key ONCE */
@@ -70,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   const body = await request.json();
-  const { name } = body as { name?: string };
+  const { name, rate_limit_per_min } = body as { name?: string; rate_limit_per_min?: number };
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Key name is required" }, { status: 400 });
@@ -99,6 +139,12 @@ export async function POST(request: NextRequest) {
   const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
   const keyPrefix = rawKey.slice(0, 12); // "clw_" + first 8 hex chars
 
+  // Validate rate limit if provided
+  const validLimits = [30, 60, 120, 300];
+  const rateLimit_rpm = rate_limit_per_min && validLimits.includes(rate_limit_per_min)
+    ? rate_limit_per_min
+    : 60;
+
   const { data: key, error } = await admin
     .from("api_keys")
     .insert({
@@ -106,8 +152,9 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       key_hash: keyHash,
       key_prefix: keyPrefix,
+      rate_limit_per_min: rateLimit_rpm,
     })
-    .select("id, name, key_prefix, status, created_at")
+    .select("id, name, key_prefix, status, rate_limit_per_min, created_at")
     .single();
 
   if (error) {

@@ -62,7 +62,8 @@ interface KBDocument {
   storage_path: string | null;
   file_size: number;
   chunk_count: number;
-  status: "indexed" | "processing" | "error";
+  retrieval_count: number;
+  status: "indexed" | "processing" | "error" | "pending_embedding";
   error_message: string | null;
   indexed_at: string | null;
   created_at: string;
@@ -84,6 +85,11 @@ const STATUS_CONFIG: Record<
     label: "Indexed",
     icon: CheckCircle2,
     className: "bg-green-500/15 text-green-400 border-green-500/30",
+  },
+  pending_embedding: {
+    label: "Pending Embeddings",
+    icon: Clock,
+    className: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   },
   processing: {
     label: "Processing",
@@ -119,6 +125,10 @@ export function KnowledgeBaseManager() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<"name" | "content">("name");
+  const [testQuery, setTestQuery] = useState("");
+  const [testResults, setTestResults] = useState<any[] | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<"file" | "url">("file");
   const [urlInput, setUrlInput] = useState("");
@@ -138,6 +148,22 @@ export function KnowledgeBaseManager() {
   const filtered = docs.filter(
     (d) => !search || d.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleTestKB = async () => {
+    if (!testQuery.trim()) return;
+    setTestLoading(true);
+    setTestResults(null);
+    try {
+      const res = await fetch(`/api/knowledge-base/search?q=${encodeURIComponent(testQuery)}&mode=content`);
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      setTestResults(data.results || []);
+    } catch {
+      setTestResults([]);
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const uploadFileMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -347,12 +373,21 @@ export function KnowledgeBaseManager() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search documents..."
+            placeholder={searchMode === "name" ? "Search by document name..." : "Search document content..."}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
         </div>
+        <Select value={searchMode} onValueChange={(v) => setSearchMode(v as "name" | "content")}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Search by name</SelectItem>
+            <SelectItem value="content">Search content</SelectItem>
+          </SelectContent>
+        </Select>
         <Dialog
           open={uploadOpen}
           onOpenChange={(open) => {
@@ -536,6 +571,12 @@ export function KnowledgeBaseManager() {
                               <span>{doc.chunk_count} chunks</span>
                             </>
                           )}
+                          {doc.retrieval_count > 0 && (
+                            <>
+                              <span>&middot;</span>
+                              <span className="text-green-400">Referenced {doc.retrieval_count}x in chat</span>
+                            </>
+                          )}
                           <span>&middot;</span>
                           <Clock className="h-3 w-3" />
                           <span>
@@ -610,6 +651,59 @@ export function KnowledgeBaseManager() {
                   </div>
                 );
               })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Test Your KB */}
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="text-sm font-medium">Test Your Knowledge Base</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Type a question to see which documents your agents would reference. Uses vector similarity search when available.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="e.g. How do I get a refund?"
+              value={testQuery}
+              onChange={(e) => setTestQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleTestKB()}
+            />
+            <Button
+              onClick={handleTestKB}
+              disabled={testLoading || !testQuery.trim()}
+            >
+              {testLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          {testResults !== null && (
+            <div className="space-y-2">
+              {testResults.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No matching content found. Try uploading more documents or rephrasing your query.
+                </p>
+              ) : (
+                testResults.map((r: any, i: number) => (
+                  <div key={i} className="border border-border p-3 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-primary">{r.documentName}</span>
+                      {r.similarity != null && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {Math.round(r.similarity * 100)}% match
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-4">{r.content}</p>
+                  </div>
+                ))
+              )}
             </div>
           )}
         </CardContent>

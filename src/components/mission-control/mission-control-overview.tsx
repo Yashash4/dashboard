@@ -6,7 +6,6 @@ import {
   HeartPulse,
   Bot,
   ListChecks,
-  DollarSign,
   TrendingUp,
   ArrowRight,
   Circle,
@@ -14,35 +13,40 @@ import {
   CheckCircle2,
   Zap,
   Clock,
+  Inbox,
+  Activity,
+  Radio,
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMissionControlStream } from "@/hooks/use-mission-control-stream";
-import {
-  mockMetrics,
-  mockAgentStatuses,
-  mockTasks,
-  mockEvents,
-  mockSessions,
-} from "@/lib/mock-data/mission-control";
+import { formatTimeAgo } from "@/lib/format-time";
 import type {
-  MCMetrics,
   MCAgentStatus,
   MCTask,
   MCEvent,
   MCSession,
 } from "@/types/mission-control";
 
+interface MCMetricsResponse {
+  system_health_percent: number | null;
+  active_agents: number;
+  total_agents: number;
+  tasks_in_progress: number;
+  tasks_completed_today: number;
+  success_rate_percent: number | null;
+  status?: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   online: "text-green-500",
   working: "text-blue-500",
   idle: "text-muted-foreground",
   blocked: "text-red-500",
-  sleeping: "text-muted-foreground/50",
-  offline: "text-muted-foreground/30",
+  sleeping: "text-muted-foreground opacity-50",
+  offline: "text-muted-foreground opacity-30",
 };
 
 const SEVERITY_CONFIG: Record<
@@ -55,105 +59,84 @@ const SEVERITY_CONFIG: Record<
   error: { icon: AlertTriangle, className: "text-red-500" },
 };
 
-function formatTimeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
 export function MissionControlOverview() {
-  useMissionControlStream();
-
-  const { data: metrics, isLoading } = useQuery<MCMetrics>({
+  const {
+    data: metrics,
+    isLoading: metricsLoading,
+    isError: metricsError,
+    refetch: refetchMetrics,
+  } = useQuery<MCMetricsResponse | null>({
     queryKey: ["mission-control", "metrics"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/metrics");
-        if (!res.ok) throw new Error();
-        return res.json();
-      } catch {
-        return mockMetrics;
-      }
+      const res = await fetch("/api/mission-control/metrics");
+      if (!res.ok) throw new Error("Failed to fetch metrics");
+      return res.json();
     },
     refetchInterval: 10000,
   });
 
-  const { data: agents = mockAgentStatuses } = useQuery<MCAgentStatus[]>({
+  const {
+    data: agents = [],
+    isError: agentsError,
+    refetch: refetchAgents,
+  } = useQuery<MCAgentStatus[]>({
     queryKey: ["mc-agents"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/agents/status");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.agents?.length > 0 ? json.agents : mockAgentStatuses;
-      } catch {
-        return mockAgentStatuses;
-      }
+      const res = await fetch("/api/mission-control/agents/status");
+      if (!res.ok) throw new Error("Failed to fetch agents");
+      const json = await res.json();
+      return json.agents || [];
     },
     refetchInterval: 5000,
   });
 
-  const { data: tasks = mockTasks } = useQuery<MCTask[]>({
+  const {
+    data: tasks = [],
+    isError: tasksError,
+    refetch: refetchTasks,
+  } = useQuery<MCTask[]>({
     queryKey: ["mc-tasks"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/tasks");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.tasks?.length > 0 ? json.tasks : mockTasks;
-      } catch {
-        return mockTasks;
-      }
+      const res = await fetch("/api/mission-control/tasks");
+      if (!res.ok) throw new Error("Failed to fetch tasks");
+      const json = await res.json();
+      return json.tasks || [];
     },
     refetchInterval: 5000,
   });
 
-  const { data: events = mockEvents } = useQuery<MCEvent[]>({
+  const {
+    data: events = [],
+    isError: eventsError,
+    refetch: refetchEvents,
+  } = useQuery<MCEvent[]>({
     queryKey: ["mc-events"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/events?limit=5");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.events?.length > 0 ? json.events : mockEvents;
-      } catch {
-        return mockEvents;
-      }
+      const res = await fetch("/api/mission-control/events?limit=5");
+      if (!res.ok) throw new Error("Failed to fetch events");
+      const json = await res.json();
+      return json.events || [];
     },
     refetchInterval: 5000,
   });
 
-  const { data: sessions = mockSessions } = useQuery<MCSession[]>({
+  const {
+    data: sessions = [],
+  } = useQuery<MCSession[]>({
     queryKey: ["mc-sessions"],
     queryFn: async () => {
-      try {
-        const res = await fetch("/api/mission-control/sessions");
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        return json.sessions?.length > 0 ? json.sessions : mockSessions;
-      } catch {
-        return mockSessions;
-      }
+      const res = await fetch("/api/mission-control/sessions");
+      if (!res.ok) throw new Error("Failed to fetch sessions");
+      const json = await res.json();
+      return json.sessions || [];
     },
     refetchInterval: 5000,
   });
 
-  const m = metrics || mockMetrics;
-
-  const inProgressTasks = tasks.filter(
-    (t) => t.column_id === "in_progress"
-  );
+  const m = metrics;
+  const inProgressTasks = tasks.filter((t) => t.column_id === "in_progress");
   const recentEvents = events.slice(0, 5);
   const activeSessions = sessions.filter((s) => !s.ended_at);
-
-  const agentsByStatus: Record<string, number> = {};
-  for (const a of agents) {
-    agentsByStatus[a.status] = (agentsByStatus[a.status] || 0) + 1;
-  }
 
   return (
     <div className="space-y-6">
@@ -161,47 +144,61 @@ export function MissionControlOverview() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <MetricCard
           label="System Health"
-          value={`${m.system_health_percent}%`}
+          value={m?.system_health_percent != null ? `${m.system_health_percent}%` : "—"}
           icon={HeartPulse}
-          loading={isLoading}
+          loading={metricsLoading}
+          error={metricsError}
+          onRetry={refetchMetrics}
           accent={
-            m.system_health_percent >= 90
-              ? "text-green-500"
-              : m.system_health_percent >= 70
-                ? "text-yellow-500"
-                : "text-red-500"
+            m?.system_health_percent == null
+              ? "text-muted-foreground"
+              : m.system_health_percent >= 90
+                ? "text-green-500"
+                : m.system_health_percent >= 70
+                  ? "text-yellow-500"
+                  : "text-red-500"
           }
         />
         <MetricCard
           label="Active Agents"
-          value={`${m.active_agents}/${m.total_agents}`}
+          value={m ? `${m.active_agents}/${m.total_agents}` : "—"}
           icon={Bot}
-          loading={isLoading}
+          loading={metricsLoading}
+          error={metricsError}
+          onRetry={refetchMetrics}
           accent="text-blue-500"
         />
         <MetricCard
           label="Tasks In Progress"
-          value={String(m.tasks_in_progress)}
+          value={m ? String(m.tasks_in_progress) : "—"}
           icon={ListChecks}
-          loading={isLoading}
+          loading={metricsLoading}
+          error={metricsError}
+          onRetry={refetchMetrics}
           accent="text-primary"
         />
         <MetricCard
-          label="Cost Today"
-          value={`$${m.cost_today_usd.toFixed(2)}`}
-          icon={DollarSign}
-          loading={isLoading}
-          accent="text-green-500"
+          label="Active Sessions"
+          value={String(activeSessions.length)}
+          icon={Radio}
+          loading={metricsLoading}
+          error={metricsError}
+          onRetry={refetchMetrics}
+          accent="text-blue-500"
         />
         <MetricCard
           label="Success Rate"
-          value={`${m.success_rate_percent}%`}
+          value={m?.success_rate_percent != null ? `${m.success_rate_percent}%` : "—"}
           icon={TrendingUp}
-          loading={isLoading}
+          loading={metricsLoading}
+          error={metricsError}
+          onRetry={refetchMetrics}
           accent={
-            m.success_rate_percent >= 90
-              ? "text-green-500"
-              : "text-yellow-500"
+            m?.success_rate_percent == null
+              ? "text-muted-foreground"
+              : m.success_rate_percent >= 90
+                ? "text-green-500"
+                : "text-yellow-500"
           }
         />
       </div>
@@ -220,34 +217,45 @@ export function MissionControlOverview() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {agents.map((agent) => (
-              <div
-                key={agent.id}
-                className="flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2">
-                  <Circle
-                    className={`h-2.5 w-2.5 fill-current ${STATUS_COLORS[agent.status]}`}
-                  />
-                  <span className="text-sm font-medium">
-                    {agent.agent?.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {agent.current_task && (
-                    <span className="text-xs text-muted-foreground truncate max-w-[150px]">
-                      {agent.current_task.title}
+            {agentsError ? (
+              <ErrorState message="Failed to load agents" onRetry={refetchAgents} />
+            ) : agents.length === 0 ? (
+              <EmptyState
+                icon={Bot}
+                message="No agents deployed yet"
+                linkText="Deploy an agent"
+                linkHref="/agents"
+              />
+            ) : (
+              agents.map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-2">
+                    <Circle
+                      className={`h-2.5 w-2.5 fill-current ${STATUS_COLORS[agent.status] || ""}`}
+                    />
+                    <span className="text-sm font-medium">
+                      {agent.agent?.name || agent.agent_id}
                     </span>
-                  )}
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] capitalize font-mono"
-                  >
-                    {agent.status}
-                  </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {agent.current_task && (
+                      <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                        {agent.current_task.title}
+                      </span>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] capitalize font-mono"
+                    >
+                      {agent.status}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -265,30 +273,40 @@ export function MissionControlOverview() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {recentEvents.map((event) => {
-              const sev = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
-              const SevIcon = sev.icon;
-              return (
-                <div key={event.id} className="flex items-start gap-2">
-                  <SevIcon className={`h-4 w-4 mt-0.5 shrink-0 ${sev.className}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm truncate">{event.message}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {event.agent?.name && (
-                        <span className="font-medium">{event.agent.name}</span>
-                      )}
-                      {event.agent?.name && " · "}
-                      {formatTimeAgo(event.created_at)}
-                    </p>
+            {eventsError ? (
+              <ErrorState message="Failed to load events" onRetry={refetchEvents} />
+            ) : recentEvents.length === 0 ? (
+              <EmptyState
+                icon={Activity}
+                message="No events yet"
+                description="Events appear when agents perform actions"
+              />
+            ) : (
+              recentEvents.map((event) => {
+                const sev = SEVERITY_CONFIG[event.severity] || SEVERITY_CONFIG.info;
+                const SevIcon = sev.icon;
+                return (
+                  <div key={event.id} className="flex items-start gap-2">
+                    <SevIcon className={`h-4 w-4 mt-0.5 shrink-0 ${sev.className}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{event.message}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {event.agent?.name && (
+                          <span className="font-medium">{event.agent.name}</span>
+                        )}
+                        {event.agent?.name && " · "}
+                        {formatTimeAgo(event.created_at)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Two-column: In Progress Tasks + Active Sessions */}
+      {/* Two-column: In Progress Tasks + Active Sessions count */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* In Progress Tasks */}
         <Card className="border-border">
@@ -304,27 +322,39 @@ export function MissionControlOverview() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
-            {inProgressTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No tasks in progress.
-              </p>
+            {tasksError ? (
+              <ErrorState message="Failed to load tasks" onRetry={refetchTasks} />
+            ) : inProgressTasks.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                message="No tasks in progress"
+                linkText="Create your first task"
+                linkHref="/mission-control/tasks"
+              />
             ) : (
-              inProgressTasks.slice(0, 4).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <PriorityDot priority={task.priority} />
-                    <span className="text-sm truncate">{task.title}</span>
+              <>
+                {inProgressTasks.slice(0, 4).map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <PriorityDot priority={task.priority} />
+                      <span className="text-sm truncate">{task.title}</span>
+                    </div>
+                    {task.assigned_agent && (
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {task.assigned_agent.name}
+                      </span>
+                    )}
                   </div>
-                  {task.assigned_agent && (
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {task.assigned_agent.name}
-                    </span>
-                  )}
-                </div>
-              ))
+                ))}
+                {inProgressTasks.length > 4 && (
+                  <p className="text-xs text-muted-foreground text-center pt-1">
+                    +{inProgressTasks.length - 4} more
+                  </p>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -344,9 +374,11 @@ export function MissionControlOverview() {
           </CardHeader>
           <CardContent className="space-y-3">
             {activeSessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No active sessions.
-              </p>
+              <EmptyState
+                icon={Clock}
+                message="No active sessions"
+                description="Sessions are created when agents run tasks"
+              />
             ) : (
               activeSessions.map((session) => (
                 <div
@@ -364,10 +396,9 @@ export function MissionControlOverview() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-mono text-muted-foreground shrink-0">
-                    {session.tokens_input + session.tokens_output} tok · $
-                    {session.cost_usd.toFixed(3)}
-                  </span>
+                  <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[10px]">
+                    Active
+                  </Badge>
                 </div>
               ))
             )}
@@ -384,12 +415,16 @@ function MetricCard({
   icon: Icon,
   loading,
   accent,
+  error,
+  onRetry,
 }: {
   label: string;
   value: string;
   icon: typeof HeartPulse;
   loading: boolean;
   accent: string;
+  error?: boolean;
+  onRetry?: () => void;
 }) {
   return (
     <Card className="border-border">
@@ -402,6 +437,10 @@ function MetricCard({
         </div>
         {loading ? (
           <Skeleton className="h-7 w-16" />
+        ) : error ? (
+          <button onClick={onRetry} className="text-xs text-red-400 hover:underline">
+            Retry
+          </button>
         ) : (
           <p className={`text-xl font-bold font-mono ${accent}`}>{value}</p>
         )}
@@ -415,11 +454,58 @@ function PriorityDot({ priority }: { priority: string }) {
     critical: "bg-red-500",
     high: "bg-orange-500",
     medium: "bg-yellow-500",
-    low: "bg-muted-foreground/30",
+    low: "bg-muted-foreground opacity-30",
   };
   return (
     <span
       className={`h-2 w-2 rounded-full shrink-0 ${colors[priority] || colors.medium}`}
     />
+  );
+}
+
+function EmptyState({
+  icon: Icon,
+  message,
+  description,
+  linkText,
+  linkHref,
+}: {
+  icon: typeof Bot;
+  message: string;
+  description?: string;
+  linkText?: string;
+  linkHref?: string;
+}) {
+  return (
+    <div className="text-center py-6">
+      <Icon className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+      {description && (
+        <p className="text-xs text-muted-foreground/60 mt-1">{description}</p>
+      )}
+      {linkText && linkHref && (
+        <Button variant="link" size="sm" className="mt-2 text-xs" asChild>
+          <Link href={linkHref}>{linkText}</Link>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="text-center py-6">
+      <AlertTriangle className="h-8 w-8 text-red-400/50 mx-auto mb-2" />
+      <p className="text-sm text-muted-foreground">{message}</p>
+      <Button variant="outline" size="sm" className="mt-2 text-xs" onClick={onRetry}>
+        Try again
+      </Button>
+    </div>
   );
 }

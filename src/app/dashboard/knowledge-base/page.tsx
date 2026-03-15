@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { hasAccess } from "@/lib/tier";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
-import { KnowledgeBaseManager } from "@/components/dashboard/knowledge-base-manager";
+import { KBTabs } from "./kb-tabs";
 
 export default async function KnowledgeBasePage() {
   const supabase = await createClient();
@@ -37,7 +37,7 @@ export default async function KnowledgeBasePage() {
       <p className="text-muted-foreground mb-6">
         Upload documents for your agents to reference.
       </p>
-      <KnowledgeBaseManager />
+      <KBTabs />
     </div>
   );
 }

@@ -19,6 +19,7 @@ export function DashboardPassword() {
   const [saving, setSaving] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch("/api/vps/password")
@@ -35,20 +36,25 @@ export function DashboardPassword() {
   }, []);
 
   const handleSave = async () => {
+    const newErrors: Record<string, string> = {};
+
     if (!newPassword || newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
-      return;
+      newErrors.password = "Password must be at least 8 characters";
+    } else if (newPassword.includes("!")) {
+      newErrors.password = "Password cannot contain the ! character";
     }
 
-    if (newPassword.includes("!")) {
-      toast.error("Password cannot contain the ! character");
-      return;
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      newErrors.confirm = "Passwords do not match";
+    } else if (!confirmPassword && newPassword) {
+      newErrors.confirm = "Please confirm your password";
     }
 
-    if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
+    setErrors({});
 
     setSaving(true);
     try {
@@ -160,8 +166,8 @@ export function DashboardPassword() {
               type={showNew ? "text" : "password"}
               placeholder="Min 8 characters"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="text-sm pr-10"
+              onChange={(e) => { setNewPassword(e.target.value); setErrors((prev) => { const { password, ...rest } = prev; return rest; }); }}
+              className={`text-sm pr-10 ${errors.password ? "border-destructive" : ""}`}
             />
             <Button
               variant="ghost"
@@ -176,6 +182,9 @@ export function DashboardPassword() {
               )}
             </Button>
           </div>
+          {errors.password && (
+            <p className="text-xs text-destructive">{errors.password}</p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -184,9 +193,12 @@ export function DashboardPassword() {
             type="password"
             placeholder="Re-enter new password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="text-sm"
+            onChange={(e) => { setConfirmPassword(e.target.value); setErrors((prev) => { const { confirm, ...rest } = prev; return rest; }); }}
+            className={`text-sm ${errors.confirm ? "border-destructive" : ""}`}
           />
+          {errors.confirm && (
+            <p className="text-xs text-destructive">{errors.confirm}</p>
+          )}
         </div>
 
         <Button

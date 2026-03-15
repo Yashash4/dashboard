@@ -4,6 +4,8 @@ import { AlertTriangle, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChannelManager } from "@/components/dashboard/channel-manager";
+import { hasAccess } from "@/lib/tier";
+import { ChannelsTabs } from "./channel-tabs";
 
 export default async function ChannelsPage() {
   const supabase = await createClient();
@@ -11,13 +13,17 @@ export default async function ChannelsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) {
+    const { redirect } = await import("next/navigation");
+    redirect("/login");
+  }
 
   let channels: any[] | null = null;
   let vps: any = null;
+  let plan = "starter";
 
   try {
-    const [channelsRes, vpsRes] = await Promise.all([
+    const [channelsRes, vpsRes, subRes] = await Promise.all([
       supabase
         .from("channels")
         .select("id, channel_type, status, configured_at, health_status, last_health_check, error_message")
@@ -28,9 +34,16 @@ export default async function ChannelsPage() {
         .select("status")
         .eq("user_id", user.id)
         .single(),
+      supabase
+        .from("subscriptions")
+        .select("plan")
+        .eq("user_id", user.id)
+        .single(),
     ]);
+    if (channelsRes.error) throw channelsRes.error;
     channels = channelsRes.data;
     vps = vpsRes.data;
+    plan = (subRes.data?.plan as string) || "starter";
   } catch {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -41,6 +54,7 @@ export default async function ChannelsPage() {
   }
 
   const vpsWarning = !vps || vps.status !== "running";
+  const isPro = hasAccess(plan, "pro");
 
   return (
     <div>
@@ -72,7 +86,11 @@ export default async function ChannelsPage() {
           </CardContent>
         </Card>
       ) : null}
-      <ChannelManager channels={channels || []} />
+      {isPro ? (
+        <ChannelsTabs channels={channels || []} />
+      ) : (
+        <ChannelManager channels={channels || []} />
+      )}
     </div>
   );
 }
