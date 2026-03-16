@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +17,20 @@ import { Badge } from "@/components/ui/badge";
 type AuthState = "loading" | "guest" | "no-sub" | "has-sub";
 
 export default function PricingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-svh bg-background flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <PricingContent />
+    </Suspense>
+  );
+}
+
+function PricingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedPlan = searchParams.get("plan");
