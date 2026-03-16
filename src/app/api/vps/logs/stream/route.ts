@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
 import { NodeSSH } from "node-ssh";
+import { decryptField } from "@/lib/credential-utils";
 
 /**
  * GET /api/vps/logs/stream
@@ -102,7 +103,7 @@ export async function GET(request: NextRequest) {
         await ssh.connect({
           host: vps.ip_address,
           username: vps.ssh_user,
-          password: vps.ssh_password,
+          password: decryptField(vps.ssh_password),
           port: vps.ssh_port || 22,
           readyTimeout: 10_000,
         });

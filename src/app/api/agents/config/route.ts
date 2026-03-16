@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { deployAgent } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,18 @@ export async function POST(request: NextRequest) {
   if (typeof config !== "object" || Array.isArray(config)) {
     return NextResponse.json(
       { error: "config must be an object" },
+      { status: 400 }
+    );
+  }
+
+  // Enforce max total size on config values to prevent oversized payloads
+  const configTotalSize = Object.entries(config).reduce(
+    (sum, [k, v]) => sum + k.length + (typeof v === "string" ? v.length : JSON.stringify(v).length),
+    0
+  );
+  if (configTotalSize > 50000) {
+    return NextResponse.json(
+      { error: "Config payload too large (max 50000 characters total)" },
       { status: 400 }
     );
   }
@@ -98,7 +111,7 @@ export async function POST(request: NextRequest) {
           {
             ip_address: vps.ip_address,
             ssh_user: vps.ssh_user,
-            ssh_password: vps.ssh_password,
+            ssh_password: decryptField(vps.ssh_password),
             ssh_port: vps.ssh_port,
           },
           agent.name,

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { updateDashboardPassword } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField, encryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export async function GET() {
 
   return NextResponse.json({
     username: vps.dashboard_username || null,
-    password: vps.dashboard_password || null,
+    password: vps.dashboard_password ? decryptField(vps.dashboard_password) : null,
     hostname: vps.hostname || null,
   });
 }
@@ -74,6 +75,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (password.length > 128) {
+    return NextResponse.json(
+      { error: "Password must be at most 128 characters" },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
 
   // Get VPS credentials
@@ -89,10 +97,13 @@ export async function POST(request: NextRequest) {
 
   const username = vps.dashboard_username || "admin";
 
+  // Decrypt ssh_password before using it for SSH connection
+  const sshCreds = { ...vps, ssh_password: decryptField(vps.ssh_password) };
+
   // Update on VPS via SSH
   let result;
   try {
-    result = await updateDashboardPassword(vps, username, password);
+    result = await updateDashboardPassword(sshCreds, username, password);
   } catch {
     return NextResponse.json(
       { error: "Failed to update password. Try again." },
@@ -107,10 +118,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Save to DB
+  // Save to DB (encrypted)
   await admin
     .from("vps_instances")
-    .update({ dashboard_password: password })
+    .update({ dashboard_password: encryptField(password) })
     .eq("user_id", user.id);
 
   return NextResponse.json({ success: true });

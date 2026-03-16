@@ -11,6 +11,7 @@ const VALID_EVENT_TYPES = [
   "agent_state_change",
   "session_start",
   "session_end",
+  "error",
 ] as const;
 
 const VALID_SEVERITIES = ["success", "info", "warning", "error"] as const;

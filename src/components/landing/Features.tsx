@@ -251,13 +251,6 @@ export default function Features() {
 
   return (
     <section id="features" className="py-24 px-6">
-      <style>{`
-        .vps-bar { width: 8%; }
-        .group:hover .vps-bar { width: var(--bar-target); }
-        .chart-bar { height: 4px; }
-        .group:hover .chart-bar { height: var(--bar-target); }
-      `}</style>
-
       <div className="max-w-6xl mx-auto">
         {/* Section header */}
         <motion.div

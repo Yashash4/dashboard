@@ -1,4 +1,7 @@
+import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase-admin";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface EmailPayload {
   to: string;
@@ -8,22 +11,23 @@ interface EmailPayload {
 }
 
 /**
- * Send an email notification.
- *
- * Currently a no-op placeholder. When a real email provider is configured
- * (e.g. Resend, SendGrid, AWS SES), replace the implementation below.
- *
- * The function checks user notification preferences before sending.
+ * Send an email via Resend from connect@clawhq.tech.
  */
 export async function sendEmail(payload: EmailPayload): Promise<boolean> {
-  // TODO: Replace with real email provider
-  // Example with Resend:
-  // const resend = new Resend(process.env.RESEND_API_KEY);
-  // await resend.emails.send({ from: "ClawHQ <noreply@clawhq.tech>", ...payload });
+  if (!process.env.RESEND_API_KEY) return false;
 
-  // For now, just log the intent (no console.log in prod — this is a placeholder)
-  void payload;
-  return false;
+  try {
+    await resend.emails.send({
+      from: "ClawHQ <connect@clawhq.tech>",
+      to: payload.to,
+      subject: payload.subject,
+      text: payload.text,
+      html: payload.html,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

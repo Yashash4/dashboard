@@ -1,16 +1,7 @@
 import crypto from "crypto";
-import { NextRequest } from "next/server";
-import { createAdminClient } from "@/lib/supabase-admin";
-import { createRequestContext, apiError, apiSuccess } from "@/lib/api-errors";
-import { rateLimit } from "@/lib/rate-limit";
-
-function validateApiKey(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const rawKey = authHeader.slice(7).trim();
-  if (!rawKey.startsWith("clw_") || rawKey.length !== 36) return null;
-  return rawKey;
-}
+import { NextRequest, NextResponse } from "next/server";
+import { apiError, apiSuccess } from "@/lib/api-errors";
+import { validateV1Auth } from "@/lib/v1-auth";
 
 const ALLOWED_TYPES = [
   "application/pdf", "text/plain", "text/markdown", "text/csv",
@@ -18,57 +9,62 @@ const ALLOWED_TYPES = [
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-/** GET /api/v1/files — List uploaded files */
+/** GET /api/v1/files — List uploaded files (cursor-based pagination) */
 export async function GET(request: NextRequest) {
-  const ctx = createRequestContext(request);
-  const rawKey = validateApiKey(request);
-  if (!rawKey) return apiError("invalid_api_key", "Invalid API key", ctx);
+  try {
+    const auth = await validateV1Auth(request, "files", { limit: 60 });
+    if (auth instanceof NextResponse) return auth;
+    const { apiKey, admin, ctx } = auth;
 
-  const admin = createAdminClient();
-  const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const { data: apiKey } = await admin.from("api_keys").select("user_id, status").eq("key_hash", keyHash).single();
-  if (!apiKey || apiKey.status !== "active") return apiError("invalid_api_key", "Invalid API key", ctx);
+    const url = new URL(request.url);
+    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
+    const cursor = url.searchParams.get("cursor"); // ISO timestamp cursor
 
-  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", apiKey.user_id).single();
-  if (!["pro", "ultra", "enterprise"].includes((sub?.plan as string) || "starter"))
-    return apiError("plan_required", "Pro plan required", ctx);
+    let query = admin.from("kb_documents")
+      .select("id, name, type, file_size, status, created_at")
+      .eq("user_id", apiKey.user_id)
+      .order("created_at", { ascending: false })
+      .limit(limit + 1);
 
-  // List from kb_documents as file proxy
-  const { data: files } = await admin.from("kb_documents")
-    .select("id, name, type, file_size, status, created_at")
-    .eq("user_id", apiKey.user_id)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    if (cursor) {
+      query = query.lt("created_at", cursor);
+    }
 
-  return apiSuccess({
-    files: (files || []).map((f) => ({
-      file_id: f.id,
-      filename: f.name,
-      size: f.file_size,
-      type: f.type,
-      status: f.status === "indexed" ? "processed" : f.status,
-      created_at: f.created_at,
-    })),
-  }, ctx);
+    const { data: files, error } = await query;
+
+    if (error) {
+      return apiError("internal_error", "Failed to fetch files", ctx);
+    }
+
+    const results = files || [];
+    const hasMore = results.length > limit;
+    const page = hasMore ? results.slice(0, limit) : results;
+    const nextCursor = hasMore ? page[page.length - 1]?.created_at : null;
+
+    return apiSuccess({
+      files: page.map((f) => ({
+        file_id: f.id,
+        filename: f.name,
+        size: f.file_size,
+        type: f.type,
+        status: f.status === "indexed" ? "processed" : f.status,
+        created_at: f.created_at,
+      })),
+      has_more: hasMore,
+      next_cursor: nextCursor,
+    }, ctx);
+  } catch {
+    const { createRequestContext } = await import("@/lib/api-errors");
+    const ctx = createRequestContext(request);
+    return apiError("internal_error", "Internal server error", ctx);
+  }
 }
 
 /** POST /api/v1/files — Upload a file */
 export async function POST(request: NextRequest) {
-  const ctx = createRequestContext(request);
-  const rawKey = validateApiKey(request);
-  if (!rawKey) return apiError("invalid_api_key", "Invalid API key", ctx);
-
-  const admin = createAdminClient();
-  const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const { data: apiKey } = await admin.from("api_keys").select("id, user_id, status").eq("key_hash", keyHash).single();
-  if (!apiKey || apiKey.status !== "active") return apiError("invalid_api_key", "Invalid API key", ctx);
-
-  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", apiKey.user_id).single();
-  if (!["pro", "ultra", "enterprise"].includes((sub?.plan as string) || "starter"))
-    return apiError("plan_required", "Pro plan required", ctx);
-
-  const rl = rateLimit(`${apiKey.user_id}:file_upload`, 10, 60_000);
-  if (!rl.success) return apiError("rate_limited", "Too many requests", ctx);
+  const auth = await validateV1Auth(request, "file_upload", { limit: 10 });
+  if (auth instanceof NextResponse) return auth;
+  const { apiKey, admin, ctx } = auth;
 
   try {
     const formData = await request.formData();

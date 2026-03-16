@@ -14,6 +14,7 @@ import {
   Trash2,
   Send,
   ArrowRight,
+  Link2,
 } from "lucide-react";
 
 import {
@@ -49,6 +50,7 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { PriorityBadge } from "./priority-badge";
+import { TaskDependencies } from "./task-dependencies";
 import {
   MC_COLUMNS,
   type MCTask,
@@ -121,6 +123,7 @@ interface TaskDetailModalProps {
     taskId: string,
     review: { reviewer: string; status: MCReview["status"]; notes: string }
   ) => void;
+  allTasks?: MCTask[];
 }
 
 export function TaskDetailModal({
@@ -134,6 +137,7 @@ export function TaskDetailModal({
   activities,
   onAddComment,
   onAddReview,
+  allTasks = [],
 }: TaskDetailModalProps) {
   // Fetch real agents for the dropdown
   const { data: agentStatuses = [] } = useQuery<MCAgentStatus[]>({
@@ -353,6 +357,10 @@ export function TaskDetailModal({
                   {taskReviews.length}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="dependencies" className="text-xs gap-1.5">
+              <Link2 className="h-3.5 w-3.5" />
+              Deps
             </TabsTrigger>
             <TabsTrigger value="activity" className="text-xs gap-1.5">
               <Activity className="h-3.5 w-3.5" />
@@ -830,6 +838,11 @@ export function TaskDetailModal({
                   Submit Review
                 </Button>
               </div>
+            </TabsContent>
+
+            {/* ─── Dependencies Tab ──────────────────── */}
+            <TabsContent value="dependencies" className="mt-4">
+              <TaskDependencies task={task} allTasks={allTasks} />
             </TabsContent>
 
             {/* ─── Activity Tab ────────────────────────── */}

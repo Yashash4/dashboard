@@ -89,7 +89,12 @@ export async function PATCH(
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { name, rate_limit_per_min } = body as { name?: string; rate_limit_per_min?: number };
 
   const updates: Record<string, unknown> = {};

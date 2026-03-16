@@ -276,6 +276,7 @@ export function AutoResponsesManager() {
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={() => deleteMutation.mutate(ar.id)}
+                        aria-label="Delete auto-response"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

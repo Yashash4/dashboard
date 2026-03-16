@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { decryptVpsCredentials } from "@/lib/credential-utils";
+import { logAudit, getClientIp } from "@/lib/audit-log";
 
 export const dynamic = "force-dynamic";
 
@@ -121,10 +123,29 @@ export async function GET(
     // Auth lookup can fail - non-fatal
   }
 
+  // Decrypt VPS credentials for admin display
+  const decryptedVps = vps ? decryptVpsCredentials({ ...vps }) : null;
+
+  // 2.24/2.27: Audit log when admin views customer details (includes credentials)
+  const hasCredentials = decryptedVps && (decryptedVps.ssh_password || decryptedVps.dashboard_password);
+  const ip = getClientIp(_request);
+  logAudit({
+    adminId: user.id,
+    action: hasCredentials ? "customer_credentials_viewed" : "customer_details_viewed",
+    entityType: "customer",
+    entityId: userId,
+    details: {
+      fields_accessed: hasCredentials
+        ? ["ssh_password", "dashboard_password", "profile", "subscription", "vps"]
+        : ["profile", "subscription", "vps"],
+    },
+    ip,
+  });
+
   return NextResponse.json({
     customer,
     subscription,
-    vps,
+    vps: decryptedVps,
     model,
     userAgents: userAgents || [],
     channels: channels || [],

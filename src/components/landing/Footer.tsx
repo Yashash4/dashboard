@@ -6,7 +6,7 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-2">
             <span className="text-lg font-semibold tracking-tight">
-              claw<span className="text-primary">hq</span>
+              Claw<span className="text-primary">HQ</span>
             </span>
             <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-xs">
               Managed AI agent hosting. Dedicated VPS, bundled AI models, 7
@@ -56,7 +56,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://github.com/openclaw" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <a href="https://github.com/openclaw" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                   OpenClaw on GitHub
                 </a>
               </li>

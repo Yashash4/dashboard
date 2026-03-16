@@ -53,6 +53,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { getCodeExamples } from "@/lib/api-code-examples";
+
 interface ApiKey {
   id: string;
   name: string;
@@ -70,164 +72,6 @@ const RATE_LIMITS = [
   { value: 120, label: "120 RPM" },
   { value: 300, label: "300 RPM" },
 ];
-
-function getCodeExamples(endpoint: string, baseUrl: string) {
-  return {
-    chat: {
-      curl: `# Send a message
-curl -X POST "${endpoint}" \\
-  -H "Authorization: Bearer clw_your_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{"message": "Hello!", "agent": "default"}'
-
-# Streaming response
-curl -X POST "${endpoint}" \\
-  -H "Authorization: Bearer clw_your_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{"message": "Hello!", "agent": "default", "stream": true}'
-
-# With session persistence
-curl -X POST "${endpoint}" \\
-  -H "Authorization: Bearer clw_your_key_here" \\
-  -H "Content-Type: application/json" \\
-  -d '{"message": "Follow up question", "session_id": "my-session-1"}'`,
-      python: `import requests
-
-# Basic chat
-response = requests.post(
-    "${endpoint}",
-    headers={"Authorization": "Bearer clw_your_key_here"},
-    json={"message": "Hello!", "agent": "default"},
-)
-print(response.json()["response"])
-
-# Streaming
-import json
-response = requests.post(
-    "${endpoint}",
-    headers={"Authorization": "Bearer clw_your_key_here"},
-    json={"message": "Hello!", "stream": True},
-    stream=True,
-)
-for line in response.iter_lines():
-    if line and line.startswith(b"data: "):
-        data = line[6:]
-        if data == b"[DONE]":
-            break
-        chunk = json.loads(data)
-        print(chunk.get("content", ""), end="", flush=True)`,
-      javascript: `// Basic chat
-const response = await fetch("${endpoint}", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer clw_your_key_here",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ message: "Hello!", agent: "default" }),
-});
-const { response: reply } = await response.json();
-
-// Streaming
-const stream = await fetch("${endpoint}", {
-  method: "POST",
-  headers: {
-    "Authorization": "Bearer clw_your_key_here",
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({ message: "Hello!", stream: true }),
-});
-const reader = stream.body.getReader();
-const decoder = new TextDecoder();
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  const chunk = decoder.decode(value);
-  // Parse SSE data lines
-  for (const line of chunk.split("\\n")) {
-    if (line.startsWith("data: ") && line !== "data: [DONE]") {
-      const { content } = JSON.parse(line.slice(6));
-      process.stdout.write(content);
-    }
-  }
-}`,
-      powershell: `# Basic chat
-$response = Invoke-RestMethod \`
-  -Uri "${endpoint}" \`
-  -Method POST \`
-  -Headers @{
-    "Authorization" = "Bearer clw_your_key_here"
-    "Content-Type"  = "application/json"
-  } \`
-  -Body '{"message": "Hello!", "agent": "default"}'
-
-$response.response`,
-    },
-    health: {
-      curl: `# Health check — validate your key without using tokens
-curl -H "Authorization: Bearer clw_your_key_here" \\
-  "${baseUrl}/api/v1/health"
-
-# Response: {"status":"ok","plan":"pro","key_name":"...","rate_limit":60,"agents":["agent1"]}`,
-      python: `# Health check
-response = requests.get(
-    "${baseUrl}/api/v1/health",
-    headers={"Authorization": "Bearer clw_your_key_here"},
-)
-info = response.json()
-print(f"Plan: {info['plan']}, Agents: {info['agents']}")`,
-      javascript: `// Health check
-const health = await fetch("${baseUrl}/api/v1/health", {
-  headers: { "Authorization": "Bearer clw_your_key_here" },
-});
-const info = await health.json();
-console.log(info.status, info.agents);`,
-      powershell: `# Health check
-$health = Invoke-RestMethod \`
-  -Uri "${baseUrl}/api/v1/health" \`
-  -Headers @{ "Authorization" = "Bearer clw_your_key_here" }
-
-$health | ConvertTo-Json`,
-    },
-    conversations: {
-      curl: `# List conversations
-curl -H "Authorization: Bearer clw_your_key_here" \\
-  "${baseUrl}/api/v1/conversations?limit=10"
-
-# Get messages for a conversation
-curl -H "Authorization: Bearer clw_your_key_here" \\
-  "${baseUrl}/api/v1/conversations/CONVERSATION_ID/messages?limit=50"`,
-      python: `# List conversations
-convos = requests.get(
-    "${baseUrl}/api/v1/conversations",
-    headers={"Authorization": "Bearer clw_your_key_here"},
-    params={"limit": 10, "agent": "default"},
-).json()
-
-# Get messages
-messages = requests.get(
-    f"${baseUrl}/api/v1/conversations/{convos['conversations'][0]['id']}/messages",
-    headers={"Authorization": "Bearer clw_your_key_here"},
-).json()`,
-      javascript: `// List conversations
-const convos = await fetch(
-  "${baseUrl}/api/v1/conversations?limit=10",
-  { headers: { "Authorization": "Bearer clw_your_key_here" } }
-).then(r => r.json());
-
-// Get messages
-const msgs = await fetch(
-  \`${baseUrl}/api/v1/conversations/\${convos.conversations[0].id}/messages\`,
-  { headers: { "Authorization": "Bearer clw_your_key_here" } }
-).then(r => r.json());`,
-      powershell: `# List conversations
-$convos = Invoke-RestMethod \`
-  -Uri "${baseUrl}/api/v1/conversations?limit=10" \`
-  -Headers @{ "Authorization" = "Bearer clw_your_key_here" }
-
-$convos.conversations`,
-    },
-  };
-}
 
 export function ApiAccessManager({ hostname }: { hostname: string | null }) {
   const [createOpen, setCreateOpen] = useState(false);
@@ -422,6 +266,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                       variant="ghost"
                       size="icon"
                       onClick={() => setShowKey(!showKey)}
+                      aria-label={showKey ? "Hide API key" : "Show API key"}
                     >
                       {showKey ? (
                         <EyeOff className="h-4 w-4" />
@@ -433,6 +278,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                       variant="outline"
                       size="icon"
                       onClick={() => handleCopy(newFullKey, "newkey")}
+                      aria-label="Copy API key"
                     >
                       {copied === "newkey" ? (
                         <Check className="h-4 w-4" />
@@ -535,7 +381,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
               {keys.map((key) => (
                 <div
                   key={key.id}
-                  className="flex items-center justify-between px-6 py-3"
+                  className="flex items-center justify-between px-6 py-3 flex-wrap gap-2"
                 >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 bg-muted/50 flex items-center justify-center">
@@ -645,6 +491,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
+                            aria-label="Revoke API key"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -717,6 +564,7 @@ export function ApiAccessManager({ hostname }: { hostname: string | null }) {
                           size="icon"
                           className="absolute top-2 right-2 h-7 w-7"
                           onClick={() => handleCopy(codeExamples[section][lang], `${section}-${lang}`)}
+                          aria-label="Copy code example"
                         >
                           {copied === `${section}-${lang}` ? (
                             <Check className="h-3.5 w-3.5" />

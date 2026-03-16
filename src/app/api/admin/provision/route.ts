@@ -14,6 +14,7 @@ import {
   completeJob,
 } from "@/lib/provision-store";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { encryptField } from "@/lib/credential-utils";
 
 // Prevent Next.js from caching this route
 export const dynamic = "force-dynamic";
@@ -97,6 +98,17 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // 2.22: Admin role check — was missing, any authenticated user could poll provision status
+  const { data: profile } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const jobId = request.nextUrl.searchParams.get("jobId");
@@ -251,7 +263,7 @@ async function runProvisioning(
       const dbRecord: Record<string, unknown> = {
         ip_address: config.ip,
         ssh_user: config.sshUser,
-        ssh_password: config.sshPassword,
+        ssh_password: encryptField(config.sshPassword),
         ssh_port: config.sshPort,
         hostname,
         openclaw_dashboard_url: dashboardUrl,
@@ -259,7 +271,7 @@ async function runProvisioning(
         gateway_token: null,
         status: "running",
         dashboard_username: dashboardUsername,
-        dashboard_password: dashboardPassword,
+        dashboard_password: encryptField(dashboardPassword),
       };
       if (hostingerVmId) {
         dbRecord.hostinger_vm_id = hostingerVmId;

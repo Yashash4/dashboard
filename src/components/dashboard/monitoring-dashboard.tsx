@@ -138,7 +138,7 @@ export function MonitoringDashboard({ isRunning }: { isRunning: boolean }) {
     <div className="space-y-4">
       {/* Health + Refresh bar */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3" role="status" aria-live="polite">
           <Badge className={health.className}>{health.label}</Badge>
           {lastRefresh && (
             <span className="text-xs text-muted-foreground">
@@ -163,7 +163,7 @@ export function MonitoringDashboard({ isRunning }: { isRunning: boolean }) {
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">CPU</CardTitle>
-            <Cpu className={`h-4 w-4 ${monitoring.cpu_percent > 75 ? "text-yellow-500" : monitoring.cpu_percent > 90 ? "text-red-500" : "text-muted-foreground"}`} />
+            <Cpu className={`h-4 w-4 ${monitoring.cpu_percent > 90 ? "text-red-500" : monitoring.cpu_percent > 75 ? "text-yellow-500" : "text-muted-foreground"}`} />
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold mb-2 ${monitoring.cpu_percent > 90 ? "text-red-500" : monitoring.cpu_percent > 75 ? "text-yellow-500" : ""}`}>

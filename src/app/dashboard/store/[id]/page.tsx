@@ -176,10 +176,9 @@ export default async function AgentDetailPage({
                   {isFree ? (
                     <span className="text-green-500">Free</span>
                   ) : (
-                    <>${price.toFixed(2)}</>
+                    <span className="text-primary">Premium</span>
                   )}
                 </p>
-                {!isFree && <p className="text-xs text-muted-foreground">one-time purchase</p>}
               </div>
 
               <AgentDetailActions

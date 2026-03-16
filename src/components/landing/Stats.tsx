@@ -51,12 +51,16 @@ export default function Stats() {
           The numbers speak
         </h2>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0" role="tablist" aria-label="Key statistics">
           {stats.map((stat, i) => {
             const isActive = i === active;
             return (
               <button
                 key={i}
+                role="tab"
+                aria-selected={isActive}
+                aria-label={`${stat.number} ${stat.label}`}
+                aria-controls="stats-tabpanel"
                 onClick={() => selectStat(i)}
                 className={`relative flex flex-col items-center gap-2 py-6 px-4 transition-colors duration-300 cursor-pointer ${
                   isActive ? "" : "opacity-100"
@@ -92,7 +96,7 @@ export default function Stats() {
           })}
         </div>
 
-        <div className="mt-10 flex justify-center min-h-[60px]">
+        <div id="stats-tabpanel" role="tabpanel" className="mt-10 flex justify-center min-h-[60px]">
           <AnimatePresence mode="wait">
             <motion.p
               key={active}

@@ -68,8 +68,8 @@ const PLANS = [
   {
     name: "starter",
     label: "Starter",
-    price: "$59",
-    annual: "$599/yr",
+    monthlyUsd: 59,
+    annualUsd: 599,
     features: [
       "2 vCPU, 8GB RAM, 100GB storage",
       "128K context window",
@@ -84,8 +84,8 @@ const PLANS = [
   {
     name: "pro",
     label: "Pro",
-    price: "$129",
-    annual: "$1,299/yr",
+    monthlyUsd: 129,
+    annualUsd: 1299,
     features: [
       "8 vCPU, 32GB RAM, 400GB storage",
       "Full context window (no cap)",
@@ -99,8 +99,8 @@ const PLANS = [
   {
     name: "ultra",
     label: "Ultra",
-    price: "$350",
-    annual: "$3,499/yr",
+    monthlyUsd: 350,
+    annualUsd: 3499,
     features: [
       "16 vCPU, 64GB RAM, 800GB storage",
       "5X credits — full context window",
@@ -116,8 +116,8 @@ const PLANS = [
   {
     name: "enterprise",
     label: "Enterprise",
-    price: "$999+",
-    annual: "Custom",
+    monthlyUsd: 999,
+    annualUsd: 0,
     contactUs: true,
     features: [
       "Custom infrastructure",
@@ -156,25 +156,16 @@ export function BillingOverview({
   const [upgradeTarget, setUpgradeTarget] = useState<string | null>(null);
   const [showAnnual, setShowAnnual] = useState(subscription.billing_cycle === "annual");
 
-  const PLAN_PRICES: Record<string, number> = {
-    starter: 59,
-    pro: 129,
-    ultra: 350,
-  };
-
   const handleUpgrade = async (plan: (typeof PLANS)[number]) => {
-    const amount = PLAN_PRICES[plan.name];
+    const amount = showAnnual ? plan.annualUsd : plan.monthlyUsd;
     if (!amount) return;
 
     await initiatePayment({
       amount,
-      paymentType:
-        subscription.plan === "starter" || !subscription.plan
-          ? "subscription_new"
-          : "subscription_upgrade",
+      paymentType: "subscription_upgrade",
       metadata: {
         plan: plan.name,
-        billing_cycle: subscription.billing_cycle || "monthly",
+        billing_cycle: showAnnual ? "annual" : "monthly",
       },
     });
     setUpgradeTarget(null);
@@ -316,28 +307,28 @@ export function BillingOverview({
                   {!plan.contactUs && !showAnnual && (
                     <>
                       <p className="text-2xl font-bold mb-1">
-                        {plan.price}
+                        ${plan.monthlyUsd}
                         <span className="text-sm font-normal text-muted-foreground">/mo</span>
                       </p>
                       <p className="text-xs text-muted-foreground mb-4">
-                        or {plan.annual}
+                        or ${plan.annualUsd}/yr
                       </p>
                     </>
                   )}
                   {!plan.contactUs && showAnnual && (
                     <>
                       <p className="text-2xl font-bold mb-1">
-                        {plan.annual}
+                        ${plan.annualUsd}/yr
                       </p>
                       <p className="text-xs text-muted-foreground mb-4">
-                        {plan.price}/mo billed monthly
+                        ${plan.monthlyUsd}/mo billed monthly
                       </p>
                     </>
                   )}
                   {plan.contactUs && (
                     <>
                       <p className="text-2xl font-bold mb-1">
-                        {showAnnual ? "Custom" : plan.price}
+                        {showAnnual ? "Custom" : `$${plan.monthlyUsd}+`}
                         {!showAnnual && <span className="text-sm font-normal text-muted-foreground">/mo</span>}
                       </p>
                       <p className="text-xs text-muted-foreground mb-4">
@@ -402,17 +393,31 @@ export function BillingOverview({
             <CardTitle className="text-lg">Payment Method</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-start gap-3">
-            <HelpCircle className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Contact support to update your payment method.
-              </p>
-              <Button variant="link" className="px-0 h-auto text-sm" asChild>
-                <a href="/support/new">Open a support ticket</a>
-              </Button>
-            </div>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Manage your payment method to keep your subscription active. You can update your card or UPI details at any time.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="outline" asChild>
+              <a
+                href={`mailto:support@clawhq.tech?subject=${encodeURIComponent("Update Payment Method")}&body=${encodeURIComponent("Hi, I'd like to update my payment method for my ClawHQ subscription.\n\nAccount email: " + (subscription?.plan || ""))}`}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Update via Email
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href="/support/new">
+                <HelpCircle className="mr-2 h-4 w-4" />
+                Open Support Ticket
+              </a>
+            </Button>
+          </div>
+          <div className="border border-border bg-muted/30 p-3">
+            <p className="text-xs text-muted-foreground">
+              For security, payment method changes are verified by our team and typically processed within 1 business day.
+              Your current subscription will remain active during the update.
+            </p>
           </div>
         </CardContent>
       </Card>

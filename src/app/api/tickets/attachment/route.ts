@@ -98,11 +98,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 
-  const { data: urlData } = admin.storage
+  // 2.33: Generate signed URL with 1-hour expiry instead of public URL
+  const { data: signedUrlData, error: signError } = await admin.storage
     .from("ticket-attachments")
-    .getPublicUrl(fileName);
+    .createSignedUrl(fileName, 3600); // 1 hour expiry
 
-  // Record in DB
+  if (signError || !signedUrlData?.signedUrl) {
+    // Cleanup uploaded file on signed URL error
+    await admin.storage.from("ticket-attachments").remove([fileName]);
+    return NextResponse.json({ error: "Failed to generate download URL" }, { status: 500 });
+  }
+
+  // Record in DB — store storage_path for re-generating signed URLs later
   const { data: attachment, error: dbError } = await admin
     .from("ticket_attachments")
     .insert({
@@ -112,7 +119,7 @@ export async function POST(request: NextRequest) {
       file_size: file.size,
       file_type: file.type,
       storage_path: fileName,
-      url: urlData.publicUrl,
+      url: signedUrlData.signedUrl,
     })
     .select("id, file_name, file_size, file_type, url")
     .single();

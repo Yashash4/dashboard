@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { NodeSSH } from "node-ssh";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { decryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,7 @@ export async function POST(
     await ssh.connect({
       host: vps.ip_address,
       username: vps.ssh_user,
-      password: vps.ssh_password,
+      password: decryptField(vps.ssh_password),
       port: vps.ssh_port || 22,
       readyTimeout: 10000,
     });

@@ -47,7 +47,7 @@ export function AgentRoster() {
       const json = await res.json();
       return json.agents || [];
     },
-    refetchInterval: 2000,
+    refetchInterval: 10000,
   });
 
   // Use ref for selected ID to avoid useEffect infinite loop (FIX-16)
@@ -158,6 +158,36 @@ export function AgentRoster() {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Status Filter Buttons (4.14) */}
+      <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+        {(
+          [
+            ["all", "All"],
+            ["online", "Online"],
+            ["offline", "Offline"],
+            ["working", "Working"],
+            ["idle", "Idle"],
+            ["blocked", "Error"],
+          ] as const
+        ).map(([value, label]) => {
+          const count = value === "all" ? agents.length : (statusCounts[value] || 0);
+          return (
+            <Button
+              key={value}
+              variant={statusFilter === value ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-[11px] gap-1 px-2.5"
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+              <Badge variant="outline" className="text-[9px] font-mono h-4 px-1 ml-0.5 border-current/20">
+                {count}
+              </Badge>
+            </Button>
+          );
+        })}
       </div>
 
       {/* Search/Filter (FIX-27) */}

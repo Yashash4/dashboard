@@ -200,7 +200,7 @@ export function TicketThread({
           variant="ghost"
           size="sm"
           className="mb-4 -ml-2"
-          onClick={() => router.push("/dashboard/support")}
+          onClick={() => router.push("/support")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Support

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Activity, Loader2, CheckCircle2, XCircle } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,18 +14,17 @@ interface UptimeData {
 }
 
 export function UptimeDisplay() {
-  const [data, setData] = useState<UptimeData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useQuery<UptimeData | null>({
+    queryKey: ["vps-uptime"],
+    queryFn: async () => {
+      const res = await fetch("/api/vps/uptime");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetch("/api/vps/uptime")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((d) => setData(d))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -86,7 +85,7 @@ export function UptimeDisplay() {
           </span>
         </div>
 
-        {/* Status bar — last 30 checks as tiny blocks */}
+        {/* Status bar -- last 30 checks as tiny blocks */}
         {data.recent_statuses.length > 0 && (
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">Recent checks</p>

@@ -163,7 +163,7 @@ export function TicketList({
           <h1 className="text-2xl font-bold mb-1">Support</h1>
           <p className="text-muted-foreground">Get help with your account.</p>
         </div>
-        <Button onClick={() => router.push("/dashboard/support/new")}>
+        <Button onClick={() => router.push("/support/new")}>
           <Plus className="mr-2 h-4 w-4" />
           New Ticket
         </Button>
@@ -212,7 +212,7 @@ export function TicketList({
           {filter === "all" && (
             <Button
               variant="outline"
-              onClick={() => router.push("/dashboard/support/new")}
+              onClick={() => router.push("/support/new")}
             >
               <Plus className="mr-2 h-4 w-4" />
               Create your first ticket
@@ -233,7 +233,7 @@ export function TicketList({
             return (
               <button
                 key={ticket.id}
-                onClick={() => router.push(`/dashboard/support/${ticket.id}`)}
+                onClick={() => router.push(`/support/${ticket.id}`)}
                 className="w-full text-left border border-border p-4 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-start justify-between gap-4">

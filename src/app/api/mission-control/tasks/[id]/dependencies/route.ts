@@ -96,7 +96,11 @@ export async function DELETE(
   if (!dependency_id) return NextResponse.json({ error: "dependency_id required" }, { status: 400 });
 
   try {
-    const { error } = await supabase.from("mc_task_dependencies").delete().eq("id", dependency_id);
+    // Verify the parent task belongs to the authenticated user
+    const { data: task } = await supabase.from("mc_tasks").select("id").eq("id", taskId).eq("user_id", user.id).single();
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+
+    const { error } = await supabase.from("mc_task_dependencies").delete().eq("id", dependency_id).eq("task_id", taskId);
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch {

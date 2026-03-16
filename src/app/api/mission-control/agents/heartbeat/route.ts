@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
 import { processAutomationRules } from "@/lib/mc-automation";
+import { hasVPSDataAPI, vpsDataFetch } from "@/lib/vps-data-api";
 
 // POST /api/mission-control/agents/heartbeat — agent reports status, gets work items
 export async function POST(request: NextRequest) {
@@ -74,7 +75,8 @@ export async function POST(request: NextRequest) {
 
     // If status changed, insert an event and emit SSE (P1.2.1)
     if (statusChanged) {
-      await supabase.from("mc_events").insert({
+      // 4.21: VPS-first pattern for mc_events writes
+      const eventPayload = {
         user_id: user.id,
         event_type: "agent_state_change",
         severity: status === "offline" ? "warning" : "info",
@@ -84,7 +86,19 @@ export async function POST(request: NextRequest) {
           old_status: existing.status,
           new_status: status,
         },
-      });
+      };
+
+      const useVPS = await hasVPSDataAPI(user.id).catch(() => false);
+      if (useVPS) {
+        vpsDataFetch(user.id, "/api/events", {
+          method: "POST",
+          body: eventPayload,
+        }).catch(() => {
+          supabase.from("mc_events").insert(eventPayload).then(() => {});
+        });
+      } else {
+        await supabase.from("mc_events").insert(eventPayload);
+      }
 
       emitMCEvent(user.id, "agent_status_changed", {
         agent_id,

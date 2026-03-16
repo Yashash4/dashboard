@@ -3,6 +3,7 @@ import { User } from "lucide-react";
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
 import { AccountSettings } from "@/components/dashboard/account-settings";
+import { AvatarUpload } from "@/components/dashboard/avatar-upload";
 import { NotificationPreferences } from "@/components/dashboard/notification-preferences";
 import { TimezoneSetting } from "@/components/dashboard/timezone-setting";
 import { SecuritySection } from "@/components/dashboard/security-section";
@@ -19,28 +20,49 @@ export default async function AccountPage() {
     redirect("/login");
   }
 
-  const [profileRes, channelsRes, agentsRes, ticketsRes] = await Promise.all([
-    supabase
-      .from("users")
-      .select("name, email, role, created_at")
-      .eq("id", authUser.id)
-      .single(),
-    supabase
-      .from("channels")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", authUser.id)
-      .eq("status", "connected"),
-    supabase
-      .from("user_agents")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", authUser.id)
-      .eq("deployed", true),
-    supabase
-      .from("support_tickets")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", authUser.id)
-      .in("status", ["open", "in_progress"]),
-  ]);
+  let profileRes, channelsRes, agentsRes, ticketsRes;
+  try {
+    [profileRes, channelsRes, agentsRes, ticketsRes] = await Promise.all([
+      supabase
+        .from("users")
+        .select("name, email, role, created_at")
+        .eq("id", authUser.id)
+        .single(),
+      supabase
+        .from("channels")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", authUser.id)
+        .eq("status", "connected"),
+      supabase
+        .from("user_agents")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", authUser.id)
+        .eq("deployed", true),
+      supabase
+        .from("support_tickets")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", authUser.id)
+        .in("status", ["open", "in_progress"]),
+    ]);
+  } catch {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold mb-1">Account</h1>
+        <p className="text-muted-foreground mb-6">Your account settings.</p>
+        <Card className="border-border">
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <User className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h2 className="text-lg font-semibold mb-2">Something Went Wrong</h2>
+              <p className="text-muted-foreground">
+                Unable to load your account data. Please refresh the page.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const profile = profileRes.data;
 
@@ -66,6 +88,11 @@ export default async function AccountPage() {
 
   return (
     <div className="space-y-8">
+      <AvatarUpload
+        name={profile.name}
+        email={profile.email}
+        avatarUrl={authUser.user_metadata?.avatar_url ?? null}
+      />
       <AccountSettings
         profile={profile}
         stats={{
@@ -76,7 +103,10 @@ export default async function AccountPage() {
       />
       <NotificationPreferences />
       <TimezoneSetting />
-      <SecuritySection createdAt={profile.created_at} />
+      <SecuritySection
+        createdAt={profile.created_at}
+        passwordLastChanged={authUser.user_metadata?.password_changed_at ?? null}
+      />
       <DangerZone email={profile.email} />
     </div>
   );

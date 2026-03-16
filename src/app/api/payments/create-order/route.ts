@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { createOrder } from "@/lib/payments";
+import { createOrder, resolveProvider } from "@/lib/payments";
 import type { PaymentType } from "@/lib/payments/types";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -20,7 +20,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
   }
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { amount, paymentType, metadata } = body as {
     amount?: number;
     paymentType?: PaymentType;
@@ -38,13 +43,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Get user info for prefill
   const admin = createAdminClient();
+
+  // Get user info for prefill + audit trail
   const { data: profile } = await admin
     .from("users")
     .select("email, name")
     .eq("id", user.id)
     .single();
+
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const { region, currency } = resolveProvider(request);
 
   try {
     const result = await createOrder(
@@ -59,8 +69,25 @@ export async function POST(request: NextRequest) {
       request
     );
 
+    // Store order with full audit context
+    await admin.from("payment_orders").insert({
+      order_id: result.orderId,
+      user_id: user.id,
+      provider: result.provider,
+      amount,
+      currency: result.currency,
+      payment_type: paymentType,
+      metadata: metadata || {},
+      status: "created",
+      ip_address: ip,
+      region,
+      user_email: profile?.email || user.email,
+      user_name: profile?.name || null,
+    });
+
     return NextResponse.json(result);
   } catch (err: any) {
+    console.error("create-order error:", err);
     return NextResponse.json(
       { error: err.message || "Failed to create order" },
       { status: 500 }

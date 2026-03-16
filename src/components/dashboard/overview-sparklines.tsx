@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { MessageSquare, Bot, Ticket } from "lucide-react";
+import { MessageSquare, Bot } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MiniSparkline } from "./mini-sparkline";
@@ -25,7 +25,7 @@ export function OverviewSparklines({ channelsConnected, agentsDeployed, openTick
     queryKey: ["sparklines"],
     queryFn: async () => {
       const res = await fetch("/api/stats/sparklines");
-      if (!res.ok) return null;
+      if (!res.ok) throw new Error("Failed to fetch sparklines");
       return res.json();
     },
     staleTime: 5 * 60_000,
@@ -83,13 +83,20 @@ export function OverviewSparklines({ channelsConnected, agentsDeployed, openTick
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            {messagesTotal > 0 ? "Messages (7d)" : "Open Tickets"}
+            Messages (7d)
           </CardTitle>
-          <Ticket className="h-4 w-4 text-muted-foreground" />
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="flex items-end justify-between">
-            <p className="text-2xl font-bold">{messagesTotal > 0 ? messagesTotal : openTickets}</p>
+            <div>
+              <p className="text-2xl font-bold">{messagesTotal}</p>
+              {openTickets > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {openTickets} open ticket{openTickets !== 1 ? "s" : ""}
+                </p>
+              )}
+            </div>
             {data?.messages && messagesTotal > 0 && (
               <MiniSparkline data={data.messages} color="hsl(217, 91%, 60%)" />
             )}

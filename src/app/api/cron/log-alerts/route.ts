@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { getOpenClawLogs } from "@/lib/ssh";
 import {
@@ -6,6 +6,7 @@ import {
   type AlertCondition,
   type AlertResult,
 } from "@/lib/log-alerting";
+import { decryptField } from "@/lib/credential-utils";
 
 /**
  * GET /api/cron/log-alerts
@@ -13,10 +14,9 @@ import {
  * Verifies CRON_SECRET to prevent unauthorized access.
  */
 export async function GET(request: Request) {
-  // Verify cron secret to prevent unauthorized triggering
-  const authHeader = request.headers.get("authorization");
+  // Verify cron secret to prevent unauthorized triggering (fail-closed: deny if unset)
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const admin = createAdminClient();
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
         {
           ip_address: vps.ip_address,
           ssh_user: vps.ssh_user,
-          ssh_password: vps.ssh_password,
+          ssh_password: decryptField(vps.ssh_password),
           ssh_port: vps.ssh_port,
         },
         200

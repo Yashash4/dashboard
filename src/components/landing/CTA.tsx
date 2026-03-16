@@ -38,7 +38,7 @@ export default function CTA() {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="/register"
+            href="/pricing"
             className="group flex items-center gap-2 px-6 py-3 rounded-lg bg-[var(--cream)] text-[var(--cream-foreground)] font-medium text-sm hover:opacity-90 transition-opacity"
           >
             Get Started — $59/mo
@@ -82,6 +82,7 @@ export default function CTA() {
 
         {/* Glow layer clipped to letters */}
         <span
+          aria-hidden="true"
           className="absolute inset-0 flex items-start justify-center text-[10rem] md:text-[16rem] lg:text-[22rem] font-bold tracking-tighter leading-[0.75] whitespace-nowrap pointer-events-none z-10"
           style={{
             backgroundImage: `radial-gradient(300px circle at ${mousePos.x}px ${mousePos.y}px, rgba(107,143,113,0.6), transparent 70%)`,

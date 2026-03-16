@@ -1,78 +1,84 @@
 import crypto from "crypto";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { createRequestContext, apiError, apiSuccess } from "@/lib/api-errors";
-import { rateLimit } from "@/lib/rate-limit";
+import { apiError, apiSuccess } from "@/lib/api-errors";
+import { decryptField } from "@/lib/credential-utils";
+import { isPrivateUrl } from "@/lib/knowledge-base";
+import { validateV1Auth } from "@/lib/v1-auth";
 
-function validateApiKey(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const rawKey = authHeader.slice(7).trim();
-  if (!rawKey.startsWith("clw_") || rawKey.length !== 36) return null;
-  return rawKey;
-}
+const MAX_BODY_SIZE = 102_400; // 100 KB
 
 /** POST /api/v1/chat/batch — Submit batch of chat requests */
 export async function POST(request: NextRequest) {
-  const ctx = createRequestContext(request);
-  const rawKey = validateApiKey(request);
-  if (!rawKey) return apiError("invalid_api_key", "Invalid API key", ctx);
+  try {
+    const auth = await validateV1Auth(request, "batch", { limit: 5 });
+    if (auth instanceof NextResponse) return auth;
+    const { apiKey, admin, ctx } = auth;
 
-  const admin = createAdminClient();
-  const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const { data: apiKey } = await admin.from("api_keys").select("id, user_id, status, rate_limit_per_min").eq("key_hash", keyHash).single();
-  if (!apiKey || apiKey.status !== "active") return apiError("invalid_api_key", "Invalid or revoked API key", ctx);
+    // Body size check
+    const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
+    if (contentLength > MAX_BODY_SIZE) {
+      return apiError("invalid_request", "Request body too large (max 100KB)", ctx);
+    }
+    const rawBody = await request.text().catch(() => "");
+    if (rawBody.length > MAX_BODY_SIZE) {
+      return apiError("invalid_request", "Request body too large (max 100KB)", ctx);
+    }
+    const body = (() => { try { return JSON.parse(rawBody); } catch { return null; } })();
+    if (!body) return apiError("invalid_request", "Invalid JSON body", ctx);
 
-  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", apiKey.user_id).single();
-  if (!["pro", "ultra", "enterprise"].includes((sub?.plan as string) || "starter"))
-    return apiError("plan_required", "Pro plan required", ctx);
+    const { requests: batchRequests, webhook_url } = body as {
+      requests?: { custom_id: string; message: string; agent?: string }[];
+      webhook_url?: string;
+    };
 
-  const rl = rateLimit(`${apiKey.user_id}:batch`, 5, 60_000);
-  if (!rl.success) return apiError("rate_limited", "Too many requests", ctx);
+    if (!batchRequests || !Array.isArray(batchRequests) || batchRequests.length === 0)
+      return apiError("missing_parameter", "requests array is required", ctx, { param: "requests" });
 
-  const body = await request.json().catch(() => null);
-  if (!body) return apiError("invalid_request", "Invalid JSON body", ctx);
+    if (batchRequests.length > 50)
+      return apiError("batch_too_large", "Maximum 50 requests per batch", ctx);
 
-  const { requests: batchRequests, webhook_url } = body as {
-    requests?: { custom_id: string; message: string; agent?: string }[];
-    webhook_url?: string;
-  };
+    // SSRF protection: validate webhook_url is not a private/internal IP
+    if (webhook_url) {
+      if (isPrivateUrl(webhook_url)) {
+        return apiError("invalid_parameter", "webhook_url must not point to a private or internal address", ctx, { param: "webhook_url" });
+      }
+    }
 
-  if (!batchRequests || !Array.isArray(batchRequests) || batchRequests.length === 0)
-    return apiError("missing_parameter", "requests array is required", ctx, { param: "requests" });
+    // Check rate limit capacity
+    const rpm = apiKey.rate_limit_per_min || 60;
+    if (batchRequests.length > rpm)
+      return apiError("rate_limited", `Batch size (${batchRequests.length}) exceeds your rate limit (${rpm} RPM)`, ctx);
 
-  if (batchRequests.length > 50)
-    return apiError("batch_too_large", "Maximum 50 requests per batch", ctx);
+    const batchId = `batch_${crypto.randomUUID().replace(/-/g, "")}`;
 
-  // Check rate limit capacity
-  const rpm = apiKey.rate_limit_per_min || 60;
-  if (batchRequests.length > rpm)
-    return apiError("rate_limited", `Batch size (${batchRequests.length}) exceeds your rate limit (${rpm} RPM)`, ctx);
+    const { error } = await admin.from("api_batches").insert({
+      id: batchId,
+      user_id: apiKey.user_id,
+      status: "processing",
+      total: batchRequests.length,
+      results: batchRequests.map((r) => ({ custom_id: r.custom_id, status: "pending", message: r.message, agent: r.agent })),
+      webhook_url: webhook_url || null,
+    });
 
-  const batchId = `batch_${crypto.randomUUID().replace(/-/g, "")}`;
+    if (error) return apiError("internal_error", "Failed to create batch", ctx);
 
-  const { error } = await admin.from("api_batches").insert({
-    id: batchId,
-    user_id: apiKey.user_id,
-    status: "processing",
-    total: batchRequests.length,
-    results: batchRequests.map((r) => ({ custom_id: r.custom_id, status: "pending", message: r.message, agent: r.agent })),
-    webhook_url: webhook_url || null,
-  });
+    // Process in background (fire-and-forget)
+    processBatch(admin, batchId, apiKey.user_id, batchRequests).catch(() => {});
 
-  if (error) return apiError("internal_error", "Failed to create batch", ctx);
-
-  // Process in background (fire-and-forget)
-  processBatch(admin, batchId, apiKey.user_id, batchRequests).catch(() => {});
-
-  return apiSuccess({
-    batch_id: batchId,
-    status: "processing",
-    total: batchRequests.length,
-    completed: 0,
-    failed: 0,
-    created_at: new Date().toISOString(),
-  }, ctx);
+    return apiSuccess({
+      batch_id: batchId,
+      status: "processing",
+      total: batchRequests.length,
+      completed: 0,
+      failed: 0,
+      created_at: new Date().toISOString(),
+    }, ctx);
+  } catch {
+    const { createRequestContext } = await import("@/lib/api-errors");
+    const ctx = createRequestContext(request);
+    return apiError("internal_error", "Internal server error", ctx);
+  }
 }
 
 async function processBatch(
@@ -96,7 +102,7 @@ async function processBatch(
   const baseUrl = dashboardUrl.replace(/\/$/, "");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (vps.dashboard_username && vps.dashboard_password) {
-    headers["Authorization"] = `Basic ${Buffer.from(`${vps.dashboard_username}:${vps.dashboard_password}`).toString("base64")}`;
+    headers["Authorization"] = `Basic ${Buffer.from(`${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`).toString("base64")}`;
   }
 
   const results: any[] = [];
@@ -124,15 +130,27 @@ async function processBatch(
           });
           clearTimeout(timeout);
 
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if (!res.ok) throw new Error("upstream_error");
 
           const data = await res.json();
           let content = data.choices?.[0]?.message?.content || "";
-          content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/<thinking>[\s\S]*?<\/thinking>/gi, "").trim() || "No response";
+          content = content
+            .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+            .replace(/<think>[\s\S]*?<\/think>/gi, "")
+            .replace(/\[thinking\][\s\S]*?\[\/thinking\]/gi, "")
+            .replace(/<reflection>[\s\S]*?<\/reflection>/gi, "")
+            .replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, "")
+            .trim() || "No response";
 
           return { custom_id: req.custom_id, status: "completed", response: content };
         } catch (err) {
-          return { custom_id: req.custom_id, status: "failed", error: err instanceof Error ? err.message : "Unknown error" };
+          // Sanitize: never leak upstream error details to the client
+          const isTimeout = err instanceof Error && err.name === "AbortError";
+          return {
+            custom_id: req.custom_id,
+            status: "failed",
+            error: isTimeout ? "Request timed out" : "Failed to get response from agent",
+          };
         }
       })
     );
@@ -153,11 +171,42 @@ async function processBatch(
   }
 
   const finalStatus = failed === results.length ? "failed" : failed > 0 ? "partial" : "completed";
+  const completedAt = new Date().toISOString();
   await admin.from("api_batches").update({
     status: finalStatus,
     completed,
     failed,
     results,
-    completed_at: new Date().toISOString(),
+    completed_at: completedAt,
   }).eq("id", batchId);
+
+  // Fire webhook callback if configured
+  const { data: batchRecord } = await admin.from("api_batches")
+    .select("webhook_url")
+    .eq("id", batchId)
+    .single();
+
+  if (batchRecord?.webhook_url) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      await fetch(batchRecord.webhook_url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          batch_id: batchId,
+          status: finalStatus,
+          total: results.length,
+          completed,
+          failed,
+          results,
+          completed_at: completedAt,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+    } catch {
+      // Webhook delivery is best-effort — don't fail the batch for it
+    }
+  }
 }

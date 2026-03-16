@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Search,
@@ -81,8 +81,18 @@ function parseLogs(raw: string): LogEntry[] {
     });
 }
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function LogsExplorer() {
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [lineCount, setLineCount] = useState("200");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [enabledLevels, setEnabledLevels] = useState<Set<string>>(
@@ -116,12 +126,19 @@ export function LogsExplorer() {
 
   const entries = parseLogs(rawLogs || "");
 
-  const filtered = entries.filter((entry) => {
-    if (!enabledLevels.has(entry.level)) return false;
-    if (search && !entry.message.toLowerCase().includes(search.toLowerCase()))
-      return false;
-    return true;
-  });
+  // MED_31: Limit display to 500 entries to avoid DOM churn
+  const MAX_DISPLAY = 500;
+  const filtered = useMemo(() => {
+    const result: LogEntry[] = [];
+    for (const entry of entries) {
+      if (!enabledLevels.has(entry.level)) continue;
+      if (debouncedSearch && !entry.message.toLowerCase().includes(debouncedSearch.toLowerCase()))
+        continue;
+      result.push(entry);
+      if (result.length >= MAX_DISPLAY) break;
+    }
+    return result;
+  }, [entries, enabledLevels, debouncedSearch]);
 
   const levelCounts = entries.reduce(
     (acc, e) => {
@@ -224,6 +241,7 @@ export function LogsExplorer() {
             size="icon"
             onClick={() => setAutoRefresh(!autoRefresh)}
             title={autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh"}
+            aria-label={autoRefresh ? "Pause auto-refresh" : "Resume auto-refresh"}
           >
             {autoRefresh ? (
               <Pause className="h-4 w-4" />
@@ -238,6 +256,7 @@ export function LogsExplorer() {
             onClick={() => refetch()}
             disabled={isLoading}
             title="Refresh now"
+            aria-label="Refresh logs"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -252,6 +271,7 @@ export function LogsExplorer() {
             onClick={handleDownload}
             disabled={!rawLogs}
             title="Download logs"
+            aria-label="Download logs"
           >
             <Download className="h-4 w-4" />
           </Button>
@@ -263,29 +283,30 @@ export function LogsExplorer() {
         <span>{filtered.length} entries shown</span>
         <span>&middot;</span>
         <span>{entries.length} total</span>
-        {search && (
+        {debouncedSearch && (
           <>
             <span>&middot;</span>
             <span>
-              Filtered by &quot;{search}&quot;
+              Filtered by &quot;{debouncedSearch}&quot;
             </span>
           </>
         )}
         <span>&middot;</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="group" aria-label="Log level filters">
           {(["error", "warn", "info", "debug"] as const).map((level) => (
-            <Badge
+            <button
               key={level}
-              variant="outline"
-              className={`text-[10px] px-1.5 py-0 cursor-pointer ${
+              type="button"
+              onClick={() => toggleLevel(level)}
+              aria-pressed={enabledLevels.has(level)}
+              className={`inline-flex items-center border rounded-md text-[10px] px-1.5 py-0 cursor-pointer transition-opacity ${
                 enabledLevels.has(level)
                   ? LEVEL_STYLES[level].badge
-                  : "opacity-30"
+                  : "opacity-30 border-border"
               }`}
-              onClick={() => toggleLevel(level)}
             >
               {level.toUpperCase()} {levelCounts[level] || 0}
-            </Badge>
+            </button>
           ))}
         </div>
         <span className="ml-auto">
@@ -352,10 +373,10 @@ export function LogsExplorer() {
                         </span>
                       </td>
                       <td className="px-3 py-1.5 whitespace-pre-wrap break-all text-foreground/90">
-                        {search ? (
+                        {debouncedSearch ? (
                           <HighlightText
                             text={entry.message}
-                            search={search}
+                            search={debouncedSearch}
                           />
                         ) : (
                           entry.message

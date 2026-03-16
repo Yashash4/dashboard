@@ -206,6 +206,7 @@ export function InvoiceDownload({
         className="h-7 w-7"
         onClick={handlePrint}
         title={`Download invoice ${invoiceNumber}`}
+        aria-label={`Download invoice ${invoiceNumber}`}
       >
         <Download className="h-3.5 w-3.5" />
       </Button>

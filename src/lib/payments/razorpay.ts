@@ -7,6 +7,12 @@ import type {
   VerifyPaymentResult,
 } from "./types";
 
+/**
+ * Fixed USD → INR conversion rate for pricing stability.
+ * Update periodically to stay within ~5% of market rate.
+ */
+const USD_TO_INR = 85;
+
 export function isRazorpayConfigured(): boolean {
   return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
 }
@@ -33,12 +39,26 @@ function descriptionFor(params: CreateOrderParams): string {
   }
 }
 
+/**
+ * Convert USD amount to the target currency.
+ * Amounts come in as USD from the client — convert to INR for Indian users.
+ */
+function convertAmount(usdAmount: number, currency: string): number {
+  if (currency === "INR") {
+    return Math.round(usdAmount * USD_TO_INR);
+  }
+  return usdAmount;
+}
+
 export async function createRazorpayOrder(
   params: CreateOrderParams,
   currency: string
 ): Promise<CreateOrderResult> {
   const razorpay = getClient();
-  const amountSmallest = Math.round(params.amount * 100);
+
+  // Convert USD price to target currency, then to smallest unit (paise/cents)
+  const amountInCurrency = convertAmount(params.amount, currency);
+  const amountSmallest = Math.round(amountInCurrency * 100);
   const receipt = `${params.paymentType}_${Date.now()}`.slice(0, 40);
 
   const order = await razorpay.orders.create({
@@ -48,6 +68,7 @@ export async function createRazorpayOrder(
     notes: {
       user_id: params.userId,
       payment_type: params.paymentType,
+      original_usd: String(params.amount),
       ...params.metadata,
     },
   });

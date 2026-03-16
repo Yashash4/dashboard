@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Minus, ArrowRight } from "lucide-react";
+import { Check, Minus, ArrowRight, Shield } from "lucide-react";
 
 const plans = [
   {
@@ -13,11 +13,11 @@ const plans = [
     annualSavings: "$109",
     tagline: "All-inclusive. One price. Zero hassle.",
     cta: "Get Started",
-    ctaHref: "/register",
+    ctaHref: "/pricing",
     highlighted: false,
     features: [
       "Dedicated VPS (2 vCPU, 8GB RAM)",
-      "3 AI models included — no API keys",
+      "30 AI models included — no API keys",
       "All 7 messaging channels",
       "Agent Store with 7 free pre-built agents",
       "Professional chat with streaming",
@@ -34,7 +34,7 @@ const plans = [
     annualSavings: "$249",
     tagline: "For builders who ship.",
     cta: "Get Pro",
-    ctaHref: "/register",
+    ctaHref: "/pricing",
     highlighted: true,
     features: [
       "Everything in Starter +",
@@ -55,7 +55,7 @@ const plans = [
     annualSavings: "$701",
     tagline: "Command your AI workforce.",
     cta: "Go Ultra",
-    ctaHref: "/register",
+    ctaHref: "/pricing",
     highlighted: false,
     features: [
       "Everything in Pro +",
@@ -142,9 +142,13 @@ export default function Pricing() {
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
             One price. No surprises.
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto mb-8">
+          <p className="text-muted-foreground max-w-xl mx-auto mb-4">
             Every plan includes AI models, all channels, dedicated VPS, managed
             infrastructure, and full dashboard access. No hidden fees.
+          </p>
+          <p className="inline-flex items-center gap-2 text-xs text-primary border border-primary/20 bg-primary/5 px-3 py-1.5 rounded-full mb-8">
+            <Shield size={12} />
+            14-day money-back guarantee on all plans
           </p>
 
           {/* Monthly / Annual toggle */}
@@ -275,8 +279,12 @@ export default function Pricing() {
           <h3 className="text-xl font-semibold text-center mb-8">
             Compare all plans
           </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          {/* Mobile scroll indicator */}
+          <div className="md:hidden flex items-center justify-end gap-1 mb-2 text-[10px] text-muted-foreground">
+            Scroll <span aria-hidden="true">&rarr;</span>
+          </div>
+          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-3 pr-4 text-muted-foreground font-medium">

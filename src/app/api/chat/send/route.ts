@@ -7,6 +7,7 @@ import { shouldSearchKB } from "@/lib/rag-classifier";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
 import { classifyIntent } from "@/lib/conversation-analysis";
 import { evaluateGroundedness } from "@/lib/rag-evaluation";
+import { decryptField } from "@/lib/credential-utils";
 
 // Same sanitization as ssh.ts deployAgent uses for agent folder names
 function sanitizeAgentName(name: string): string {
@@ -16,6 +17,8 @@ function sanitizeAgentName(name: string): string {
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
 }
+
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -49,6 +52,13 @@ export async function POST(request: NextRequest) {
   if (!agent_id || !message?.trim()) {
     return NextResponse.json(
       { error: "Agent ID and message are required" },
+      { status: 400 }
+    );
+  }
+
+  if (message.length > 10000) {
+    return NextResponse.json(
+      { error: "Message must be at most 10000 characters" },
       { status: 400 }
     );
   }
@@ -277,7 +287,7 @@ export async function POST(request: NextRequest) {
     // HTTP Basic Auth to pass nginx (gateway uses trusted-proxy behind nginx)
     if (vps.dashboard_username && vps.dashboard_password) {
       const basicAuth = Buffer.from(
-        `${vps.dashboard_username}:${vps.dashboard_password}`
+        `${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`
       ).toString("base64");
       headers["Authorization"] = `Basic ${basicAuth}`;
     }

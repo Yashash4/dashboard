@@ -163,6 +163,7 @@ export function AgentTestDialog({
             size="icon"
             onClick={handleSend}
             disabled={sending || !input.trim() || atLimit}
+            aria-label="Send message"
           >
             <Send className="h-4 w-4" />
           </Button>

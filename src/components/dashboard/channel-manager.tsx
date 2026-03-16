@@ -249,6 +249,13 @@ export function ChannelManager({
   const [lastMessages, setLastMessages] = useState<Record<string, string>>({});
 
   // 7.5: Fetch last message timestamps for each channel
+  // Stable dependency: only re-run when the set of connected channel IDs changes
+  const connectedChannelIds = channels
+    .filter((c) => c.status === "connected")
+    .map((c) => c.id)
+    .sort()
+    .join(",");
+
   const fetchLastMessages = useCallback(async () => {
     const connected = channels.filter((c) => c.status === "connected");
     if (connected.length === 0) return;
@@ -270,7 +277,8 @@ export function ChannelManager({
       })
     );
     setLastMessages(results);
-  }, [channels]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedChannelIds]);
 
   useEffect(() => {
     fetchLastMessages();
@@ -293,12 +301,24 @@ export function ChannelManager({
     setReconnectingId(channel.id);
     setReconnectFailedId(null);
     try {
+      // Fetch existing credentials for this channel before reconnecting
+      let credentials: Record<string, string> = {};
+      try {
+        const credRes = await fetch(`/api/channels/${channel.id}/credentials`);
+        if (credRes.ok) {
+          const credData = await credRes.json();
+          credentials = credData.credentials || {};
+        }
+      } catch {
+        // If credentials fetch fails, continue with empty — webchat doesn't need them
+      }
+
       const res = await fetch("/api/channels/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channel_type: channel.channel_type,
-          credentials: {},
+          credentials,
         }),
       });
       const data = await res.json();
@@ -568,6 +588,7 @@ export function ChannelManager({
                         className="h-6 w-6"
                         disabled={index === 0}
                         onClick={() => moveChannel(index, "up")}
+                        aria-label="Move channel up"
                       >
                         <ArrowUp className="h-3 w-3" />
                       </Button>
@@ -577,6 +598,7 @@ export function ChannelManager({
                         className="h-6 w-6"
                         disabled={index === channels.length - 1}
                         onClick={() => moveChannel(index, "down")}
+                        aria-label="Move channel down"
                       >
                         <ArrowDown className="h-3 w-3" />
                       </Button>
@@ -772,7 +794,7 @@ export function ChannelManager({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => router.push("/dashboard/support/new")}
+                      onClick={() => router.push("/support/new")}
                     >
                       Request Setup
                     </Button>

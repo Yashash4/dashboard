@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { OpenClawCredentialsBanner } from "@/components/dashboard/openclaw-credentials-banner";
 import { OpenClawEmbed } from "@/components/dashboard/openclaw-embed";
+import { decryptField } from "@/lib/credential-utils";
 
 export default async function OpenClawPage() {
   const supabase = await createClient();
@@ -50,7 +51,11 @@ export default async function OpenClawPage() {
   }
 
   const admin = createAdminClient();
-  let vps: any = null;
+  let vps: {
+    openclaw_dashboard_url: string | null;
+    dashboard_username: string | null;
+    dashboard_password: string | null;
+  } | null = null;
   try {
     const { data } = await admin
       .from("vps_instances")
@@ -110,12 +115,12 @@ export default async function OpenClawPage() {
       {vps?.dashboard_username && vps?.dashboard_password && (
         <OpenClawCredentialsBanner
           username={vps.dashboard_username}
-          password={vps.dashboard_password}
+          password={decryptField(vps.dashboard_password)}
         />
       )}
       <OpenClawEmbed
         dashboardUrl={dashboardUrl}
-        embedKey={vps?.dashboard_password || ""}
+        embedKey={vps?.dashboard_password ? decryptField(vps.dashboard_password) : ""}
       />
     </div>
   );

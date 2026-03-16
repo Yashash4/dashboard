@@ -34,23 +34,72 @@ export function isPrivateUrl(rawUrl: string): boolean {
   }
   if (!["http:", "https:"].includes(parsed.protocol)) return true;
   const h = parsed.hostname.toLowerCase();
-  if (["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].includes(h))
+
+  // Exact matches for common loopback/private hostnames
+  if (
+    [
+      "localhost",
+      "127.0.0.1",
+      "0.0.0.0",
+      "::1",
+      "[::1]",
+      "0177.0.0.1",     // Octal notation for 127.0.0.1
+      "0x7f000001",     // Hex notation for 127.0.0.1
+    ].includes(h)
+  )
     return true;
+
+  // Block decimal IP notation (e.g. 2130706433 = 127.0.0.1)
+  if (/^\d+$/.test(h)) {
+    const decimal = parseInt(h, 10);
+    if (!isNaN(decimal) && decimal >= 0 && decimal <= 0xffffffff) return true;
+  }
+
+  // Block IPv6 loopback and link-local addresses
+  // Strip brackets for IPv6 comparison
+  const bare = h.replace(/^\[/, "").replace(/]$/, "");
+  if (
+    bare === "::1" ||
+    bare === "0:0:0:0:0:0:0:1" ||
+    bare.startsWith("fe80:") ||   // Link-local
+    bare.startsWith("fe80%") ||   // Link-local with zone ID
+    bare.startsWith("fc00:") ||   // Unique local (private)
+    bare.startsWith("fd") ||      // Unique local (private)
+    bare === "::" ||              // Unspecified address (binds all)
+    bare === "0:0:0:0:0:0:0:0"
+  )
+    return true;
+
+  // Block private/reserved TLDs
   if (
     h.endsWith(".local") ||
     h.endsWith(".internal") ||
     h.endsWith(".localhost")
   )
     return true;
+
+  // Octal notation detection: e.g. 0177.0.0.1 = 127.0.0.1
   const parts = h.split(".");
-  if (parts.length === 4 && parts.every((p) => /^\d+$/.test(p))) {
-    const [a, b] = parts.map(Number);
-    if (a === 10) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 0) return true;
+  if (parts.length === 4) {
+    // Try to parse each octet (supporting octal like 0177 and hex like 0x7f)
+    const octets = parts.map((p) => {
+      if (/^0x[0-9a-f]+$/i.test(p)) return parseInt(p, 16);
+      if (/^0\d+$/.test(p)) return parseInt(p, 8);
+      if (/^\d+$/.test(p)) return parseInt(p, 10);
+      return NaN;
+    });
+
+    if (octets.every((o) => !isNaN(o) && o >= 0 && o <= 255)) {
+      const [a, b] = octets;
+      if (a === 127) return true;               // Loopback
+      if (a === 10) return true;                 // 10.0.0.0/8
+      if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+      if (a === 192 && b === 168) return true;   // 192.168.0.0/16
+      if (a === 169 && b === 254) return true;   // Link-local
+      if (a === 0) return true;                  // 0.0.0.0/8
+    }
   }
+
   return false;
 }
 

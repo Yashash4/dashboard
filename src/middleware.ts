@@ -68,12 +68,32 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Use getSession() for fast route protection (reads JWT from cookie, no network call)
-  // Layout still calls getUser() for full validation
+  // 2.31: Use getUser() instead of getSession() for security.
+  // getSession() reads from the JWT cookie without server validation,
+  // meaning expired/revoked tokens could still pass. getUser() makes a
+  // server call to verify the token is still valid.
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user || null;
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // 2.30: Protect API routes — unauthenticated requests to session-based
+  // API routes are rejected. Exclude routes that handle their own auth:
+  //   /api/v1/*   — public V1 API (uses Bearer token, not session)
+  //   /api/auth/* — auth-related routes (login-audit, etc.)
+  //   /api/cron/* — cron jobs (use CRON_SECRET header auth)
+  if (path.startsWith("/api/")) {
+    const isPublicApi =
+      path.startsWith("/api/v1/") ||
+      path.startsWith("/api/auth/") ||
+      path.startsWith("/api/cron/");
+
+    if (!isPublicApi && !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // API routes pass through — individual handlers do fine-grained auth
+    return supabaseResponse;
+  }
 
   // Logged-in users trying to access auth pages → redirect to home
   // /reset-password is accessible to anyone (recovery token in URL fragment)
@@ -87,11 +107,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Root path: logged in → dashboard, not logged in → landing page
-  // ?landing=true bypasses redirect so logged-in users can preview the landing page
-  if (path === "/" && user && !request.nextUrl.searchParams.has("landing")) {
-    effectivePath = "/dashboard";
-  }
 
   // Unauthenticated users trying to access protected routes
   if (effectivePath.startsWith("/dashboard") && !user) {
@@ -152,6 +167,7 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
+    "/api/:path*",
     "/dashboard/:path*",
     "/admin/:path*",
     "/login",
@@ -178,5 +194,9 @@ export const config = {
     "/audit-log/:path*",
     "/model-playground/:path*",
     "/agent-builder/:path*",
+    "/pricing",
+    "/docs/:path*",
+    "/terms",
+    "/privacy",
   ],
 };

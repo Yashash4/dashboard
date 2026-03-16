@@ -79,18 +79,51 @@
   }
 }
 
+/* Focus indicators for dark theme */
+:focus-visible {
+  outline: 2px solid oklch(0.6762 0.0567 132.4479);
+  outline-offset: 2px;
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 /* Smooth marquee for channel bar */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-.animate-marquee {
-  animation: marquee 25s linear infinite;
+@media (prefers-reduced-motion: no-preference) {
+  .animate-marquee {
+    animation: marquee 25s linear infinite;
+  }
+
+  .animate-marquee:hover {
+    animation-play-state: paused;
+  }
 }
 
-.animate-marquee:hover {
-  animation-play-state: paused;
+/* Features.tsx bar animations */
+.vps-bar { width: 8%; }
+.group:hover .vps-bar { width: var(--bar-target); }
+.chart-bar { height: 4px; }
+.group:hover .chart-bar { height: var(--bar-target); }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+
+  .animate-ping,
+  .animate-pulse,
+  .animate-bounce {
+    animation: none;
+  }
 }
 
 /* Subtle noise texture overlay */

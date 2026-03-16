@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TicketAttachmentUpload } from "@/components/dashboard/ticket-attachment";
 
 const TICKET_CATEGORIES = [
   { value: "general", label: "General" },
@@ -44,6 +45,7 @@ export default function NewTicketPage() {
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ticketId, setTicketId] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +77,8 @@ export default function NewTicketPage() {
       }
 
       toast.success("Ticket created");
-      router.push(`/dashboard/support/${data.ticket_id}`);
+      setTicketId(data.ticket_id);
+      router.push(`/support/${data.ticket_id}`);
     } catch {
       toast.error("Failed to create ticket");
     } finally {
@@ -90,7 +93,7 @@ export default function NewTicketPage() {
           variant="ghost"
           size="sm"
           className="mb-4 -ml-2"
-          onClick={() => router.push("/dashboard/support")}
+          onClick={() => router.push("/support")}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Support
@@ -166,6 +169,14 @@ export default function NewTicketPage() {
               <p className="text-xs text-muted-foreground text-right">{description.length}/5000</p>
             </div>
 
+            {/* UX_06: File attachments -- only shown after ticket is created */}
+            {ticketId && (
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <TicketAttachmentUpload ticketId={ticketId} onAttached={() => {}} />
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <Button type="submit" disabled={submitting}>
                 {submitting && (
@@ -176,7 +187,7 @@ export default function NewTicketPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push("/dashboard/support")}
+                onClick={() => router.push("/support")}
               >
                 Cancel
               </Button>

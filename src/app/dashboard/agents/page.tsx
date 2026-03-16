@@ -7,6 +7,39 @@ import { Button } from "@/components/ui/button";
 import { AgentManager } from "@/components/dashboard/agent-manager";
 import { AgentAnalytics } from "@/components/dashboard/agent-analytics";
 
+interface AgentDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  config_files: Record<string, string> | null;
+}
+
+interface UserAgent {
+  id: string;
+  agent_id: string;
+  deployed: boolean;
+  deployed_at: string | null;
+  purchased_at: string;
+  custom_config: Record<string, string> | null;
+  primary_model: string | null;
+  fallback_model: string | null;
+  agents: AgentDetail | AgentDetail[] | null;
+}
+
+interface Subscription {
+  plan: string;
+}
+
+interface VpsStatus {
+  status: string;
+}
+
+interface AvailableModel {
+  name: string;
+  display_name: string;
+}
+
 export default async function AgentsPage() {
   const supabase = await createClient();
   const {
@@ -18,10 +51,10 @@ export default async function AgentsPage() {
     redirect("/login");
   }
 
-  let userAgents: any[] | null = null;
-  let subscription: any = null;
-  let vps: any = null;
-  let availableModels: any[] = [];
+  let userAgents: UserAgent[] | null = null;
+  let subscription: Subscription | null = null;
+  let vps: VpsStatus | null = null;
+  let availableModels: AvailableModel[] = [];
 
   try {
     const [agentsRes, subRes, vpsRes, modelsRes] = await Promise.all([
@@ -49,10 +82,10 @@ export default async function AgentsPage() {
         .order("sort_order", { ascending: true }),
     ]);
     if (agentsRes.error) throw agentsRes.error;
-    userAgents = agentsRes.data;
-    subscription = subRes.data;
-    vps = vpsRes.data;
-    availableModels = modelsRes.data || [];
+    userAgents = agentsRes.data as UserAgent[];
+    subscription = subRes.data as Subscription | null;
+    vps = vpsRes.data as VpsStatus | null;
+    availableModels = (modelsRes.data as AvailableModel[] | null) || [];
   } catch {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -64,10 +97,13 @@ export default async function AgentsPage() {
 
   const vpsWarning = !vps || vps.status !== "running";
 
-  // Supabase returns joined relation as array — flatten to single object
+  // Supabase may return joined relation as array or single object depending on version/config
+  // Normalize defensively to handle both cases
   const normalizedAgents = userAgents?.map((ua) => ({
     ...ua,
-    agents: Array.isArray(ua.agents) ? ua.agents[0] : ua.agents,
+    agents: Array.isArray(ua.agents)
+      ? (ua.agents[0] ?? null)
+      : (ua.agents ?? null),
   }));
 
   if (!normalizedAgents || normalizedAgents.length === 0) {

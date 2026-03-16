@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 interface Task {
   id: string;
@@ -71,12 +71,20 @@ function TaskCard({ task }: { task: Task }) {
 
 export function KanbanMockup() {
   const [columns, setColumns] = useState(initialColumns);
+  const [fading, setFading] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const moveCard = useCallback(() => {
     setColumns((prev) => {
       const progress = [...prev.progress];
       if (progress.length === 0) {
-        return initialColumns;
+        // Fade out then reset instead of visual jump
+        setFading(true);
+        timeoutRef.current = setTimeout(() => {
+          setColumns(initialColumns);
+          setFading(false);
+        }, 400);
+        return prev;
       }
       const card = progress.shift()!;
       return {
@@ -89,11 +97,17 @@ export function KanbanMockup() {
 
   useEffect(() => {
     const id = setInterval(moveCard, 3000);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
   }, [moveCard]);
 
   return (
-    <div className="w-full max-w-lg mx-auto font-mono">
+    <div
+      className="w-full max-w-lg mx-auto font-mono transition-opacity duration-400"
+      style={{ opacity: fading ? 0 : 1 }}
+    >
       <div className="grid grid-cols-3 gap-2">
         {(["todo", "progress", "done"] as const).map((col) => (
           <div key={col} className="rounded-lg border border-border bg-card p-2">

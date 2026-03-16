@@ -15,23 +15,10 @@ import {
   type DragEndEvent,
   type DragOverEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { arrayMove } from "@dnd-kit/sortable";
 import {
   Plus,
   Bot,
-  Calendar as CalendarIcon,
-  ListChecks,
-  GripVertical,
-  ArrowRight,
-  Clock,
-  X,
-  Trash2,
   Inbox,
   AlertTriangle,
   Search,
@@ -41,14 +28,13 @@ import {
   CalendarDays,
   ChevronDown,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -57,18 +43,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { PriorityBadge } from "./priority-badge";
 import { TaskDetailModal } from "./task-detail-modal";
 import { CommandPalette } from "./command-palette";
+import { AutomationRulesDialog } from "./automation-rules";
+import { TaskCardContent } from "./task-board-card";
+import { DroppableColumn } from "./task-board-column";
+import { CreateTaskDialog } from "./create-task-dialog";
+import { PRIORITY_BORDER } from "./task-board-card";
 import { useUndoStack } from "@/hooks/use-undo-stack";
-import { formatDate, formatTimeAgo, isOverdue } from "@/lib/format-time";
+import { formatDate, isOverdue } from "@/lib/format-time";
 import {
   MC_COLUMNS,
   type MCTask,
@@ -79,286 +63,9 @@ import {
   type MCAgentStatus,
 } from "@/types/mission-control";
 
-const COLUMN_COLORS: Record<string, string> = {
-  planning: "border-t-purple-500",
-  inbox: "border-t-pink-500",
-  assigned: "border-t-blue-500",
-  in_progress: "border-t-yellow-500",
-  testing: "border-t-cyan-500",
-  review: "border-t-violet-500",
-  done: "border-t-green-500",
-};
-
-const PRIORITY_BORDER: Record<string, string> = {
-  low: "border-l-green-500",
-  medium: "border-l-yellow-500",
-  high: "border-l-orange-500",
-  critical: "border-l-red-500",
-};
-
-// ─── Sortable Task Card ────────────────────────────────────
-function SortableTaskCard({
-  task,
-  onClick,
-  onSendToInbox,
-  isFocused,
-}: {
-  task: MCTask;
-  onClick: () => void;
-  onSendToInbox?: () => void;
-  isFocused?: boolean;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes}>
-      <TaskCardContent
-        task={task}
-        onClick={onClick}
-        dragListeners={listeners}
-        onSendToInbox={onSendToInbox}
-        isFocused={isFocused}
-      />
-    </div>
-  );
-}
-
-// ─── Task Card Content ─────────────────────────────────────
-function TaskCardContent({
-  task,
-  onClick,
-  dragListeners,
-  onSendToInbox,
-  isFocused,
-}: {
-  task: MCTask;
-  onClick?: () => void;
-  dragListeners?: Record<string, unknown>;
-  onSendToInbox?: () => void;
-  isFocused?: boolean;
-}) {
-  const overdue = task.column_id !== "done" && isOverdue(task.due_date);
-  const tags = task.metadata?.tags || [];
-  const subtasks = task.metadata?.subtasks || [];
-  const completedSubtasks = subtasks.filter((s) => s.completed).length;
-  const subtaskPercent = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
-
-  return (
-    <Card
-      className={`border-border cursor-pointer hover:border-primary/30 transition-colors border-l-[3px] ${PRIORITY_BORDER[task.priority] || ""} ${isFocused ? "ring-2 ring-primary" : ""}`}
-      onClick={onClick}
-    >
-      <CardContent className="p-3">
-        <div className="flex items-start gap-1.5">
-          <button
-            className="mt-1 shrink-0 text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing"
-            {...dragListeners}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </button>
-          <div className="flex-1 min-w-0">
-            {/* Row 1: Status dot + ID */}
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${
-                task.column_id === "done" ? "bg-green-500" :
-                task.column_id === "in_progress" ? "bg-blue-500" :
-                task.column_id === "review" ? "bg-violet-500" :
-                "bg-muted-foreground/30"
-              }`} />
-              <span className="text-[9px] text-muted-foreground/50 font-mono">
-                {task.id.slice(0, 8)}
-              </span>
-            </div>
-
-            {/* Row 2: Title */}
-            <p className="text-sm font-medium leading-tight line-clamp-1 mb-0.5">
-              {task.title}
-            </p>
-
-            {/* Row 3: Description preview (desktop only) */}
-            {task.description && (
-              <p className="text-[11px] text-muted-foreground line-clamp-2 mb-2 hidden sm:block">
-                {task.description}
-              </p>
-            )}
-
-            {/* Subtask progress */}
-            {subtasks.length > 0 && (
-              <div className="flex items-center gap-2 mb-2">
-                <ListChecks className="h-3 w-3 text-muted-foreground shrink-0" />
-                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary/70 rounded-full transition-all"
-                    style={{ width: `${subtaskPercent}%` }}
-                  />
-                </div>
-                <span className="text-[10px] text-muted-foreground font-mono shrink-0">
-                  {completedSubtasks}/{subtasks.length}
-                </span>
-              </div>
-            )}
-
-            {/* Row 4: Priority + Agent */}
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex items-center gap-2 min-w-0">
-                <PriorityBadge priority={task.priority} />
-                {task.assigned_agent && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground truncate">
-                    <Bot className="h-3 w-3 shrink-0" />
-                    {task.assigned_agent.name}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {task.due_date && (
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-mono ${
-                      overdue ? "text-red-400" : "text-muted-foreground"
-                    }`}
-                  >
-                    <CalendarIcon className={`h-3 w-3 ${overdue ? "text-red-400" : ""}`} />
-                    {formatDate(task.due_date)}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Row 5: Tags */}
-            {tags.length > 0 && (
-              <div className="flex gap-1 mt-1.5 flex-wrap">
-                {tags.slice(0, 2).map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="text-[9px] px-1 py-0 h-4 font-mono"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-                {tags.length > 2 && (
-                  <Badge
-                    variant="outline"
-                    className="text-[9px] px-1 py-0 h-4 font-mono text-muted-foreground"
-                  >
-                    +{tags.length - 2}
-                  </Badge>
-                )}
-              </div>
-            )}
-
-            {/* Send to Inbox (Planning only) */}
-            {onSendToInbox && task.column_id === "planning" && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full mt-2 h-7 text-[11px] gap-1.5 text-purple-400 border-purple-500/30 hover:bg-purple-500/10 hover:text-purple-300"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSendToInbox();
-                }}
-              >
-                Send to Inbox
-                <ArrowRight className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ─── Droppable Column ──────────────────────────────────────
-function DroppableColumn({
-  columnId,
-  label,
-  tasks,
-  onTaskClick,
-  onAddClick,
-  onSendToInbox,
-  focusedTaskId,
-  isDropTarget,
-}: {
-  columnId: string;
-  label: string;
-  tasks: MCTask[];
-  onTaskClick: (task: MCTask) => void;
-  onAddClick?: () => void;
-  onSendToInbox?: (taskId: string) => void;
-  focusedTaskId?: string | null;
-  isDropTarget?: boolean;
-}) {
-  const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
-
-  return (
-    <div className="flex-shrink-0 w-[280px] sm:w-[300px]">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold">{label}</h3>
-          <Badge
-            variant="outline"
-            className="text-[10px] font-mono h-5 px-1.5"
-          >
-            {tasks.length}
-          </Badge>
-        </div>
-        {onAddClick && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={onAddClick}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
-        )}
-      </div>
-
-      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div
-          className={`space-y-2 min-h-[200px] p-2 border rounded-sm border-t-2 transition-colors ${COLUMN_COLORS[columnId] || ""} ${
-            isDropTarget ? "border-primary/40 bg-primary/5" : "border-border/50"
-          }`}
-          data-column-id={columnId}
-        >
-          {tasks.length === 0 ? (
-            <div className="border border-dashed border-border/50 rounded-sm py-8 text-center">
-              <p className="text-xs text-muted-foreground/60">
-                Drag tasks here
-              </p>
-            </div>
-          ) : (
-            tasks.map((task) => (
-              <SortableTaskCard
-                key={task.id}
-                task={task}
-                onClick={() => onTaskClick(task)}
-                onSendToInbox={
-                  onSendToInbox ? () => onSendToInbox(task.id) : undefined
-                }
-                isFocused={focusedTaskId === task.id}
-              />
-            ))
-          )}
-        </div>
-      </SortableContext>
-    </div>
-  );
-}
+// 4.24: SortableTaskCard, TaskCardContent, DroppableColumn extracted to:
+//   - task-board-card.tsx
+//   - task-board-column.tsx
 
 // ─── Search & Filter Bar ───────────────────────────────────
 function FilterBar({
@@ -373,6 +80,7 @@ function FilterBar({
   filteredCount,
   viewMode,
   onViewModeChange,
+  onOpenAutomationRules,
 }: {
   searchQuery: string;
   onSearchChange: (v: string) => void;
@@ -385,6 +93,7 @@ function FilterBar({
   filteredCount: number;
   viewMode: "kanban" | "list" | "swimlane" | "calendar";
   onViewModeChange: (v: "kanban" | "list" | "swimlane" | "calendar") => void;
+  onOpenAutomationRules?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -445,6 +154,18 @@ function FilterBar({
           ? `${filteredCount} of ${totalCount}`
           : `${totalCount} tasks`}
       </span>
+
+      {onOpenAutomationRules && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={onOpenAutomationRules}
+        >
+          <Zap className="h-3.5 w-3.5" />
+          Rules
+        </Button>
+      )}
 
       {/* View toggle */}
       <div className="flex border border-border rounded-sm">
@@ -984,152 +705,7 @@ function CalendarView({
   );
 }
 
-// ─── Create Task Dialog ─────────────────────────────────────
-function CreateTaskDialog({
-  open,
-  onOpenChange,
-  onSubmit,
-  agents,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (task: Partial<MCTask>) => void;
-  agents: { id: string; name: string }[];
-}) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<string>("medium");
-  const [agentId, setAgentId] = useState<string>("");
-  const [dueDate, setDueDate] = useState("");
-  const [estimatedHours, setEstimatedHours] = useState("");
-  const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [subtaskInput, setSubtaskInput] = useState("");
-  const [subtasks, setSubtasks] = useState<string[]>([]);
-
-  const reset = () => {
-    setTitle(""); setDescription(""); setPriority("medium"); setAgentId(""); setDueDate("");
-    setEstimatedHours(""); setTagInput(""); setTags([]); setSubtaskInput(""); setSubtasks([]);
-  };
-
-  const addTag = (value: string) => {
-    const tag = value.trim().toLowerCase();
-    if (tag && !tags.includes(tag)) setTags((p) => [...p, tag]);
-    setTagInput("");
-  };
-
-  const addSubtask = () => {
-    const text = subtaskInput.trim();
-    if (text) { setSubtasks((p) => [...p, text]); setSubtaskInput(""); }
-  };
-
-  const handleSubmit = () => {
-    if (!title.trim()) return;
-    const agent = agents.find((a) => a.id === agentId);
-    onSubmit({
-      title: title.trim(),
-      description: description.trim() || null,
-      priority: priority as MCTask["priority"],
-      column_id: "planning",
-      assigned_agent_id: agentId && agentId !== "none" ? agentId : null,
-      assigned_agent: agent ? { id: agent.id, name: agent.name } : null,
-      due_date: dueDate || null,
-      estimated_hours: estimatedHours ? Number(estimatedHours) : null,
-      metadata: {
-        tags: tags.length > 0 ? tags : undefined,
-        subtasks: subtasks.length > 0
-          ? subtasks.map((s, i) => ({ id: `st-${crypto.randomUUID()}-${i}`, title: s, completed: false }))
-          : undefined,
-      },
-    });
-    reset();
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Create Task</DialogTitle></DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="ct-title">Title *</Label>
-            <Input id="ct-title" placeholder="Task title..." value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="ct-desc">Description</Label>
-            <Textarea id="ct-desc" placeholder="What needs to be done..." value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Priority</Label>
-              <Select value={priority} onValueChange={setPriority}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Assign Agent</Label>
-              <Select value={agentId} onValueChange={setAgentId}>
-                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {agents.map((a) => (<SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="ct-due">Due Date</Label>
-              <Input id="ct-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ct-hours">Estimated Hours</Label>
-              <Input id="ct-hours" type="number" min="0" step="0.5" placeholder="e.g. 4" value={estimatedHours} onChange={(e) => setEstimatedHours(e.target.value)} />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Tags</Label>
-            <div className="flex flex-wrap gap-1 mb-1">
-              {tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs font-mono gap-1 pr-1">{tag}
-                  <button type="button" onClick={() => setTags((p) => p.filter((t) => t !== tag))} className="hover:text-red-400"><X className="h-3 w-3" /></button>
-                </Badge>
-              ))}
-            </div>
-            <Input placeholder="Type tag + Enter" value={tagInput} onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addTag(tagInput); } }} />
-          </div>
-          <div className="space-y-2">
-            <Label>Subtasks</Label>
-            {subtasks.length > 0 && (
-              <div className="space-y-1">{subtasks.map((st, i) => (
-                <div key={i} className="flex items-center justify-between text-sm px-2 py-1 bg-muted/30 rounded-sm">
-                  <span className="truncate">{st}</span>
-                  <button type="button" onClick={() => setSubtasks((p) => p.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-red-400 shrink-0 ml-2"><Trash2 className="h-3 w-3" /></button>
-                </div>
-              ))}</div>
-            )}
-            <div className="flex gap-2">
-              <Input placeholder="Add subtask..." value={subtaskInput} onChange={(e) => setSubtaskInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtask(); } }} />
-              <Button type="button" variant="outline" size="sm" onClick={addSubtask} disabled={!subtaskInput.trim()}>Add</Button>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => { reset(); onOpenChange(false); }}>Cancel</Button>
-          <Button onClick={handleSubmit} disabled={!title.trim()}>Create Task</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+// 4.24: CreateTaskDialog extracted to create-task-dialog.tsx
 
 // ─── Main Board ────────────────────────────────────────────
 export function TaskBoard() {
@@ -1143,6 +719,7 @@ export function TaskBoard() {
   const [agentFilter, setAgentFilter] = useState("all");
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [swimlaneGroupBy, setSwimlaneGroupBy] = useState<"agent" | "priority" | "tag">("agent");
+  const [automationRulesOpen, setAutomationRulesOpen] = useState(false);
 
   // Fetch real agents
   const { data: agentStatuses = [] } = useQuery<MCAgentStatus[]>({
@@ -1187,12 +764,20 @@ export function TaskBoard() {
     if (apiTasks && !isSyncingRef.current) setTasks(apiTasks);
   }, [apiTasks]);
 
+  // 4.23: Use ref for selectedTask ID to avoid infinite re-render loop.
+  // Previously [tasks, selectedTask] caused cycles because setSelectedTask
+  // triggers re-render which re-runs the effect.
+  const selectedTaskIdRef = useRef<string | null>(null);
+  selectedTaskIdRef.current = selectedTask?.id ?? null;
+
   useEffect(() => {
-    if (selectedTask) {
-      const updated = tasks.find((t) => t.id === selectedTask.id);
+    const selId = selectedTaskIdRef.current;
+    if (selId) {
+      const updated = tasks.find((t) => t.id === selId);
       if (updated) setSelectedTask(updated);
     }
-  }, [tasks, selectedTask]);
+    // Only depend on tasks, not selectedTask
+  }, [tasks]);
 
   // Per-task data
   const { data: taskComments = [] } = useQuery<MCComment[]>({
@@ -1264,19 +849,42 @@ export function TaskBoard() {
   }
 
   const persistDragMove = useCallback(
-    async (taskId: string, columnId: string, position: number) => {
+    async (taskId: string, columnId: string, position: number, sameColumn?: boolean) => {
       try {
-        const res = await fetch(`/api/mission-control/tasks/${taskId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ column_id: columnId, position, ...(columnId !== "done" ? { completed_at: null } : {}) }),
-        });
-        if (!res.ok) throw new Error();
+        if (sameColumn) {
+          // 4.20: For same-column reorder, use the bulk reorder endpoint
+          // to persist all positions in the column at once
+          const currentTasks = tasksRef.current;
+          const colTasks = currentTasks
+            .filter((t) => t.column_id === columnId)
+            .sort((a, b) => a.position - b.position);
+          const updates = colTasks.map((t, i) => ({
+            id: t.id,
+            column_id: columnId,
+            position: i,
+          }));
+          const res = await fetch("/api/mission-control/tasks/reorder", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ updates }),
+          });
+          if (!res.ok) throw new Error();
+        } else {
+          const res = await fetch(`/api/mission-control/tasks/${taskId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ column_id: columnId, position, ...(columnId !== "done" ? { completed_at: null } : {}) }),
+          });
+          if (!res.ok) throw new Error();
+        }
       } catch {
         toast.error("Failed to save task move.");
         queryClient.invalidateQueries({ queryKey: ["mc-tasks"] });
       } finally {
-        isSyncingRef.current = false; // FIX-17: clear in callback, not timer
+        // 4.20: Delay clearing isSyncingRef to prevent stale state from refetch
+        setTimeout(() => {
+          isSyncingRef.current = false;
+        }, 500);
       }
     },
     [queryClient]
@@ -1343,20 +951,23 @@ export function TaskBoard() {
       if (col) {
         const colTasks = currentTasks.filter((t) => t.column_id === col).sort((a, b) => a.position - b.position);
         const idx = colTasks.findIndex((t) => t.id === active.id);
-        persistDragMove(active.id as string, col, idx >= 0 ? idx : 0);
+        // 4.20: Pass sameColumn flag for bulk reorder
+        const wasSameColumn = activeCol === overCol;
+        persistDragMove(active.id as string, col, idx >= 0 ? idx : 0, wasSameColumn);
       }
     }
   }
 
   async function handleCreateTask(partial: Partial<MCTask>) {
     const now = new Date().toISOString();
-    const planningTasks = tasks.filter((t) => t.column_id === "planning");
+    const targetColumn = partial.column_id || "planning";
+    const columnTasks = tasks.filter((t) => t.column_id === targetColumn);
     const tempId = crypto.randomUUID();
     const newTask: MCTask = {
       id: tempId, user_id: "", title: partial.title || "Untitled", description: partial.description || null,
-      column_id: "planning", priority: partial.priority || "medium", assigned_agent_id: partial.assigned_agent_id || null,
+      column_id: targetColumn, priority: partial.priority || "medium", assigned_agent_id: partial.assigned_agent_id || null,
       assigned_agent: partial.assigned_agent || null, created_by: "user", due_date: partial.due_date || null,
-      estimated_hours: partial.estimated_hours || null, actual_hours: null, position: planningTasks.length,
+      estimated_hours: partial.estimated_hours || null, actual_hours: null, position: columnTasks.length,
       acceptance_criteria: null, outcome: null, error_message: null, resolution: null,
       metadata: partial.metadata || {}, created_at: now, updated_at: now, completed_at: null,
     };
@@ -1478,6 +1089,7 @@ export function TaskBoard() {
             agentFilter={agentFilter} onAgentChange={setAgentFilter}
             agents={realAgents} totalCount={tasks.length} filteredCount={filteredTasks.length}
             viewMode={viewMode} onViewModeChange={setViewMode}
+            onOpenAutomationRules={() => setAutomationRulesOpen(true)}
           />
 
           {viewMode === "list" ? (
@@ -1522,7 +1134,14 @@ export function TaskBoard() {
       )}
 
       <CreateTaskDialog open={createOpen} onOpenChange={setCreateOpen} onSubmit={handleCreateTask} agents={realAgents} />
-      <CommandPalette open={cmdPaletteOpen} onOpenChange={setCmdPaletteOpen} onCreateTask={() => setCreateOpen(true)} />
+      <CommandPalette
+        open={cmdPaletteOpen} onOpenChange={setCmdPaletteOpen}
+        onCreateTask={() => setCreateOpen(true)}
+        onOpenAutomationRules={() => setAutomationRulesOpen(true)}
+        onFilterByPriority={(p: string) => setPriorityFilter(p)}
+        onSearchTasks={() => { document.getElementById("mc-task-search")?.focus(); }}
+      />
+      <AutomationRulesDialog open={automationRulesOpen} onOpenChange={setAutomationRulesOpen} />
 
       <TaskDetailModal
         task={selectedTask} open={!!selectedTask}
@@ -1530,6 +1149,7 @@ export function TaskBoard() {
         onUpdate={handleUpdateTask} onDelete={handleDeleteTask}
         comments={taskComments} reviews={taskReviews} activities={taskActivities}
         onAddComment={handleAddComment} onAddReview={handleAddReview}
+        allTasks={tasks}
       />
     </>
   );

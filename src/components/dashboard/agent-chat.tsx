@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Loader2, RotateCcw, AlertCircle } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { Bot, Send, Loader2, RotateCcw, AlertCircle, PanelLeftClose, PanelLeftOpen, History } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Copy, Check as CheckIcon } from "lucide-react";
+import { ChatExport } from "@/components/dashboard/chat-export";
+import { ChatReadReceipt, getMessageStatus } from "@/components/dashboard/chat-read-receipt";
+import { ChatSoundToggle, useChatSound } from "@/components/dashboard/chat-sound-toggle";
+import { ChatHistoryPanel } from "@/components/dashboard/chat-history-panel";
 
 function CodeBlock({ children, className }: { children: string; className?: string }) {
   const [copied, setCopied] = useState(false);
@@ -80,8 +84,22 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [lastUserMessage, setLastUserMessage] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const chatSound = useChatSound();
+
+  // Abort any in-flight stream when agent changes
+  useEffect(() => {
+    // Abort previous stream on agent switch
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setSidebarOpen(false);
+  }, [selectedAgent]);
 
   // Load message history when agent changes
   useEffect(() => {
@@ -132,6 +150,13 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
   };
 
   const sendMessage = async (message: string, newSession = false) => {
+    // Abort any previous stream
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     const streamMsgId = `stream-${Date.now()}`;
 
@@ -145,6 +170,7 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
           message,
           new_session: newSession,
         }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
@@ -217,7 +243,11 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
           },
         ]);
       }
-    } catch {
+    } catch (err: unknown) {
+      // Don't show error if request was intentionally aborted (e.g. agent switch)
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -229,7 +259,11 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
         },
       ]);
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       setLoading(false);
+      chatSound.playNotification();
       textareaRef.current?.focus();
     }
   };
@@ -405,18 +439,42 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full relative">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-background/80 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Left panel: Agent list */}
-      <div className="w-64 border-r border-border flex flex-col">
-        <div className="px-4 py-3 border-b border-border">
+      <div className={cn(
+        "w-64 border-r border-border flex flex-col bg-background z-40 transition-transform duration-200",
+        "fixed inset-y-0 left-0 md:relative md:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold">Agents</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
         </div>
         <ScrollArea className="flex-1">
           <div className="p-2">
             {agents.map((agent) => (
               <button
                 key={agent.id}
-                onClick={() => setSelectedAgent(agent)}
+                onClick={() => {
+                  setSelectedAgent(agent);
+                  setSidebarOpen(false);
+                }}
                 className={cn(
                   "w-full text-left px-3 py-2.5 text-sm transition-colors flex items-center gap-2.5",
                   selectedAgent?.id === agent.id
@@ -433,23 +491,53 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
       </div>
 
       {/* Right panel: Chat */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Chat header */}
         <div className="px-6 py-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 md:hidden"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open agent list"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </Button>
             <Bot className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold">{selectedAgent?.name}</h2>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNewSession}
-            disabled={loading}
-            className="text-xs text-muted-foreground"
-          >
-            <RotateCcw className="h-3 w-3 mr-1.5" />
-            New Session
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setHistoryOpen(!historyOpen)}
+              className="text-xs text-muted-foreground"
+              aria-label="Toggle conversation history"
+            >
+              <History className="h-3 w-3 mr-1.5" />
+              History
+            </Button>
+            <ChatSoundToggle enabled={chatSound.enabled} onToggle={chatSound.toggle} />
+            <ChatExport
+              agentName={selectedAgent?.name || "Agent"}
+              messages={messages.filter(m => m.role !== "system").map(m => ({
+                role: m.role,
+                content: m.content,
+                created_at: m.created_at,
+              }))}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewSession}
+              disabled={loading}
+              className="text-xs text-muted-foreground"
+            >
+              <RotateCcw className="h-3 w-3 mr-1.5" />
+              New Session
+            </Button>
+          </div>
         </div>
 
         {/* Messages */}
@@ -529,9 +617,15 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
                           msg.content
                         )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground mt-1 px-1">
-                        {formatMessageTime(msg.created_at)}
-                      </span>
+                      <div className="flex items-center gap-2 mt-1 px-1">
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatMessageTime(msg.created_at)}
+                        </span>
+                        {(() => {
+                          const status = getMessageStatus(msg.id, msg.role, messages, loading);
+                          return status ? <ChatReadReceipt status={status} /> : null;
+                        })()}
+                      </div>
                     </>
                   )}
                 </div>
@@ -572,6 +666,7 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
               disabled={!input.trim() || loading}
               size="sm"
               className="h-9 px-3"
+              aria-label="Send message"
             >
               <Send className="h-4 w-4" />
             </Button>
@@ -582,6 +677,26 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
           </p>
         </div>
       </div>
+
+      {/* UX_07: Conversation history panel */}
+      {historyOpen && selectedAgent && (
+        <div className="w-64 border-l border-border bg-background hidden md:flex md:flex-col">
+          <ChatHistoryPanel
+            agentId={selectedAgent.id}
+            onSelectConversation={(conversationId) => {
+              // Load messages for this conversation
+              setLoadingHistory(true);
+              fetch(`/api/chat/messages?agent_id=${selectedAgent.id}&conversation_id=${conversationId}`)
+                .then((res) => res.json())
+                .then((data) => {
+                  setMessages(data.messages || []);
+                })
+                .catch(() => {})
+                .finally(() => setLoadingHistory(false));
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }

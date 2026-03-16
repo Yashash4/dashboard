@@ -5,6 +5,7 @@ import { configureChannel } from "@/lib/ssh";
 import { encryptCredentials, isEncryptionConfigured } from "@/lib/crypto";
 import { rateLimit } from "@/lib/rate-limit";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
+import { decryptField } from "@/lib/credential-utils";
 
 const VALID_CHANNELS = [
   "whatsapp",
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       {
         ip_address: vps.ip_address,
         ssh_user: vps.ssh_user,
-        ssh_password: vps.ssh_password,
+        ssh_password: decryptField(vps.ssh_password),
         ssh_port: vps.ssh_port,
       },
       channel_type,

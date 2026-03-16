@@ -123,9 +123,13 @@ export default function Comparison() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.1 }}
-          className="rounded-lg border border-border overflow-hidden"
+          className="rounded-lg border border-border overflow-hidden relative"
         >
-          <div className="overflow-x-auto">
+          {/* Mobile scroll indicator */}
+          <div className="md:hidden flex items-center justify-end gap-1 px-4 py-2 text-[10px] text-muted-foreground border-b border-border/50">
+            Scroll <span aria-hidden="true">&rarr;</span>
+          </div>
+          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-card">
@@ -191,6 +195,28 @@ export default function Comparison() {
           Still comparing? Add up hosting + AI API + channel plugins +
           maintenance time. Then compare that to one ClawHQ plan.
         </motion.p>
+
+        {/* Mini CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="text-center py-12"
+        >
+          <p className="text-muted-foreground mb-4">Ready to stop stitching together tools?</p>
+          <a
+            href="/register"
+            className="inline-flex items-center gap-2 px-6 py-3 font-medium text-sm transition-opacity hover:opacity-90"
+            style={{
+              borderRadius: "var(--radius)",
+              backgroundColor: "var(--cream)",
+              color: "var(--cream-foreground)",
+            }}
+          >
+            Get Started — $59/mo
+          </a>
+        </motion.div>
       </div>
     </section>
   );

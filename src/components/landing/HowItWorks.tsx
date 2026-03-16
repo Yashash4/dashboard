@@ -7,13 +7,13 @@ export default function HowItWorks() {
     <section id="how-it-works" className="py-32 px-6">
       <div className="container mx-auto max-w-4xl">
         {/* Outer box */}
-        <div className="bg-card border-l border-t border-primary pl-6 pt-6">
+        <div className="bg-card border-l border-t border-primary pl-3 pt-3 sm:pl-6 sm:pt-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="p-6"
+            className="p-3 sm:p-6"
           >
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
               How it works
@@ -26,20 +26,20 @@ export default function HowItWorks() {
           </motion.div>
 
           {/* Box 1: Pick a plan — inside outer */}
-          <div className="border-l border-t border-primary pl-6 pt-6">
+          <div className="border-l border-t border-primary pl-3 pt-3 sm:pl-6 sm:pt-6">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: 0.1 }}
-              className="p-6"
+              className="p-3 sm:p-6"
             >
               <h3 className="text-lg md:text-xl font-semibold text-primary mb-3">
                 Pick a plan
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed mb-5 max-w-lg">
                 Choose from Starter, Pro, Ultra, or Enterprise. Every plan comes
-                with a dedicated server, 500+ AI models, all 7 messaging
+                with a dedicated server, AI models, all 7 messaging
                 channels, and a full management dashboard. No hidden add-ons.
               </p>
               <a
@@ -51,13 +51,13 @@ export default function HowItWorks() {
             </motion.div>
 
             {/* Box 2: We deploy — inside box 1 */}
-            <div className="border-l border-t border-primary pl-6 pt-6">
+            <div className="border-l border-t border-primary pl-3 pt-3 sm:pl-6 sm:pt-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: 0.2 }}
-                className="p-6"
+                className="p-3 sm:p-6"
               >
                 <h3 className="text-lg md:text-xl font-semibold text-primary mb-3">
                   We deploy everything
@@ -77,13 +77,13 @@ export default function HowItWorks() {
               </motion.div>
 
               {/* Box 3: Connect channels — inside box 2 */}
-              <div className="border-l border-t border-primary pl-6 pt-6">
+              <div className="border-l border-t border-primary pl-3 pt-3 sm:pl-6 sm:pt-6">
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.4, delay: 0.3 }}
-                  className="p-6"
+                  className="p-3 sm:p-6"
                 >
                   <h3 className="text-lg md:text-xl font-semibold text-primary mb-3">
                     Connect your channels
@@ -103,13 +103,13 @@ export default function HowItWorks() {
                 </motion.div>
 
                 {/* Box 4: You're live — inside box 3 */}
-                <div className="border-l border-t border-primary pl-6 pt-6">
+                <div className="border-l border-t border-primary pl-3 pt-3 sm:pl-6 sm:pt-6">
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.4, delay: 0.4 }}
-                    className="p-6"
+                    className="p-3 sm:p-6"
                   >
                     <h3 className="text-lg md:text-xl font-semibold text-primary mb-3">
                       You&apos;re live

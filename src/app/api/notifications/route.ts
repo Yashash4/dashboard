@@ -52,7 +52,7 @@ export async function PATCH(request: NextRequest) {
       .update({ read: true })
       .eq("user_id", user.id)
       .eq("read", false);
-  } else if (Array.isArray(body.ids) && body.ids.length > 0) {
+  } else if (Array.isArray(body.ids) && body.ids.length > 0 && body.ids.length <= 100) {
     await admin
       .from("user_notifications")
       .update({ read: true })

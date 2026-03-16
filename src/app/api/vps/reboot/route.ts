@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rebootVPS } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 export async function POST() {
   const supabase = await createClient();
@@ -56,7 +57,7 @@ export async function POST() {
     await rebootVPS({
       ip_address: vps.ip_address,
       ssh_user: vps.ssh_user,
-      ssh_password: vps.ssh_password,
+      ssh_password: decryptField(vps.ssh_password),
       ssh_port: vps.ssh_port,
     });
 

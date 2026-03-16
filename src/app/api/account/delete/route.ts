@@ -60,27 +60,60 @@ export async function DELETE(request: NextRequest) {
   const userId = user.id;
 
   // Delete user data — order matters for FK constraints
-  // Phase 1: child tables (no FK dependencies on other user tables)
+  // 2.32: Comprehensive cleanup of all user-related tables
+
+  // Gather IDs needed for child table cleanup
+  const [ticketRes, channelRes, conversationRes, webhookRes, mcTaskRes] = await Promise.all([
+    admin.from("support_tickets").select("id").eq("user_id", userId),
+    admin.from("channels").select("id").eq("user_id", userId),
+    admin.from("chat_conversations").select("id").eq("user_id", userId),
+    admin.from("webhooks").select("id").eq("user_id", userId),
+    admin.from("mc_tasks").select("id").eq("user_id", userId),
+  ]);
+
+  const ticketIds = ticketRes.data?.map((t) => t.id) || [];
+  const channelIds = channelRes.data?.map((c) => c.id) || [];
+  const conversationIds = conversationRes.data?.map((c) => c.id) || [];
+  const webhookIds = webhookRes.data?.map((w) => w.id) || [];
+  const mcTaskIds = mcTaskRes.data?.map((t) => t.id) || [];
+
+  // Phase 1: deep child tables (FK dependencies on other user tables)
   await Promise.allSettled([
-    admin.from("ticket_messages").delete().in(
-      "ticket_id",
-      (await admin.from("support_tickets").select("id").eq("user_id", userId)).data?.map((t) => t.id) || []
-    ),
-    admin.from("channel_credentials").delete().in(
-      "channel_id",
-      (await admin.from("channels").select("id").eq("user_id", userId)).data?.map((c) => c.id) || []
-    ),
-    admin.from("chat_messages").delete().in(
-      "conversation_id",
-      (await admin.from("chat_conversations").select("id").eq("user_id", userId)).data?.map((c) => c.id) || []
-    ),
+    // Ticket children
+    ...(ticketIds.length > 0
+      ? [
+          admin.from("ticket_messages").delete().in("ticket_id", ticketIds),
+          admin.from("ticket_attachments").delete().in("ticket_id", ticketIds),
+        ]
+      : []),
+    // Channel children
+    ...(channelIds.length > 0
+      ? [admin.from("channel_credentials").delete().in("channel_id", channelIds)]
+      : []),
+    // Chat children
+    ...(conversationIds.length > 0
+      ? [admin.from("chat_messages").delete().in("conversation_id", conversationIds)]
+      : []),
+    // Webhook children
+    ...(webhookIds.length > 0
+      ? [admin.from("webhook_deliveries").delete().in("webhook_id", webhookIds)]
+      : []),
+    // MC task children
+    ...(mcTaskIds.length > 0
+      ? [
+          admin.from("mc_task_dependencies").delete().in("task_id", mcTaskIds),
+          admin.from("mc_reviews").delete().in("task_id", mcTaskIds),
+          admin.from("mc_comments").delete().in("task_id", mcTaskIds),
+          admin.from("mc_activities").delete().in("task_id", mcTaskIds),
+        ]
+      : []),
+    // Direct user_id children
     admin.from("user_notifications").delete().eq("user_id", userId),
     admin.from("user_onboarding").delete().eq("user_id", userId),
   ]);
 
-  // Phase 2: parent tables
+  // Phase 2: parent tables with user_id FK
   await Promise.allSettled([
-    admin.from("ticket_attachments").delete().eq("user_id", userId),
     admin.from("chat_conversations").delete().eq("user_id", userId),
     admin.from("support_tickets").delete().eq("user_id", userId),
     admin.from("user_agents").delete().eq("user_id", userId),
@@ -88,11 +121,39 @@ export async function DELETE(request: NextRequest) {
     admin.from("subscriptions").delete().eq("user_id", userId),
     admin.from("models").delete().eq("user_id", userId),
     admin.from("agent_analytics").delete().eq("user_id", userId),
+    admin.from("vps_instances").delete().eq("user_id", userId),
+    admin.from("api_keys").delete().eq("user_id", userId),
+    admin.from("webhooks").delete().eq("user_id", userId),
+    admin.from("model_change_history").delete().eq("user_id", userId),
+    admin.from("auto_responses").delete().eq("user_id", userId),
+    admin.from("business_hours").delete().eq("user_id", userId),
+    admin.from("custom_domains").delete().eq("user_id", userId),
+    admin.from("scheduled_restarts").delete().eq("user_id", userId),
+    admin.from("analytics_daily_summary").delete().eq("user_id", userId),
+    admin.from("payments").delete().eq("user_id", userId),
+    admin.from("payment_orders").delete().eq("user_id", userId),
+    // Mission Control tables
+    admin.from("mc_tasks").delete().eq("user_id", userId),
+    admin.from("mc_task_templates").delete().eq("user_id", userId),
+    admin.from("mc_recurring_tasks").delete().eq("user_id", userId),
+    admin.from("mc_automation_rules").delete().eq("user_id", userId),
+    admin.from("mc_agent_status").delete().eq("user_id", userId),
+    admin.from("mc_events").delete().eq("user_id", userId),
   ]);
 
   // Phase 3: clean up Supabase Storage
   await Promise.allSettled([
     admin.storage.from("avatars").remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`, `${userId}/avatar.gif`, `${userId}/avatar.webp`]),
+    // Clean up ticket attachment files
+    ...(ticketIds.length > 0
+      ? ticketIds.map((id) =>
+          admin.storage.from("ticket-attachments").list(id).then(async ({ data: files }) => {
+            if (files && files.length > 0) {
+              await admin.storage.from("ticket-attachments").remove(files.map((f) => `${id}/${f.name}`));
+            }
+          })
+        )
+      : []),
   ]);
 
   // Delete the users table entry

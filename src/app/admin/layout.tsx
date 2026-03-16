@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase-server";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import {
@@ -29,6 +30,22 @@ export default async function AdminLayout({
 
   if (!user || user.role !== "admin") {
     redirect("/");
+  }
+
+  // 2.21: Defense-in-depth MFA check — require AAL2 if TOTP is enrolled
+  const { data: aal } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+  const headersList = await headers();
+  const currentPath = headersList.get("x-next-pathname") || "";
+
+  if (
+    aal &&
+    aal.nextLevel === "aal2" &&
+    aal.currentLevel !== "aal2" &&
+    !currentPath.startsWith("/admin/verify-2fa")
+  ) {
+    redirect("/admin/verify-2fa");
   }
 
   return (

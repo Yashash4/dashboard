@@ -38,6 +38,13 @@ export async function POST(
     );
   }
 
+  if (message.length > 5000) {
+    return NextResponse.json(
+      { error: "Message must be at most 5000 characters" },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
 
   // Verify user owns this ticket

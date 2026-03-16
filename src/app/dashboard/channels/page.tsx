@@ -18,8 +18,16 @@ export default async function ChannelsPage() {
     redirect("/login");
   }
 
-  let channels: any[] | null = null;
-  let vps: any = null;
+  let channels: {
+    id: string;
+    channel_type: string;
+    status: string;
+    configured_at: string | null;
+    health_status: string | null;
+    last_health_check: string | null;
+    error_message: string | null;
+  }[] | null = null;
+  let vps: { status: string } | null = null;
   let plan = "starter";
 
   try {

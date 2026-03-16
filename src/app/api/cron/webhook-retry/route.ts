@@ -7,7 +7,12 @@ const MAX_RETRIES = 3;
 const BACKOFF_DELAYS = [30_000, 120_000, 900_000]; // 30s, 2min, 15min
 
 /** GET /api/cron/webhook-retry — Process pending webhook retries */
-export async function GET() {
+export async function GET(request: Request) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = createAdminClient();
 
   // Find failed deliveries that need retry

@@ -1,32 +1,40 @@
+"use client";
+
+import dynamic from "next/dynamic";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import ChannelBar from "@/components/landing/ChannelBar";
-import Stats from "@/components/landing/Stats";
-import ProductTour from "@/components/landing/ProductTour";
-import Features from "@/components/landing/Features";
-import BeforeAfter from "@/components/landing/BeforeAfter";
-import HowItWorks from "@/components/landing/HowItWorks";
-import Pricing from "@/components/landing/Pricing";
-import WhyClawHQ from "@/components/landing/WhyClawHQ";
-import Comparison from "@/components/landing/Comparison";
-import FAQ from "@/components/landing/FAQ";
-import CTA from "@/components/landing/CTA";
 import Footer from "@/components/landing/Footer";
+
+// Lazy load below-fold sections
+const Features = dynamic(() => import("@/components/landing/Features"), { ssr: false });
+const ProductTour = dynamic(() => import("@/components/landing/ProductTour"), { ssr: false });
+const HowItWorks = dynamic(() => import("@/components/landing/HowItWorks"), { ssr: false });
+const WhyClawHQ = dynamic(() => import("@/components/landing/WhyClawHQ"), { ssr: false });
+const Comparison = dynamic(() => import("@/components/landing/Comparison"), { ssr: false });
+const Pricing = dynamic(() => import("@/components/landing/Pricing"), { ssr: false });
+const Stats = dynamic(() => import("@/components/landing/Stats"), { ssr: false });
+const FAQ = dynamic(() => import("@/components/landing/FAQ"), { ssr: false });
+const CTA = dynamic(() => import("@/components/landing/CTA"), { ssr: false });
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-[var(--radius)]">
+        Skip to content
+      </a>
       <Navbar />
-      <Hero />
+      <div id="main-content">
+        <Hero />
+      </div>
       <ChannelBar />
-      <Stats />
-      <ProductTour />
       <Features />
-      <BeforeAfter />
+      <ProductTour />
       <HowItWorks />
-      <Pricing />
       <WhyClawHQ />
       <Comparison />
+      <Pricing />
+      <Stats />
       <FAQ />
       <CTA />
       <Footer />

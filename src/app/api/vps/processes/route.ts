@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { getProcessList } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 export async function GET() {
   const supabase = await createClient();
@@ -54,7 +55,7 @@ export async function GET() {
     const processes = await getProcessList({
       ip_address: vps.ip_address,
       ssh_user: vps.ssh_user,
-      ssh_password: vps.ssh_password,
+      ssh_password: decryptField(vps.ssh_password),
       ssh_port: vps.ssh_port,
     });
     return NextResponse.json({ processes });

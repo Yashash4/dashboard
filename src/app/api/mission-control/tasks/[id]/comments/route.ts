@@ -68,6 +68,18 @@ export async function POST(
   }
 
   try {
+    // Verify the task belongs to the authenticated user
+    const { data: task } = await supabase
+      .from("mc_tasks")
+      .select("id")
+      .eq("id", taskId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
     // Get user name for author field
     const { data: profile } = await supabase
       .from("users")

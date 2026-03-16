@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import https from "https";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -20,7 +21,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
-  const { data: vps } = await supabase
+  const admin = createAdminClient();
+  const { data: vps } = await admin
     .from("vps_instances")
     .select("hostname")
     .eq("user_id", user.id)

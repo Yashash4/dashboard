@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
 
+const VALID_COLUMNS = ["planning", "inbox", "assigned", "in_progress", "testing", "review", "done"] as const;
+const VALID_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+
 // GET /api/mission-control/tasks — list tasks (filterable)
 export async function GET(request: NextRequest) {
   const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
@@ -23,6 +26,7 @@ export async function GET(request: NextRequest) {
       .from("mc_tasks")
       .select("*, agents:assigned_agent_id(id, name)", { count: "exact" })
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .order("position", { ascending: true })
       .range(offset, offset + limit - 1);
 
@@ -56,7 +60,20 @@ export async function POST(request: NextRequest) {
   const { user } = guard;
 
   const supabase = await createClient();
-  const body = await request.json();
+
+  // 4.8: Check actual body size by reading as text first
+  const bodyText = await request.text();
+  if (bodyText.length > 51200) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = JSON.parse(bodyText);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
   const {
     title,
     description,
@@ -83,6 +100,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
+  // 4.7: String length validation
+  if (title.trim().length > 200) {
+    return NextResponse.json({ error: "Title must be 200 characters or less" }, { status: 400 });
+  }
+  if (description && description.trim().length > 5000) {
+    return NextResponse.json({ error: "Description must be 5000 characters or less" }, { status: 400 });
+  }
+
+  // 4.5: Validate column_id
+  if (!VALID_COLUMNS.includes(column_id as typeof VALID_COLUMNS[number])) {
+    return NextResponse.json({ error: `Invalid column_id. Must be one of: ${VALID_COLUMNS.join(", ")}` }, { status: 400 });
+  }
+
+  // 4.6: Validate priority
+  if (!VALID_PRIORITIES.includes(priority as typeof VALID_PRIORITIES[number])) {
+    return NextResponse.json({ error: `Invalid priority. Must be one of: ${VALID_PRIORITIES.join(", ")}` }, { status: 400 });
+  }
+
   try {
     const { count } = await supabase
       .from("mc_tasks")
@@ -102,7 +137,7 @@ export async function POST(request: NextRequest) {
         priority,
         assigned_agent_id: assigned_agent_id || null,
         due_date: due_date || null,
-        estimated_hours: estimated_hours || null,
+        estimated_hours: estimated_hours ?? null,
         acceptance_criteria: acceptance_criteria?.trim() || null,
         position: count || 0,
         metadata,

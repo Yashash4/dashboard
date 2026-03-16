@@ -12,8 +12,15 @@ export default async function StorePage() {
     redirect("/login");
   }
 
-  let agents: any[] | null = null;
-  let userAgents: any[] | null = null;
+  let agents: {
+    id: string;
+    name: string;
+    description: string | null;
+    category: string | null;
+    price: number;
+    is_premium: boolean;
+  }[] | null = null;
+  let userAgents: { agent_id: string }[] | null = null;
 
   try {
     const [agentsRes, userAgentsRes] = await Promise.all([
@@ -39,7 +46,7 @@ export default async function StorePage() {
     );
   }
 
-  const ownedAgentIds = (userAgents || []).map((ua: any) => ua.agent_id);
+  const ownedAgentIds = (userAgents || []).map((ua) => ua.agent_id);
 
   return (
     <div>

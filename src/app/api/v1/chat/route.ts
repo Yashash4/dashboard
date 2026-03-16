@@ -1,11 +1,18 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase-admin";
-import { rateLimit } from "@/lib/rate-limit";
 import { searchKBChunks } from "@/lib/knowledge-base";
 import { shouldSearchKB } from "@/lib/rag-classifier";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
-import { createRequestContext, apiError, type RequestContext } from "@/lib/api-errors";
+import { apiError } from "@/lib/api-errors";
+import { decryptField } from "@/lib/credential-utils";
+import { moderateApiInput } from "@/lib/moderation";
+import { validateV1Auth } from "@/lib/v1-auth";
+
+/** Max streaming duration in seconds (Next.js edge/serverless limit) */
+export const maxDuration = 60;
+
+/** Body size limit for this POST route */
+const MAX_BODY_SIZE = 102_400; // 100 KB
 
 function sanitizeAgentName(name: string): string {
   return name
@@ -17,71 +24,24 @@ function sanitizeAgentName(name: string): string {
 
 /** POST /api/v1/chat — API key authenticated chat endpoint */
 export async function POST(request: NextRequest) {
-  const ctx = createRequestContext(request);
+  const auth = await validateV1Auth(request);
+  if (auth instanceof NextResponse) return auth;
+  const { apiKey, admin, ctx } = auth;
 
-  // Extract Bearer token
-  const authHeader = request.headers.get("authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return apiError("invalid_api_key", "Missing Authorization: Bearer <api_key> header", ctx);
-  }
-
-  const rawKey = authHeader.slice(7).trim();
-  if (!rawKey.startsWith("clw_") || rawKey.length !== 36) {
-    return apiError("invalid_api_key", "Invalid API key format", ctx);
-  }
-
-  // Validate key via SHA-256 lookup
-  const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
-  const admin = createAdminClient();
-
-  const { data: apiKey, error: keyError } = await admin
-    .from("api_keys")
-    .select("id, user_id, status, rate_limit_per_min, usage_count")
-    .eq("key_hash", keyHash)
-    .single();
-
-  if (keyError || !apiKey) {
-    return apiError("invalid_api_key", "Invalid API key", ctx);
-  }
-
-  if (apiKey.status !== "active") {
-    return NextResponse.json(
-      { error: { code: "revoked_api_key", message: "API key has been revoked", type: "authentication_error", request_id: ctx.requestId } },
-      { status: 401, headers: { "X-Request-Id": ctx.requestId } }
-    );
-  }
-
-  // Plan check — keys must not work after downgrade from Pro
-  const { data: sub } = await admin
-    .from("subscriptions")
-    .select("plan")
-    .eq("user_id", apiKey.user_id)
-    .single();
-  const plan = (sub?.plan as string) || "starter";
-  if (!["pro", "ultra", "enterprise"].includes(plan)) {
-    return NextResponse.json(
-      { error: { code: "plan_required", message: "API access requires a Pro plan or higher", type: "authorization_error", request_id: ctx.requestId } },
-      { status: 403, headers: { "X-Request-Id": ctx.requestId } }
-    );
-  }
-
-  // Per-key rate limiting
-  const rpm = apiKey.rate_limit_per_min || 60;
-  const rl = rateLimit(`apikey:${apiKey.id}`, rpm, 60_000);
-  if (!rl.success) {
-    return NextResponse.json(
-      { error: { code: "rate_limited", message: "Rate limit exceeded. Try again later.", type: "api_error", request_id: ctx.requestId } },
-      { status: 429, headers: { "X-Request-Id": ctx.requestId, "Retry-After": "60" } }
-    );
+  // Body size check
+  const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
+  if (contentLength > MAX_BODY_SIZE) {
+    return apiError("invalid_request", "Request body too large (max 100KB)", ctx);
   }
 
   // Parse request body
-  const body = await request.json().catch(() => null);
+  const rawBody = await request.text().catch(() => "");
+  if (rawBody.length > MAX_BODY_SIZE) {
+    return apiError("invalid_request", "Request body too large (max 100KB)", ctx);
+  }
+  const body = (() => { try { return JSON.parse(rawBody); } catch { return null; } })();
   if (!body) {
-    return NextResponse.json(
-      { error: "Invalid JSON body" },
-      { status: 400 }
-    );
+    return apiError("invalid_request", "Invalid JSON body", ctx);
   }
 
   const { message, agent, session_id, stream } = body as {
@@ -92,24 +52,23 @@ export async function POST(request: NextRequest) {
   };
 
   if (!message?.trim()) {
-    return NextResponse.json(
-      { error: "message field is required" },
-      { status: 400 }
-    );
+    return apiError("missing_parameter", "message field is required", ctx, { param: "message" });
   }
 
   if (message.length > 100_000) {
-    return NextResponse.json(
-      { error: "Message too long (max 100KB)" },
-      { status: 400 }
-    );
+    return apiError("invalid_request", "Message too long (max 100KB)", ctx);
+  }
+
+  // Content moderation — block harmful inputs before sending to model
+  const modResult = moderateApiInput(message);
+  if (modResult.blocked) {
+    return apiError("content_blocked", modResult.category
+      ? `Content blocked: ${modResult.category}`
+      : "Your message was blocked by our content policy.", ctx);
   }
 
   if (session_id && (session_id.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(session_id))) {
-    return NextResponse.json(
-      { error: "session_id must be alphanumeric, max 128 chars" },
-      { status: 400 }
-    );
+    return apiError("invalid_parameter", "session_id must be alphanumeric, max 128 chars", ctx, { param: "session_id" });
   }
 
   const userId = apiKey.user_id;
@@ -136,10 +95,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!match) {
-      return NextResponse.json(
-        { error: `Agent "${agent}" not found or not deployed` },
-        { status: 404 }
-      );
+      return apiError("agent_not_found", `Agent "${agent}" not found or not deployed`, ctx);
     }
 
     agentId = (match as any).agent_id;
@@ -155,10 +111,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!firstAgent) {
-      return NextResponse.json(
-        { error: "No deployed agents found" },
-        { status: 400 }
-      );
+      return apiError("agent_not_found", "No deployed agents found", ctx);
     }
 
     agentId = firstAgent.agent_id;
@@ -175,14 +128,11 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (!vps) {
-    return NextResponse.json({ error: "No VPS provisioned" }, { status: 400 });
+    return apiError("agent_offline", "No VPS provisioned", ctx);
   }
 
   if (vps.status !== "running") {
-    return NextResponse.json(
-      { error: "VPS is not running" },
-      { status: 503 }
-    );
+    return apiError("agent_offline", "VPS is not running", ctx);
   }
 
   const dashboardUrl =
@@ -190,10 +140,7 @@ export async function POST(request: NextRequest) {
     (vps.hostname ? `https://${vps.hostname}` : null);
 
   if (!dashboardUrl) {
-    return NextResponse.json(
-      { error: "Dashboard URL not configured" },
-      { status: 500 }
-    );
+    return apiError("internal_error", "Dashboard URL not configured", ctx);
   }
 
   try {
@@ -233,7 +180,7 @@ export async function POST(request: NextRequest) {
 
     if (vps.dashboard_username && vps.dashboard_password) {
       const basicAuth = Buffer.from(
-        `${vps.dashboard_username}:${vps.dashboard_password}`
+        `${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`
       ).toString("base64");
       headers["Authorization"] = `Basic ${basicAuth}`;
     }
@@ -280,10 +227,7 @@ export async function POST(request: NextRequest) {
         })
         .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
 
-      return NextResponse.json(
-        { error: "Failed to get response from agent" },
-        { status: 502 }
-      );
+      return apiError("model_error", "Failed to get response from agent", ctx);
     }
 
     // --- Streaming response ---
@@ -294,6 +238,16 @@ export async function POST(request: NextRequest) {
 
       const sseStream = new ReadableStream({
         async start(controller) {
+          // Max SSE stream duration — close stream after 60s to prevent runaway connections
+          const streamTimeout = setTimeout(() => {
+            try {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { code: "model_timeout", message: "Stream timed out" } })}\n\n`));
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            } catch { /* already closed */ }
+            reader.cancel().catch(() => {});
+          }, 60_000);
+
           try {
             while (true) {
               const { done, value } = await reader.read();
@@ -324,8 +278,18 @@ export async function POST(request: NextRequest) {
                 }
               }
             }
+          } catch (streamErr) {
+            // Send error event instead of silently closing
+            try {
+              const errMsg = streamErr instanceof Error && streamErr.name === "AbortError"
+                ? "Stream aborted"
+                : "Stream error occurred";
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: { code: "stream_error", message: errMsg } })}\n\n`));
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            } catch { /* controller already closed */ }
           } finally {
-            controller.close();
+            clearTimeout(streamTimeout);
+            try { controller.close(); } catch { /* already closed */ }
             const responseTimeMs = Date.now() - analyticsStart;
             // Track analytics (non-blocking)
             admin
@@ -349,13 +313,17 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      return new Response(sseStream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      });
+      const sseHeaders: Record<string, string> = {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "X-Request-Id": ctx.requestId,
+      };
+      if (ctx.clientRequestId) {
+        sseHeaders["X-Client-Request-Id"] = ctx.clientRequestId;
+      }
+
+      return new Response(sseStream, { headers: sseHeaders });
     }
 
     // --- Non-streaming response ---
@@ -368,10 +336,12 @@ export async function POST(request: NextRequest) {
     }
 
     const assistantContent = rawContent
-      .replace(/<think>[\s\S]*?<\/think>/gi, "")
       .replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
-      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+      .replace(/<think>[\s\S]*?<\/think>/gi, "")
+      .replace(/\[thinking\][\s\S]*?\[\/thinking\]/gi, "")
       .replace(/<reflection>[\s\S]*?<\/reflection>/gi, "")
+      .replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, "")
+      .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
       .replace(/<\|think_start\|>[\s\S]*?<\|think_end\|>/gi, "")
       .trim() || "No response from agent";
 
@@ -423,15 +393,9 @@ export async function POST(request: NextRequest) {
       .then(() => {}, (e) => console.warn("[v1/chat] analytics insert failed:", e?.message));
 
     if (err instanceof Error && err.name === "AbortError") {
-      return NextResponse.json(
-        { error: "Agent took too long to respond" },
-        { status: 504 }
-      );
+      return apiError("model_timeout", "Agent took too long to respond", ctx);
     }
 
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return apiError("internal_error", "Internal server error", ctx);
   }
 }

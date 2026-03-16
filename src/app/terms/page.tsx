@@ -65,19 +65,22 @@ export default function TermsPage() {
             <ul className="list-disc pl-6 space-y-1">
               <li>
                 <span className="text-foreground font-medium">Starter</span> —
-                $59/month: Single agent, core channel integrations, 1 GB
-                knowledge base, community support.
+                $59/month: Unlimited free agents, all 7 channel integrations,
+                dedicated VPS, AI models included, health monitoring, custom
+                domain with auto-SSL, ticket support.
               </li>
               <li>
                 <span className="text-foreground font-medium">Pro</span> —
-                $129/month: Up to 5 agents, advanced analytics, 10 GB knowledge
-                base, priority support, mission control.
+                $129/month: Everything in Starter plus Agent Builder, Model
+                Playground, Knowledge Base with AI search, Webhooks, full API
+                access with SDKs, Logs Explorer, Usage Analytics, Audit Log,
+                priority support.
               </li>
               <li>
                 <span className="text-foreground font-medium">Ultra</span> —
-                $350/month: Unlimited agents, all channel integrations, 50 GB
-                knowledge base, dedicated support, custom domains, advanced
-                monitoring.
+                $350/month: Everything in Pro plus Mission Control command
+                center, Kanban task board, agent orchestration and automation,
+                session replay with traces, time tracking, priority support.
               </li>
               <li>
                 <span className="text-foreground font-medium">Enterprise</span>{" "}

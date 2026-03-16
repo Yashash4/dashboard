@@ -1,7 +1,9 @@
 import { CreditCard } from "lucide-react";
+import Link from "next/link";
 
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { BillingOverview } from "@/components/dashboard/billing-overview";
 
 export default async function BillingPage() {
@@ -15,8 +17,21 @@ export default async function BillingPage() {
     redirect("/login");
   }
 
-  let subscription: any = null;
-  let payments: any[] | null = null;
+  let subscription: {
+    plan: string;
+    billing_cycle: string | null;
+    price: number | null;
+    status: string;
+    started_at: string | null;
+    expires_at: string | null;
+  } | null = null;
+  let payments: {
+    id: string;
+    amount: number;
+    description: string | null;
+    status: string;
+    created_at: string;
+  }[] | null = null;
 
   try {
     const [subRes, paymentsRes] = await Promise.all([
@@ -55,9 +70,14 @@ export default async function BillingPage() {
             <div className="text-center py-8">
               <CreditCard className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">No Active Subscription</h2>
-              <p className="text-muted-foreground">
-                Your billing details will appear here once your subscription is active.
+              <p className="text-muted-foreground mb-4">
+                Choose a plan to get started with ClawHQ.
               </p>
+              <Button asChild>
+                <Link href="/pricing">
+                  Choose a Plan
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>

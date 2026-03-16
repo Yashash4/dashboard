@@ -2,30 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, Loader2, LogOut, Calendar } from "lucide-react";
+import { Shield, Loader2, LogOut, Calendar, Key } from "lucide-react";
 import { toast } from "sonner";
 import { createBrowserClient } from "@supabase/ssr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 interface SecuritySectionProps {
   createdAt: string;
+  passwordLastChanged?: string | null;
 }
 
-export function SecuritySection({ createdAt }: SecuritySectionProps) {
+export function SecuritySection({ createdAt, passwordLastChanged }: SecuritySectionProps) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
-  const accountAge = Math.floor(
-    (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
-
-  const securityScore = accountAge < 90 ? "Good" : "Fair";
-  const scoreClass =
-    securityScore === "Good"
-      ? "bg-green-600 text-white border-green-600"
-      : "bg-yellow-600 text-white border-yellow-600";
+  // UX_05: Display password last changed from user metadata
+  const passwordChangedDisplay = passwordLastChanged
+    ? new Date(passwordLastChanged).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Never changed";
 
   const handleSignOutAll = async () => {
     setSigningOut(true);
@@ -57,12 +56,15 @@ export function SecuritySection({ createdAt }: SecuritySectionProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-sm text-muted-foreground mb-1">
               Password Last Changed
             </p>
-            <p className="text-sm font-medium">Unknown</p>
+            <p className="text-sm font-medium flex items-center gap-1.5">
+              <Key className="h-3.5 w-3.5 text-muted-foreground" />
+              {passwordChangedDisplay}
+            </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground mb-1">
@@ -76,14 +78,6 @@ export function SecuritySection({ createdAt }: SecuritySectionProps) {
                 day: "numeric",
               })}
             </p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground mb-1">
-              Security Score
-            </p>
-            <Badge className={`${scoreClass} text-xs`}>
-              {securityScore}
-            </Badge>
           </div>
         </div>
 

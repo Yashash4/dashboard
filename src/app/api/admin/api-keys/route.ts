@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { configureApiKeys } from "@/lib/ssh";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { decryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -130,9 +131,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, configured: false });
   }
 
-  // Push to VPS
+  // Push to VPS (decrypt ssh_password for SSH connection)
   const result = await configureApiKeys(
-    vps,
+    { ...vps, ssh_password: decryptField(vps.ssh_password) },
     allKeys.map((k) => ({
       provider: k.provider,
       apiKey: k.api_key,
@@ -226,7 +227,7 @@ export async function DELETE(request: NextRequest) {
       .eq("user_id", userId);
 
     await configureApiKeys(
-      vps,
+      { ...vps, ssh_password: decryptField(vps.ssh_password) },
       (remainingKeys || []).map((k) => ({
         provider: k.provider,
         apiKey: k.api_key,

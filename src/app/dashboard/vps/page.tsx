@@ -23,8 +23,18 @@ export default async function VpsPage() {
     redirect("/login");
   }
 
-  let vps: any = null;
-  let subscription: any = null;
+  let vps: {
+    status: string;
+    hostname: string | null;
+    ip_address: string | null;
+    cpu_cores: number | null;
+    ram_gb: number | null;
+    storage_gb: number | null;
+    bandwidth_tb: number | null;
+    openclaw_dashboard_url: string | null;
+    created_at: string;
+  } | null = null;
+  let subscription: { plan: string } | null = null;
 
   try {
     const [vpsRes, subRes] = await Promise.all([
@@ -41,6 +51,8 @@ export default async function VpsPage() {
         .eq("user_id", user.id)
         .single(),
     ]);
+    if (vpsRes.error && vpsRes.error.code !== "PGRST116") throw vpsRes.error;
+    if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
     vps = vpsRes.data;
     subscription = subRes.data;
   } catch {

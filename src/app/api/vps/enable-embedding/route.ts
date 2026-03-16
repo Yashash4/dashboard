@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { enableDashboardEmbedding } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     const result = await enableDashboardEmbedding({
       ip_address: vps.ip_address,
       ssh_user: vps.ssh_user,
-      ssh_password: vps.ssh_password,
+      ssh_password: decryptField(vps.ssh_password),
       ssh_port: vps.ssh_port,
     });
 

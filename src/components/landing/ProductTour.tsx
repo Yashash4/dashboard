@@ -277,15 +277,20 @@ export default function ProductTour() {
         </motion.div>
 
         {/* Tab bar */}
-        <div className="flex justify-center gap-1 mb-12 flex-wrap">
+        <div className="flex justify-center gap-1 mb-12 flex-wrap" role="tablist" aria-label="Product tour sections">
           {TOUR_TABS.map((tab) => {
             const Icon = tab.icon;
+            const isSelected = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={isSelected}
+                aria-controls={`tour-panel-${tab.id}`}
+                id={`tour-tab-${tab.id}`}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-all ${
-                  activeTab === tab.id
+                  isSelected
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
@@ -298,7 +303,12 @@ export default function ProductTour() {
         </div>
 
         {/* Content */}
-        <div className="grid md:grid-cols-2 gap-10 items-center">
+        <div
+          id={`tour-panel-${activeTab}`}
+          role="tabpanel"
+          aria-labelledby={`tour-tab-${activeTab}`}
+          className="grid md:grid-cols-2 gap-10 items-center"
+        >
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -318,7 +328,7 @@ export default function ProductTour() {
                   {activeItem.description}
                 </p>
                 <a
-                  href="/register"
+                  href="/pricing"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[var(--cream)] text-[var(--cream-foreground)] text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   Get Started

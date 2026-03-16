@@ -42,6 +42,7 @@ export function ChatMessageActions({
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-foreground"
               onClick={handleCopy}
+              aria-label="Copy message"
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5 text-green-500" />
@@ -63,6 +64,7 @@ export function ChatMessageActions({
                 size="icon"
                 className="h-6 w-6 text-muted-foreground hover:text-foreground"
                 onClick={onRegenerate}
+                aria-label="Regenerate response"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
@@ -81,6 +83,7 @@ export function ChatMessageActions({
                 size="icon"
                 className="h-6 w-6 text-muted-foreground hover:text-foreground"
                 onClick={() => onEdit(content)}
+                aria-label="Edit message"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </Button>

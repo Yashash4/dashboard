@@ -44,12 +44,12 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch webhooks" }, { status: 500 });
   }
 
-  // Mask secrets — only show prefix + last 4 chars
+  // Mask secrets — only reveal last 4 chars
   const masked = (webhooks || []).map((w) => ({
     ...w,
-    secret: w.secret.length > 10
-      ? `${w.secret.slice(0, 6)}${"•".repeat(8)}${w.secret.slice(-4)}`
-      : "whsec_••••••••",
+    secret: w.secret.length > 4
+      ? `${"•".repeat(12)}${w.secret.slice(-4)}`
+      : "•".repeat(12),
   }));
 
   return NextResponse.json({ webhooks: masked });
@@ -79,7 +79,12 @@ export async function POST(request: NextRequest) {
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  const body = await request.json();
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { url, events, description } = body as {
     url?: string;
     events?: string[];
@@ -103,6 +108,13 @@ export async function POST(request: NextRequest) {
   if (url.length > 2048) {
     return NextResponse.json(
       { error: "URL too long (max 2048 characters)" },
+      { status: 400 }
+    );
+  }
+
+  if (description && description.length > 500) {
+    return NextResponse.json(
+      { error: "Description must be at most 500 characters" },
       { status: 400 }
     );
   }

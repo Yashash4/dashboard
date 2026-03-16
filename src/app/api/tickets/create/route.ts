@@ -37,9 +37,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (subject.length > 200) {
+    return NextResponse.json(
+      { error: "Subject must be at most 200 characters" },
+      { status: 400 }
+    );
+  }
+
   if (!description?.trim()) {
     return NextResponse.json(
       { error: "Description is required" },
+      { status: 400 }
+    );
+  }
+
+  if (description.length > 5000) {
+    return NextResponse.json(
+      { error: "Description must be at most 5000 characters" },
       { status: 400 }
     );
   }

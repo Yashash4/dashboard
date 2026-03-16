@@ -107,7 +107,7 @@ export function LogSavedViews() {
                     <Badge variant="outline" className="text-[10px]"><Star className="h-2.5 w-2.5 mr-0.5" />Default</Badge>
                   )}
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(view.id)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(view.id)} aria-label="Delete saved view">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </CardContent>

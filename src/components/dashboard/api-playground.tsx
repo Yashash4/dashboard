@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -123,6 +124,7 @@ export function ApiPlayground() {
   const [tryStream, setTryStream] = useState(false);
   const [tryResult, setTryResult] = useState<string | null>(null);
   const [trying, setTrying] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
 
   // Fetch user's API keys for the "Try it" dropdown
   const { data: keysData } = useQuery({
@@ -133,8 +135,6 @@ export function ApiPlayground() {
       return res.json();
     },
   });
-
-  const activeKeys = (keysData?.keys || []).filter((k: any) => k.status === "active");
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -157,11 +157,14 @@ export function ApiPlayground() {
 
       const startMs = Date.now();
 
-      // Use the dashboard session (cookie auth) for the try-it feature
-      // by calling chat/send instead of v1/chat (which needs API key)
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (apiKeyInput.trim()) {
+        headers["Authorization"] = `Bearer ${apiKeyInput.trim()}`;
+      }
+
       const res = await fetch(`${appUrl}/api/v1/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -280,6 +283,7 @@ export function ApiPlayground() {
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => handleCopy(ep.response, key)}
+                          aria-label="Copy response"
                         >
                           {copied === key ? (
                             <Check className="h-3 w-3" />
@@ -309,8 +313,24 @@ export function ApiPlayground() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Send a real request to your agent. This uses your dashboard session — no API key needed for testing.
+            Send a real request to your agent. Paste your API key below to authenticate.
           </p>
+
+          <div>
+            <label className="text-xs font-medium mb-1 block">API Key</label>
+            <Input
+              type="password"
+              placeholder="clw_..."
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              className="font-mono"
+            />
+            {!apiKeyInput.trim() && (
+              <p className="text-[11px] text-yellow-500 mt-1">
+                An API key is required. Copy one from the Keys & Examples tab.
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -336,18 +356,16 @@ export function ApiPlayground() {
 
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 text-xs cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={tryStream}
-                onChange={(e) => setTryStream(e.target.checked)}
-                className="rounded"
+                onCheckedChange={(checked) => setTryStream(!!checked)}
               />
               Stream response
             </label>
 
             <Button
               onClick={handleTryChat}
-              disabled={!tryMessage.trim() || trying}
+              disabled={!tryMessage.trim() || !apiKeyInput.trim() || trying}
               size="sm"
             >
               {trying ? (
@@ -368,6 +386,7 @@ export function ApiPlayground() {
                   size="icon"
                   className="h-6 w-6"
                   onClick={() => handleCopy(tryResult, "try-result")}
+                  aria-label="Copy response"
                 >
                   {copied === "try-result" ? (
                     <Check className="h-3 w-3" />

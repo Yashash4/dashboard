@@ -1,9 +1,10 @@
-export type PaymentProvider = "razorpay" | "xpay";
+export type PaymentProvider = "razorpay";
 export type UserRegion = "india" | "international";
 export type PaymentType =
   | "agent_purchase"
   | "subscription_new"
   | "subscription_upgrade";
+export type BillingCycle = "monthly" | "annual";
 
 export interface CreateOrderParams {
   userId: string;

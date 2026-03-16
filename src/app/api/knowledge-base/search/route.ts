@@ -39,12 +39,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (mode === "name") {
-    // Search by document name
+    // Search by document name — escape LIKE wildcards to prevent injection
+    const escapedQ = q.trim().replace(/%/g, "\\%").replace(/_/g, "\\_");
     const { data: docs } = await admin
       .from("kb_documents")
       .select("id, name, type, file_size, chunk_count, status, created_at")
       .eq("user_id", user.id)
-      .ilike("name", `%${q.trim()}%`)
+      .ilike("name", `%${escapedQ}%`)
       .order("created_at", { ascending: false })
       .limit(20);
 

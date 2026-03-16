@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Zap, Server, Lock, Globe, Store, BarChart3 } from "lucide-react";
+import { Zap, Server, Lock, Globe, Store, BarChart3, Clock, DollarSign, Layers } from "lucide-react";
 
 const differentiators = [
   {
@@ -67,6 +67,55 @@ export default function WhyClawHQ() {
           <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
             Most providers charge you for hosting, then send a separate bill for AI access. They give you a shared container and call it &ldquo;dedicated.&rdquo; We don&rsquo;t. One price. One server. Everything included.
           </p>
+        </motion.div>
+
+        {/* Why teams choose ClawHQ — benefit cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
+          {[
+            {
+              icon: Clock,
+              title: "Go live in 24 hours",
+              description: "No infrastructure setup, no DevOps hiring, no weekends lost configuring servers. We handle everything so you can focus on your product.",
+            },
+            {
+              icon: DollarSign,
+              title: "One bill, no surprises",
+              description: "Other platforms charge hosting + AI API + channel fees separately. ClawHQ bundles everything into one flat price. What you see is what you pay.",
+            },
+            {
+              icon: Layers,
+              title: "Scale without complexity",
+              description: "Start with Starter, grow into Pro or Ultra. Same dashboard, same workflow. Your agents, channels, and data carry forward seamlessly.",
+            },
+          ].map((benefit, i) => {
+            const Icon = benefit.icon;
+            return (
+              <motion.div
+                key={benefit.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.1 }}
+                className="rounded-lg bg-primary/5 border border-primary/15 p-6"
+              >
+                <div className="w-10 h-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+                  <Icon size={18} className="text-primary" />
+                </div>
+                <h3 className="text-sm font-semibold mb-2">{benefit.title}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{benefit.description}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
+        >
+          <p className="text-xs text-muted-foreground uppercase tracking-widest">And here&rsquo;s the full breakdown</p>
         </motion.div>
 
         {/* Differentiator cards */}

@@ -164,7 +164,7 @@ export function LogAlerts() {
                     {alert.condition_config?.threshold && ` — Threshold: ${alert.condition_config.threshold}`}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(alert.id)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteMutation.mutate(alert.id)} aria-label="Delete alert rule">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </CardContent>

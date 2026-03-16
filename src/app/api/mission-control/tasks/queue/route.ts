@@ -1,23 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-
-async function getUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
-}
+import { guardMCRoute } from "@/lib/mc-route-guard";
+import { hasVPSDataAPI, vpsDataFetch } from "@/lib/vps-data-api";
 
 const PRIORITY_ORDER = ["critical", "high", "medium", "low"];
 const MAX_RETRIES = 5;
 
 // GET /api/mission-control/tasks/queue?agent_id=xxx — atomic task pickup
 export async function GET(request: NextRequest) {
-  const { supabase, user } = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await guardMCRoute(request, { rateLimit: { max: 30, window: 60 } });
+  if (guard instanceof NextResponse) return guard;
+  const { user } = guard;
+  const supabase = await createClient();
 
   const agentId = request.nextUrl.searchParams.get("agent_id");
   if (!agentId) {
@@ -108,8 +102,8 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Log event
-      await supabase.from("mc_events").insert({
+      // 4.21: Log event with VPS-first pattern
+      const eventPayload = {
         user_id: user.id,
         event_type: "task_complete",
         severity: "info",
@@ -117,7 +111,20 @@ export async function GET(request: NextRequest) {
         task_id: claimed.id,
         message: `Task "${candidate.title}" assigned to agent via queue`,
         payload: { action: "queue_pickup", attempt: attempt + 1 },
-      });
+      };
+
+      const useVPS = await hasVPSDataAPI(user.id).catch(() => false);
+      if (useVPS) {
+        vpsDataFetch(user.id, "/api/events", {
+          method: "POST",
+          body: eventPayload,
+        }).catch(() => {
+          // Fallback to Supabase
+          supabase.from("mc_events").insert(eventPayload).then(() => {});
+        });
+      } else {
+        await supabase.from("mc_events").insert(eventPayload);
+      }
 
       return NextResponse.json({
         task: claimed,

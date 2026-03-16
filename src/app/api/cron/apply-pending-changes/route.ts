@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { configureApiKeys } from "@/lib/ssh";
+import { decryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 min max for SSH operations
 
 export async function GET(request: NextRequest) {
-  if (!process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
-
-  // Verify Vercel Cron secret
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -102,7 +98,7 @@ export async function GET(request: NextRequest) {
         {
           ip_address: vps.ip_address,
           ssh_user: vps.ssh_user,
-          ssh_password: vps.ssh_password,
+          ssh_password: decryptField(vps.ssh_password),
           ssh_port: vps.ssh_port,
         },
         apiKeys.map((k) => ({

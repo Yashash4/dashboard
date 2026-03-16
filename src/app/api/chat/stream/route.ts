@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 function sanitizeAgentName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9_-]/g, "_").replace(/_+/g, "_").replace(/^_|_$/g, "");
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
   };
 
   if (vps.dashboard_username && vps.dashboard_password) {
-    headers["Authorization"] = `Basic ${Buffer.from(`${vps.dashboard_username}:${vps.dashboard_password}`).toString("base64")}`;
+    headers["Authorization"] = `Basic ${Buffer.from(`${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`).toString("base64")}`;
   }
 
   const baseUrl = dashboardUrl.replace(/\/$/, "");

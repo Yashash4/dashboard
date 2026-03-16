@@ -12,6 +12,12 @@ import {
   Radio,
   ListChecks,
   Keyboard,
+  Zap,
+  Filter,
+  ArrowUp,
+  ArrowDown,
+  AlertTriangle,
+  Star,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { MC_SHORTCUTS } from "@/lib/mc-keyboard";
@@ -20,12 +26,18 @@ interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreateTask?: () => void;
+  onOpenAutomationRules?: () => void;
+  onFilterByPriority?: (priority: string) => void;
+  onSearchTasks?: () => void;
 }
 
 export function CommandPalette({
   open,
   onOpenChange,
   onCreateTask,
+  onOpenAutomationRules,
+  onFilterByPriority,
+  onSearchTasks,
 }: CommandPaletteProps) {
   const router = useRouter();
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -37,6 +49,11 @@ export function CommandPalette({
 
   const navigate = (path: string) => {
     router.push(path);
+    onOpenChange(false);
+  };
+
+  const runAction = (fn?: () => void) => {
+    fn?.();
     onOpenChange(false);
   };
 
@@ -94,13 +111,26 @@ export function CommandPalette({
             <Command.Group heading="Actions" className="text-xs text-muted-foreground px-2 py-1.5">
               <Command.Item
                 className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
-                onSelect={() => {
-                  onCreateTask?.();
-                  onOpenChange(false);
-                }}
+                onSelect={() => runAction(onCreateTask)}
               >
                 <Plus className="h-4 w-4" />
                 Create Task
+                <kbd className="ml-auto text-[10px] font-mono bg-muted px-1 rounded border border-border">n</kbd>
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(onSearchTasks)}
+              >
+                <Search className="h-4 w-4" />
+                Search Tasks
+                <kbd className="ml-auto text-[10px] font-mono bg-muted px-1 rounded border border-border">/</kbd>
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(onOpenAutomationRules)}
+              >
+                <Zap className="h-4 w-4" />
+                Automation Rules
               </Command.Item>
               <Command.Item
                 className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
@@ -108,6 +138,44 @@ export function CommandPalette({
               >
                 <Keyboard className="h-4 w-4" />
                 Keyboard Shortcuts
+              </Command.Item>
+            </Command.Group>
+
+            <Command.Group heading="Filter by Priority" className="text-xs text-muted-foreground px-2 py-1.5">
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(() => onFilterByPriority?.("all"))}
+              >
+                <Filter className="h-4 w-4" />
+                All Priorities
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(() => onFilterByPriority?.("critical"))}
+              >
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                Critical Priority
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(() => onFilterByPriority?.("high"))}
+              >
+                <ArrowUp className="h-4 w-4 text-orange-400" />
+                High Priority
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(() => onFilterByPriority?.("medium"))}
+              >
+                <Star className="h-4 w-4 text-yellow-400" />
+                Medium Priority
+              </Command.Item>
+              <Command.Item
+                className="flex items-center gap-2 px-2 py-2 text-sm rounded-sm cursor-pointer data-[selected=true]:bg-accent"
+                onSelect={() => runAction(() => onFilterByPriority?.("low"))}
+              >
+                <ArrowDown className="h-4 w-4 text-green-400" />
+                Low Priority
               </Command.Item>
             </Command.Group>
 
@@ -151,8 +219,8 @@ export function CommandPalette({
           </Command.List>
           <div className="border-t border-border px-3 py-2 flex items-center justify-between text-[10px] text-muted-foreground">
             <span>
-              <kbd className="font-mono bg-muted px-1 rounded">↑↓</kbd> navigate
-              <kbd className="font-mono bg-muted px-1 rounded ml-2">↵</kbd> select
+              <kbd className="font-mono bg-muted px-1 rounded">up/down</kbd> navigate
+              <kbd className="font-mono bg-muted px-1 rounded ml-2">enter</kbd> select
               <kbd className="font-mono bg-muted px-1 rounded ml-2">esc</kbd> close
             </span>
           </div>

@@ -53,7 +53,29 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({ streams: streams || [] });
+  // Mask destination_url credentials — URLs may embed API keys as query params or path segments
+  const masked = (streams || []).map((s) => {
+    let maskedUrl = s.destination_url;
+    try {
+      const u = new URL(s.destination_url);
+      // Mask any query parameters (often contain tokens/keys)
+      if (u.search) {
+        for (const [key] of u.searchParams) {
+          u.searchParams.set(key, "••••••••");
+        }
+        maskedUrl = u.toString();
+      }
+      // Mask password in URL (e.g. https://user:pass@host)
+      if (u.password) {
+        maskedUrl = maskedUrl.replace(u.password, "••••••••");
+      }
+    } catch {
+      // If URL parsing fails, return as-is (already validated on insert)
+    }
+    return { ...s, destination_url: maskedUrl };
+  });
+
+  return NextResponse.json({ streams: masked });
 }
 
 /**

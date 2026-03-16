@@ -13,28 +13,32 @@ export function OpenClawEmbed({ dashboardUrl, embedKey }: OpenClawEmbedProps) {
 
   useEffect(() => {
     if (!embedKey) {
-      // No embed key — just load the iframe directly
+      // No embed key -- just load the iframe directly
       setReady(true);
       return;
     }
 
-    // Pre-authenticate by calling the auth endpoint to set a cookie
-    // The cookie bypasses Basic Auth for subsequent iframe requests
+    // MED_34: AbortController to prevent state update on unmounted component
+    const controller = new AbortController();
+
     const authUrl = `${dashboardUrl}/_claw_auth?_key=${encodeURIComponent(embedKey)}`;
 
-    fetch(authUrl, { credentials: "include" })
+    fetch(authUrl, { credentials: "include", signal: controller.signal })
       .then((res) => {
-        if (res.ok) {
-          setReady(true);
-        } else {
-          // Auth endpoint failed — fallback to direct iframe (may prompt for Basic Auth)
+        if (!controller.signal.aborted) {
           setReady(true);
         }
       })
-      .catch(() => {
-        // Network error — still try the iframe
-        setReady(true);
+      .catch((err) => {
+        if (!controller.signal.aborted) {
+          // Network error -- still try the iframe
+          setReady(true);
+        }
       });
+
+    return () => {
+      controller.abort();
+    };
   }, [dashboardUrl, embedKey]);
 
   if (!ready) {

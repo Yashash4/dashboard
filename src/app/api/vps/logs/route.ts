@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { getOpenClawLogs } from "@/lib/ssh";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -43,14 +44,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "VPS not found" }, { status: 404 });
   }
 
-  const lines = parseInt(request.nextUrl.searchParams.get("lines") || "100");
+  const parsedLines = parseInt(request.nextUrl.searchParams.get("lines") || "100", 10);
+  const lines = Number.isNaN(parsedLines) ? 100 : parsedLines;
 
   try {
     const logs = await getOpenClawLogs(
       {
         ip_address: vps.ip_address,
         ssh_user: vps.ssh_user,
-        ssh_password: vps.ssh_password,
+        ssh_password: decryptField(vps.ssh_password),
         ssh_port: vps.ssh_port,
       },
       Math.min(lines, 500) // Cap at 500 lines

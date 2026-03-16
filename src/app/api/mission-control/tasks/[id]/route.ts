@@ -4,6 +4,9 @@ import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
 import { processAutomationRules } from "@/lib/mc-automation";
 
+const VALID_COLUMNS = ["planning", "inbox", "assigned", "in_progress", "testing", "review", "done"] as const;
+const VALID_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+
 // GET /api/mission-control/tasks/[id]
 export async function GET(
   request: NextRequest,
@@ -22,6 +25,7 @@ export async function GET(
       .select("*, agents:assigned_agent_id(id, name)")
       .eq("id", id)
       .eq("user_id", user.id)
+      .is("deleted_at", null)
       .single();
 
     if (error || !data) {
@@ -73,11 +77,36 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {};
   for (const key of allowedFields) {
-    if (key in body) updates[key] = body[key];
+    if (key in body) {
+      // 4.1: Use ?? instead of || for estimated_hours so 0 is preserved
+      if (key === "estimated_hours" || key === "actual_hours") {
+        updates[key] = body[key] ?? null;
+      } else {
+        updates[key] = body[key];
+      }
+    }
   }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No updates provided" }, { status: 400 });
+  }
+
+  // 4.5: Validate column_id
+  if (updates.column_id !== undefined && !VALID_COLUMNS.includes(updates.column_id as typeof VALID_COLUMNS[number])) {
+    return NextResponse.json({ error: `Invalid column_id. Must be one of: ${VALID_COLUMNS.join(", ")}` }, { status: 400 });
+  }
+
+  // 4.6: Validate priority
+  if (updates.priority !== undefined && !VALID_PRIORITIES.includes(updates.priority as typeof VALID_PRIORITIES[number])) {
+    return NextResponse.json({ error: `Invalid priority. Must be one of: ${VALID_PRIORITIES.join(", ")}` }, { status: 400 });
+  }
+
+  // 4.7: String length validation
+  if (typeof updates.title === "string" && updates.title.length > 200) {
+    return NextResponse.json({ error: "Title must be 200 characters or less" }, { status: 400 });
+  }
+  if (typeof updates.description === "string" && updates.description.length > 5000) {
+    return NextResponse.json({ error: "Description must be 5000 characters or less" }, { status: 400 });
   }
 
   const now = new Date().toISOString();
@@ -224,11 +253,13 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    // 4.9: Soft delete — set deleted_at instead of actually deleting
     const { error } = await supabase
       .from("mc_tasks")
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq("id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .is("deleted_at", null);
 
     if (error) throw error;
 

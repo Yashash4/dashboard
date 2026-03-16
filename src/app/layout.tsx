@@ -3,6 +3,7 @@ import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://app.clawhq.tech"),
   title: "ClawHQ — Managed AI Agent Hosting",
   description:
     "All-inclusive managed AI agent hosting. Dedicated VPS, bundled AI models, 7 messaging channels, full dashboard. No API keys needed. Starting at $59/mo.",
@@ -10,15 +11,24 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ClawHQ — Managed AI Agent Hosting",
     description:
-      "Dedicated VPS, bundled AI models, 7 channels. One price, everything included. Starting at $59/mo.",
+      "Deploy AI agents on your own dedicated VPS. 30 models included, 7 channels, zero DevOps.",
+    url: "https://app.clawhq.tech",
+    siteName: "ClawHQ",
+    images: [
+      { url: "/logo-full.jpeg", width: 1200, height: 630, alt: "ClawHQ" },
+    ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    site: "@ClawHQ",
+    title: "ClawHQ — Managed AI Agent Hosting",
+    description:
+      "Deploy AI agents on your own dedicated VPS. 30 models included, 7 channels, zero DevOps.",
+    images: ["/logo-full.jpeg"],
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: "/logo.png",
+    apple: "/apple-touch-icon.png",
   },
 };
 

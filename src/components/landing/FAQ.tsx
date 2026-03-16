@@ -63,17 +63,31 @@ const faqs = [
   },
 ];
 
-function FAQItem({ faq, isOpen, onToggle }: { faq: (typeof faqs)[0]; isOpen: boolean; onToggle: () => void }) {
+function FAQItem({ faq, isOpen, onToggle, index }: { faq: (typeof faqs)[0]; isOpen: boolean; onToggle: () => void; index: number }) {
+  const panelId = `faq-panel-${index}`;
+  const buttonId = `faq-button-${index}`;
+
   return (
     <div className="border-b border-border">
-      <button onClick={onToggle} className="flex items-center justify-between w-full py-5 text-left">
+      <button
+        id={buttonId}
+        onClick={onToggle}
+        className="flex items-center justify-between w-full py-5 text-left"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+      >
         <span className="text-sm font-medium pr-4">{faq.q}</span>
         <ChevronDown
           size={16}
           className={`shrink-0 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-      <div className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-96 pb-5" : "max-h-0"}`}>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={buttonId}
+        className={`overflow-hidden transition-all duration-200 ${isOpen ? "max-h-96 pb-5" : "max-h-0"}`}
+      >
         <p className="text-sm text-muted-foreground leading-relaxed pr-8">{faq.a}</p>
       </div>
     </div>
@@ -102,9 +116,11 @@ export default function FAQ() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.1 }}
+          role="region"
+          aria-label="Frequently asked questions"
         >
           {faqs.map((faq, i) => (
-            <FAQItem key={faq.q} faq={faq} isOpen={openIndex === i} onToggle={() => setOpenIndex(openIndex === i ? -1 : i)} />
+            <FAQItem key={faq.q} faq={faq} isOpen={openIndex === i} onToggle={() => setOpenIndex(openIndex === i ? -1 : i)} index={i} />
           ))}
         </motion.div>
       </div>

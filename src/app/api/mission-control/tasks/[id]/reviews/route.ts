@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
-import { vpsDataFetch } from "@/lib/vps-data-api";
+import { vpsDataFetch, hasVPSDataAPI } from "@/lib/vps-data-api";
+import { processAutomationRules } from "@/lib/mc-automation";
+import { emitMCEvent } from "@/lib/mc-event-bus";
 
 // GET /api/mission-control/tasks/[id]/reviews
 export async function GET(
@@ -77,6 +79,18 @@ export async function POST(
   }
 
   try {
+    // Verify the task belongs to the authenticated user
+    const { data: task } = await supabase
+      .from("mc_tasks")
+      .select("id")
+      .eq("id", taskId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
     // Get user name for reviewer field fallback
     const { data: profile } = await supabase
       .from("users")
@@ -127,6 +141,97 @@ export async function POST(
           action: "Review approved — task moved to Done",
         },
       }).catch(() => {});
+
+      // 4.17: Check if dependent tasks are now unblocked
+      const { data: dependentTasks } = await supabase
+        .from("mc_task_dependencies")
+        .select("task_id")
+        .eq("depends_on_task_id", taskId);
+
+      if (dependentTasks && dependentTasks.length > 0) {
+        for (const dep of dependentTasks) {
+          // Check if ALL dependencies of this task are done
+          const { data: allDeps } = await supabase
+            .from("mc_task_dependencies")
+            .select("depends_on_task_id")
+            .eq("task_id", dep.task_id);
+
+          if (allDeps) {
+            const { data: blockers } = await supabase
+              .from("mc_tasks")
+              .select("id")
+              .in("id", allDeps.map((d) => d.depends_on_task_id))
+              .neq("column_id", "done")
+              .eq("user_id", user.id)
+              .limit(1);
+
+            // If no remaining blockers, move from planning/inbox to assigned
+            if (!blockers || blockers.length === 0) {
+              const { data: unblockedTask } = await supabase
+                .from("mc_tasks")
+                .select("id, column_id, title")
+                .eq("id", dep.task_id)
+                .eq("user_id", user.id)
+                .in("column_id", ["planning", "inbox"])
+                .single();
+
+              if (unblockedTask) {
+                await supabase
+                  .from("mc_tasks")
+                  .update({ column_id: "assigned", updated_at: now })
+                  .eq("id", unblockedTask.id)
+                  .eq("user_id", user.id);
+
+                vpsDataFetch(user.id, "/api/activities", {
+                  method: "POST",
+                  body: {
+                    task_id: unblockedTask.id,
+                    actor: "system",
+                    action: `Task unblocked — moved to Assigned (dependency "${taskId.slice(0, 8)}" completed)`,
+                  },
+                }).catch(() => {});
+              }
+            }
+          }
+        }
+      }
+
+      // 4.18: Fire automation rules after status change to done
+      processAutomationRules(user.id, "task_status_changed", "done", {
+        taskId,
+        oldValue: "review",
+        newValue: "done",
+      }).catch(() => {}); // non-blocking
+
+      // 4.19: Emit realtime event for the event feed
+      emitMCEvent(user.id, "task_updated", {
+        task_id: taskId,
+        action: "review_approved",
+        new_column: "done",
+      });
+
+      // 4.19: Insert mc_event for the event feed (VPS-first pattern)
+      const eventPayload = {
+        user_id: user.id,
+        event_type: "review_approved",
+        severity: "success",
+        task_id: taskId,
+        message: `Review approved — task moved to Done`,
+        payload: { reviewer: reviewer || profile?.name || "reviewer" },
+      };
+
+      const hasVPS = await hasVPSDataAPI(user.id).catch(() => false);
+      if (hasVPS) {
+        vpsDataFetch(user.id, "/api/events", {
+          method: "POST",
+          body: eventPayload,
+        }).catch(() => {
+          // Fallback to Supabase
+          supabase.from("mc_events").insert(eventPayload).then(() => {});
+        });
+      } else {
+        await supabase.from("mc_events").insert(eventPayload);
+      }
     }
 
     return NextResponse.json({ review: data }, { status: 201 });

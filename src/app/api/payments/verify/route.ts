@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { verifyPayment } from "@/lib/payments";
+import { rateLimit } from "@/lib/rate-limit";
 import type { PaymentProvider } from "@/lib/payments/types";
 
 export async function POST(request: NextRequest) {
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const rl = rateLimit(`${ip}:payment_verify`, 10, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Too many requests. Try again later." },
+      { status: 429 }
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -14,13 +25,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const { provider, orderId, paymentId, signature, metadata } = body as {
+  let body: Record<string, any>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 }
+    );
+  }
+
+  const { provider, orderId, paymentId, signature } = body as {
     provider?: PaymentProvider;
     orderId?: string;
     paymentId?: string;
     signature?: string;
-    metadata?: Record<string, any>;
   };
 
   if (!provider || !orderId || !paymentId) {
@@ -30,13 +49,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify payment with provider
+  // Verify payment signature with Razorpay
   const result = verifyPayment({
     provider,
     orderId,
     paymentId,
     signature,
-    metadata: metadata || {},
+    metadata: {},
   });
 
   if (!result.verified) {
@@ -47,22 +66,74 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const meta = metadata || {};
+
+  // Look up the order server-side — never trust client metadata
+  const { data: order } = await admin
+    .from("payment_orders")
+    .select("*")
+    .eq("order_id", orderId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (!order) {
+    return NextResponse.json(
+      { error: "Order not found or does not belong to this user" },
+      { status: 400 }
+    );
+  }
+
+  const meta: Record<string, any> = order.metadata || {};
+  const serverAmount = order.amount || 0;
+  const serverPaymentType = order.payment_type;
+
+  // Get user profile for audit
+  const { data: profile } = await admin
+    .from("users")
+    .select("email, name")
+    .eq("id", user.id)
+    .single();
 
   try {
-    // Record payment
+    // Record payment with FULL audit trail
     await admin.from("payments").insert({
       user_id: user.id,
-      amount: meta.amount || 0,
-      description: getDescription(meta),
+      amount: serverAmount,
+      description: getDescription(serverPaymentType, meta),
       status: "paid",
+      razorpay_payment_id: paymentId,
+      razorpay_order_id: orderId,
+      razorpay_signature: signature,
+      currency: order.currency || "USD",
+      payment_type: serverPaymentType,
+      billing_cycle: meta.billing_cycle || null,
+      plan: meta.plan || null,
+      user_email: profile?.email || user.email,
+      user_name: profile?.name || null,
+      ip_address: ip,
+      region: order.region || "international",
+      provider: "razorpay",
+      metadata: {
+        order_created_at: order.created_at,
+        verified_at: new Date().toISOString(),
+      },
     });
 
-    // Fulfill based on payment type
-    await fulfill(admin, user.id, meta);
+    // Mark order as fulfilled
+    await admin
+      .from("payment_orders")
+      .update({
+        status: "fulfilled",
+        payment_id: paymentId,
+        fulfilled_at: new Date().toISOString(),
+      })
+      .eq("order_id", orderId);
+
+    // Fulfill based on server-side payment type
+    await fulfill(admin, user.id, serverPaymentType, meta, serverAmount);
 
     return NextResponse.json({ success: true, verified: true });
   } catch (err: any) {
+    console.error("Payment fulfillment error:", err);
     return NextResponse.json(
       { error: "Payment verified but fulfillment failed. Contact support." },
       { status: 500 }
@@ -70,8 +141,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function fulfill(admin: any, userId: string, meta: Record<string, any>) {
-  switch (meta.payment_type) {
+async function fulfill(
+  admin: any,
+  userId: string,
+  paymentType: string,
+  meta: Record<string, any>,
+  amount: number
+) {
+  switch (paymentType) {
     case "agent_purchase": {
       if (meta.agent_id) {
         await admin.from("user_agents").insert({
@@ -100,7 +177,7 @@ async function fulfill(admin: any, userId: string, meta: Record<string, any>) {
             user_id: userId,
             plan: meta.plan,
             billing_cycle: billingCycle,
-            price: meta.amount || 0,
+            price: amount,
             status: "active",
             started_at: now.toISOString(),
             expires_at: expiresAt.toISOString(),
@@ -119,8 +196,11 @@ async function fulfill(admin: any, userId: string, meta: Record<string, any>) {
   }
 }
 
-function getDescription(meta: Record<string, any>): string {
-  switch (meta.payment_type) {
+function getDescription(
+  paymentType: string,
+  meta: Record<string, any>
+): string {
+  switch (paymentType) {
     case "agent_purchase":
       return `Agent: ${meta.agent_name || "Premium Agent"}`;
     case "subscription_new":

@@ -158,7 +158,7 @@ export function AgentManager({
 
       toast.success(
         action === "deploy"
-          ? `${agents.find((a) => a.agent_id === agentId)?.agents.name} deployed successfully`
+          ? `${agents.find((a) => a.agent_id === agentId)?.agents?.name || "Agent"} deployed successfully`
           : `Agent removed from your instance`
       );
     } catch {
@@ -208,6 +208,23 @@ export function AgentManager({
     setBulkAction(null);
     setBulkRunning(true);
 
+    // Check VPS status before bulk deploy
+    if (action === "deploy_all") {
+      try {
+        const statusRes = await fetch("/api/vps/status");
+        const statusData = await statusRes.json();
+        if (!statusRes.ok || statusData.status !== "running") {
+          toast.error("VPS is not running. Start your VPS before deploying agents.");
+          setBulkRunning(false);
+          return;
+        }
+      } catch {
+        toast.error("Could not verify VPS status. Please check your VPS and try again.");
+        setBulkRunning(false);
+        return;
+      }
+    }
+
     const targets =
       action === "deploy_all"
         ? agents.filter((a) => !a.deployed)
@@ -220,16 +237,18 @@ export function AgentManager({
     }
 
     const apiAction = action === "deploy_all" ? "deploy" : "undeploy";
-    let completed = 0;
+    let successCount = 0;
     let failed = 0;
+    // Snapshot current deployed count at start of bulk operation
+    const startingDeployedCount = agents.filter((a) => a.deployed).length;
 
     for (const ua of targets) {
-      if (apiAction === "deploy" && deployedCount + completed >= maxDeploys) {
-        toast.error(`Deploy limit reached (${maxDeploys}). Stopped at ${completed} agents.`);
+      if (apiAction === "deploy" && startingDeployedCount + successCount >= maxDeploys) {
+        toast.error(`Deploy limit reached (${maxDeploys}). Stopped at ${successCount} agents.`);
         break;
       }
 
-      completed++;
+      const completed = successCount + failed + 1;
       toast.info(`${apiAction === "deploy" ? "Deploying" : "Undeploying"} ${completed}/${targets.length}...`);
 
       try {
@@ -244,6 +263,7 @@ export function AgentManager({
           continue;
         }
 
+        successCount++;
         setAgents((prev) =>
           prev.map((a) =>
             a.agent_id === ua.agent_id
@@ -267,8 +287,8 @@ export function AgentManager({
     } else {
       toast.success(
         apiAction === "deploy"
-          ? `All ${targets.length} agents deployed.`
-          : `All ${targets.length} agents undeployed.`
+          ? `All ${successCount} agents deployed.`
+          : `All ${successCount} agents undeployed.`
       );
     }
   };
@@ -301,6 +321,7 @@ export function AgentManager({
                     size="icon"
                     className="h-8 w-8"
                     disabled={bulkRunning}
+                    aria-label="Bulk actions"
                   >
                     {bulkRunning ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -371,11 +392,11 @@ export function AgentManager({
         {agents
           .filter((a) => statusFilter === "all" ? true : statusFilter === "deployed" ? a.deployed : !a.deployed)
           .sort((a, b) => {
-            if (sortBy === "name") return (a.agents.name || "").localeCompare(b.agents.name || "");
+            if (sortBy === "name") return (a.agents?.name || "").localeCompare(b.agents?.name || "");
             return new Date(b.purchased_at).getTime() - new Date(a.purchased_at).getTime();
           })
           .map((ua) => {
-          const agent = ua.agents;
+          const agent = ua.agents || { id: ua.agent_id, name: "Unknown Agent", description: null, category: null, config_files: null };
           const isLoading = loadingAgent === ua.agent_id;
 
           return (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Shield, Eye, EyeOff, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
@@ -9,31 +10,35 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+interface PasswordData {
+  username: string;
+  password: string;
+  hostname: string | null;
+}
+
 export function DashboardPassword() {
-  const [username, setUsername] = useState<string | null>(null);
   const [currentPassword, setCurrentPassword] = useState<string | null>(null);
-  const [hostname, setHostname] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetch("/api/vps/password")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) {
-          setUsername(data.username);
-          setCurrentPassword(data.password);
-          setHostname(data.hostname);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading } = useQuery<PasswordData | null>({
+    queryKey: ["dashboard-password"],
+    queryFn: async () => {
+      const res = await fetch("/api/vps/password");
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  // Sync current password from query data
+  const username = data?.username ?? null;
+  const displayPassword = currentPassword ?? data?.password ?? null;
+  const hostname = data?.hostname ?? null;
 
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
@@ -64,10 +69,10 @@ export function DashboardPassword() {
         body: JSON.stringify({ password: newPassword }),
       });
 
-      const data = await res.json();
+      const resData = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to update password");
+        toast.error(resData.error || "Failed to update password");
         return;
       }
 
@@ -82,7 +87,7 @@ export function DashboardPassword() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -101,7 +106,7 @@ export function DashboardPassword() {
     );
   }
 
-  if (!username && !currentPassword) {
+  if (!username && !displayPassword) {
     return (
       <Card className="border-border">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -140,7 +145,7 @@ export function DashboardPassword() {
           <div className="relative">
             <Input
               type={showCurrent ? "text" : "password"}
-              value={currentPassword || ""}
+              value={displayPassword || ""}
               readOnly
               className="font-mono text-sm pr-10"
             />

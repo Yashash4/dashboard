@@ -41,7 +41,12 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const plan = (subscription?.plan as string) || "starter";
+  // No subscription → send to pricing page to subscribe
+  if (!subscription?.plan) {
+    redirect("/pricing");
+  }
+
+  const plan = subscription.plan as string;
 
   return (
     <UserProvider

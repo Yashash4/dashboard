@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
 import { startOpenClaw } from "@/lib/ssh";
+import { decryptField } from "@/lib/credential-utils";
 
 export async function POST(
   request: NextRequest,
@@ -27,7 +28,7 @@ export async function POST(
       return NextResponse.json({ error: "VPS not found" }, { status: 404 });
     }
 
-    await startOpenClaw(vps);
+    await startOpenClaw({ ...vps, ssh_password: decryptField(vps.ssh_password) });
 
     // Update agent status
     await supabase

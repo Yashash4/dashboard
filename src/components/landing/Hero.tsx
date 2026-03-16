@@ -1,7 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Server, Bot, Zap } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+import { DashboardMockup } from "@/components/landing/mockups";
 
 const ease = [0.25, 0.46, 0.45, 0.94] as const;
 
@@ -12,6 +15,16 @@ const fadeUp = (delay: number) => ({
 });
 
 export default function Hero() {
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+  }, []);
+
   return (
     <section className="noise-bg relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
       {/* Dual-tone dark background — darker edges, lighter center */}
@@ -98,7 +111,7 @@ export default function Hero() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
           <a
-            href="/register"
+            href={user ? "/vps" : "/pricing"}
             className="group flex items-center gap-2 px-6 py-3 font-medium text-sm transition-all duration-200 hover:shadow-lg"
             style={{
               borderRadius: "var(--radius)",
@@ -117,14 +130,14 @@ export default function Hero() {
               e.currentTarget.style.transform = "translateY(0)";
             }}
           >
-            Get Started — $59/mo
+            {user ? "Go to Dashboard" : "Get Started — $59/mo"}
             <ArrowRight
               size={16}
               className="group-hover:translate-x-0.5 transition-transform"
             />
           </a>
           <a
-            href="#product-tour"
+            href="mailto:hello@clawhq.tech?subject=Book a Demo"
             className="flex items-center gap-2 px-6 py-3 text-sm transition-colors duration-200 hover:text-[#eeeeee]"
             style={{
               borderRadius: "var(--radius)",
@@ -138,14 +151,23 @@ export default function Hero() {
               e.currentTarget.style.borderColor = "#201e18";
             }}
           >
-            See It In Action ↓
+            Book a Demo
           </a>
         </motion.div>
+
+        {/* Trust signal */}
+        <motion.p
+          {...fadeUp(0.42)}
+          className="text-xs text-center mb-12"
+          style={{ color: "#888" }}
+        >
+          No credit card required for demo &middot; 14-day money-back guarantee
+        </motion.p>
 
         {/* Stats bar */}
         <motion.div
           {...fadeUp(0.48)}
-          className="flex flex-wrap items-center justify-center gap-8 md:gap-12 text-sm"
+          className="flex flex-wrap items-center justify-center gap-8 md:gap-12 text-sm mb-16"
         >
           {[
             { icon: Server, label: "Dedicated VPS" },
@@ -164,6 +186,14 @@ export default function Hero() {
               <span>{label}</span>
             </div>
           ))}
+        </motion.div>
+
+        {/* Dashboard Preview */}
+        <motion.div
+          {...fadeUp(0.6)}
+          className="hidden md:block"
+        >
+          <DashboardMockup />
         </motion.div>
       </div>
     </section>

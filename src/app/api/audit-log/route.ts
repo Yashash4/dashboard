@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    const safe = search.replace(/[,%().\\/_]/g, "");
+    const safe = search.replace(/[,%().\\/_*?+\[\]{}|^$!@#&~`'"<>;:]/g, "");
     if (safe.trim()) {
       query = query.or(
         `action.ilike.%${safe}%,entity_type.ilike.%${safe}%`

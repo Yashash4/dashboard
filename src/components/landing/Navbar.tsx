@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Server, Cpu, MessageSquare, Bot, BarChart3, Shield, Zap, BookOpen, HelpCircle, Users, FileText, ChevronDown } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+import Link from "next/link";
+import Image from "next/image";
 
 /* ─── Dropdown Content Definitions ─── */
 
@@ -10,7 +13,7 @@ const dropdowns: Record<string, { links: { icon: typeof Server; label: string; d
   Features: {
     links: [
       { icon: Server, label: "Dedicated VPS", desc: "Your own server, not shared", href: "#features" },
-      { icon: Cpu, label: "500+ AI Models", desc: "GPT-4o, Claude, Llama, Mistral & more", href: "#features" },
+      { icon: Cpu, label: "30 AI Models", desc: "All included via ClawHQ AI, no API keys", href: "#features" },
       { icon: MessageSquare, label: "7 Channels", desc: "WhatsApp, Telegram, Discord, Slack…", href: "#features" },
       { icon: Bot, label: "Agent Store", desc: "Deploy pre-built agents in one click", href: "#features" },
       { icon: BarChart3, label: "Monitoring", desc: "Real-time CPU, RAM, disk, network", href: "#features" },
@@ -26,7 +29,7 @@ const dropdowns: Record<string, { links: { icon: typeof Server; label: string; d
     links: [
       { icon: Users, label: "Customer Support", desc: "AI agents for support teams", href: "#features" },
       { icon: Zap, label: "Sales Automation", desc: "Qualify leads across all channels", href: "#features" },
-      { icon: Bot, label: "Internal Assistants", desc: "Deploy agents for your team", href: "#features" },
+      { icon: Bot, label: "Internal Assistants", desc: "Deploy agents for your team", href: "#how-it-works" },
     ],
     preview: {
       title: "Built for any team",
@@ -55,6 +58,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [user, setUser] = useState<any>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const navRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +66,14 @@ export default function Navbar() {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
   }, []);
 
   const handleEnter = (key: string) => {
@@ -84,9 +96,10 @@ export default function Navbar() {
     >
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <a href="#" className="text-lg font-semibold tracking-tight text-foreground">
-          claw<span className="text-primary">hq</span>
-        </a>
+        <Link href="/" className="flex items-center gap-2 text-lg font-semibold tracking-tight text-foreground">
+          <Image src="/logo.png" alt="ClawHQ" width={32} height={32} className="h-8 w-8" />
+          <span>ClawHQ</span>
+        </Link>
 
         {/* Desktop nav links with dropdowns */}
         <div className="hidden md:flex items-center gap-1">
@@ -118,24 +131,36 @@ export default function Navbar() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="/login"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Log in
-          </a>
-          <a
-            href="/register"
-            className="text-sm px-4 py-2 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
-          >
-            Get Started
-          </a>
+          {user ? (
+            <a
+              href="/vps"
+              className="text-sm px-4 py-2 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+            >
+              Dashboard
+            </a>
+          ) : (
+            <>
+              <a
+                href="/login"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Log in
+              </a>
+              <a
+                href="/register"
+                className="text-sm px-4 py-2 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity"
+              >
+                Get Started
+              </a>
+            </>
+          )}
         </div>
 
         {/* Mobile toggle */}
         <button
           className="md:hidden text-foreground"
           onClick={() => setMobileOpen(!mobileOpen)}
+          aria-label="Toggle navigation menu"
         >
           {mobileOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -149,7 +174,7 @@ export default function Navbar() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute left-0 right-0 top-16 border-b border-border bg-card/95 backdrop-blur-xl"
+            className="absolute left-0 right-0 top-16 border-b border-border bg-[#191919] shadow-2xl"
             onMouseEnter={() => handleEnter(activeDropdown)}
             onMouseLeave={handleLeave}
           >
@@ -209,7 +234,7 @@ export default function Navbar() {
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden bg-card/95 backdrop-blur-xl border-b border-border overflow-hidden"
+            className="md:hidden bg-[#191919] border-b border-border overflow-hidden shadow-2xl"
           >
             <div className="px-6 py-4 flex flex-col gap-1">
               {dropdownKeys.map((key) => (
@@ -238,15 +263,26 @@ export default function Navbar() {
                 Pricing
               </a>
               <div className="flex flex-col gap-2 pt-4 mt-2 border-t border-border">
-                <a href="/login" className="text-sm text-muted-foreground px-3 py-2">
-                  Log in
-                </a>
-                <a
-                  href="/register"
-                  className="text-sm text-center px-4 py-2.5 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium"
-                >
-                  Get Started
-                </a>
+                {user ? (
+                  <a
+                    href="/vps"
+                    className="text-sm text-center px-4 py-2.5 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium"
+                  >
+                    Dashboard
+                  </a>
+                ) : (
+                  <>
+                    <a href="/login" className="text-sm text-muted-foreground px-3 py-2">
+                      Log in
+                    </a>
+                    <a
+                      href="/register"
+                      className="text-sm text-center px-4 py-2.5 rounded-[var(--radius)] bg-primary text-primary-foreground font-medium"
+                    >
+                      Get Started
+                    </a>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

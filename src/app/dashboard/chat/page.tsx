@@ -17,8 +17,12 @@ export default async function ChatPage() {
     redirect("/login");
   }
 
-  let userAgents: any[] | null = null;
-  let vps: any = null;
+  type ChatAgent = { id: string; name: string; description: string | null };
+  let userAgents: {
+    agent_id: string;
+    agents: ChatAgent | ChatAgent[] | null;
+  }[] | null = null;
+  let vps: { status: string } | null = null;
 
   try {
     const [agentsRes, vpsRes] = await Promise.all([
@@ -47,8 +51,11 @@ export default async function ChatPage() {
   const vpsWarning = !vps || vps.status !== "running";
 
   const agents = (userAgents || [])
-    .map((ua: any) => ua.agents)
-    .filter(Boolean);
+    .map((ua) => {
+      const a = ua.agents;
+      return Array.isArray(a) ? a[0] : a;
+    })
+    .filter((a): a is ChatAgent => a != null);
 
   if (agents.length === 0) {
     return (

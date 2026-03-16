@@ -54,7 +54,7 @@ export function SessionTracker() {
       const json = await res.json();
       return json.sessions || [];
     },
-    refetchInterval: 3000,
+    refetchInterval: 10000,
   });
 
   const [selectedSession, setSelectedSession] = useState<MCSession | null>(null);

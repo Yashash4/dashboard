@@ -37,9 +37,24 @@ export default async function OverviewPage() {
     redirect("/login");
   }
 
-  let subscription: any = null;
-  let vps: any = null;
-  let model: any = null;
+  let subscription: {
+    plan: string;
+    status: string;
+    expires_at: string | null;
+  } | null = null;
+  let vps: {
+    status: string;
+    openclaw_dashboard_url: string | null;
+    cpu_cores: number | null;
+    ram_gb: number | null;
+    storage_gb: number | null;
+  } | null = null;
+  let model: {
+    current_model: string | null;
+    requested_model: string | null;
+    change_effective_date: string | null;
+    context_limit: number | null;
+  } | null = null;
   let channelsConnected: number | null = null;
   let agentsDeployed: number | null = null;
   let openTickets: number | null = null;
@@ -81,6 +96,10 @@ export default async function OverviewPage() {
     // But a real error (permissions, network) should throw
     if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
     if (vpsRes.error && vpsRes.error.code !== "PGRST116") throw vpsRes.error;
+    if (modelRes.error && modelRes.error.code !== "PGRST116") throw modelRes.error;
+    if (channelsRes.error) throw channelsRes.error;
+    if (agentsRes.error) throw agentsRes.error;
+    if (ticketsRes.error) throw ticketsRes.error;
     subscription = subRes.data;
     vps = vpsRes.data;
     model = modelRes.data;

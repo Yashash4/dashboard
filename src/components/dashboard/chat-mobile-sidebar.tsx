@@ -36,7 +36,7 @@ export function ChatMobileSidebar({ agents, selectedAgentId, onSelectAgent }: Pr
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="md:hidden h-8 w-8 p-0">
+        <Button variant="ghost" size="sm" className="md:hidden h-8 w-8 p-0" aria-label="Open agent list">
           <Menu className="h-4 w-4" />
         </Button>
       </SheetTrigger>

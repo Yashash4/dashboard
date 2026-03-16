@@ -84,7 +84,7 @@ export function usePayment(options: UsePaymentOptions = {}) {
               reject(new Error("cancelled"));
             },
           },
-          theme: { color: "#ea580c" },
+          theme: { color: "#6b8f71" },
         };
 
         const rzp = new (window as any).Razorpay(rzpOptions);
@@ -117,16 +117,9 @@ export function usePayment(options: UsePaymentOptions = {}) {
           throw new Error(orderData.error || "Failed to create order");
         }
 
-        // 2. Open provider-specific checkout
-        if (orderData.provider === "razorpay") {
-          await loadRazorpayScript();
-          await openRazorpay(orderData, params);
-        } else if (orderData.provider === "xpay") {
-          // TODO: implement XPay checkout flow
-          throw new Error("XPay checkout not available yet");
-        } else {
-          throw new Error("Unknown payment provider");
-        }
+        // 2. Open Razorpay checkout
+        await loadRazorpayScript();
+        await openRazorpay(orderData, params);
 
         return true;
       } catch (err: any) {

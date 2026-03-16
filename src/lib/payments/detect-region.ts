@@ -8,7 +8,7 @@ const INDIA: RegionInfo = {
 
 const INTERNATIONAL: RegionInfo = {
   region: "international",
-  provider: "xpay",
+  provider: "razorpay",
   currency: "USD",
 };
 
@@ -16,6 +16,8 @@ const INTERNATIONAL: RegionInfo = {
  * Detect user region from request headers (server-side).
  * Vercel sets x-vercel-ip-country in production.
  * Falls back to Accept-Language header, then defaults to international.
+ *
+ * Both regions use Razorpay — India pays in INR, everyone else in USD.
  */
 export function detectRegion(request?: Request): RegionInfo {
   if (!request) return INTERNATIONAL;

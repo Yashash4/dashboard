@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { updateDashboardPassword, enableBasicAuth } from "@/lib/ssh";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { decryptField, encryptField, decryptVpsCredentials } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     username: vps.dashboard_username || null,
-    password: vps.dashboard_password || null,
+    password: vps.dashboard_password ? decryptField(vps.dashboard_password) : null,
   });
 }
 
@@ -97,13 +98,16 @@ export async function POST(request: NextRequest) {
   const username = vps.dashboard_username || "admin";
   const newPassword = password || randomBytes(12).toString("base64url").slice(0, 16);
 
+  // Decrypt ssh_password for SSH connection
+  const sshCreds = { ...vps, ssh_password: decryptField(vps.ssh_password) };
+
   // First-time setup: if no password was set before, enable Basic Auth on nginx
   const isFirstTime = !vps.dashboard_password;
   let result;
   if (isFirstTime) {
-    result = await enableBasicAuth(vps, username, newPassword);
+    result = await enableBasicAuth(sshCreds, username, newPassword);
   } else {
-    result = await updateDashboardPassword(vps, username, newPassword);
+    result = await updateDashboardPassword(sshCreds, username, newPassword);
   }
 
   if (!result.success) {
@@ -113,10 +117,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Save to DB
+  // Save to DB (encrypted)
   await admin
     .from("vps_instances")
-    .update({ dashboard_password: newPassword })
+    .update({ dashboard_password: encryptField(newPassword) })
     .eq("user_id", userId);
 
   const ip = getClientIp(request);

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { enableAutoRestart } from "@/lib/ssh";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { decryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function POST(
     return NextResponse.json({ error: "No VPS found" }, { status: 404 });
   }
 
-  const result = await enableAutoRestart(vps);
+  const result = await enableAutoRestart({ ...vps, ssh_password: decryptField(vps.ssh_password) });
 
   if (!result.success) {
     return NextResponse.json(

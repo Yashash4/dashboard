@@ -33,6 +33,27 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
+    // 4.11: Validate that all tasks exist and belong to the user before updating
+    const taskIds = updates.map((u) => u.id);
+    const { data: existingTasks, error: fetchError } = await supabase
+      .from("mc_tasks")
+      .select("id")
+      .in("id", taskIds)
+      .eq("user_id", user.id)
+      .is("deleted_at", null);
+
+    if (fetchError) throw fetchError;
+
+    const existingIds = new Set((existingTasks || []).map((t) => t.id));
+    const missingIds = taskIds.filter((id) => !existingIds.has(id));
+
+    if (missingIds.length > 0) {
+      return NextResponse.json(
+        { error: "Some tasks not found or not owned by you", missing_ids: missingIds },
+        { status: 400 }
+      );
+    }
+
     const now = new Date().toISOString();
 
     const promises = updates.map((u) =>

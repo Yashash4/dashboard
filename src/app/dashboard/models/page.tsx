@@ -1,4 +1,5 @@
 import { Brain } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase-server";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,11 +11,23 @@ export default async function ModelsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (!user) redirect("/login");
 
-  let modelConfig: any = null;
-  let availableModels: any[] | null = null;
-  let subscription: any = null;
+  let modelConfig: {
+    current_model: string;
+    requested_model: string | null;
+    change_effective_date: string | null;
+    context_limit: number | null;
+    changes_this_month: number;
+    last_change_at: string | null;
+  } | null = null;
+  let availableModels: {
+    name: string;
+    display_name: string;
+    context_limit: number | null;
+    description: string | null;
+  }[] | null = null;
+  let subscription: { plan: string; expires_at: string | null } | null = null;
 
   try {
     const [modelRes, modelsListRes, subRes] = await Promise.all([
@@ -36,6 +49,9 @@ export default async function ModelsPage() {
         .eq("user_id", user.id)
         .single(),
     ]);
+    if (modelRes.error && modelRes.error.code !== "PGRST116") throw modelRes.error;
+    if (modelsListRes.error) throw modelsListRes.error;
+    if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
     modelConfig = modelRes.data;
     availableModels = modelsListRes.data;
     subscription = subRes.data;

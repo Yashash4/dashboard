@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -181,8 +182,8 @@ export function ModelPlayground({ models }: { models: Model[] }) {
 
   return (
     <div className="space-y-6">
-      {/* Model selectors */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Model selectors (LOW_24: stack on very narrow screens) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="text-xs font-medium mb-1.5 block">Model 1</label>
           <Select value={model1} onValueChange={setModel1} disabled={running}>
@@ -223,7 +224,7 @@ export function ModelPlayground({ models }: { models: Model[] }) {
 
       {/* Prompt input */}
       <div className="space-y-3">
-        <textarea
+        <Textarea
           ref={textareaRef}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
@@ -235,7 +236,7 @@ export function ModelPlayground({ models }: { models: Model[] }) {
           }}
           placeholder="Type your prompt here... (Enter to compare, Shift+Enter for newline)"
           rows={3}
-          className="w-full border border-input bg-background px-4 py-3 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+          className="resize-none"
           disabled={running}
         />
         <div className="flex items-center justify-between">

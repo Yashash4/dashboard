@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { hasAccess } from "@/lib/tier";
 import { rateLimit } from "@/lib/rate-limit";
+import { decryptField } from "@/lib/credential-utils";
 
 const GENERATION_SYSTEM_PROMPT = `You are an expert at creating OpenClaw AI agent configurations. The user will describe what kind of agent they want, and you must generate the complete configuration files.
 
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
 
   if (vps.dashboard_username && vps.dashboard_password) {
     const basicAuth = Buffer.from(
-      `${vps.dashboard_username}:${vps.dashboard_password}`
+      `${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`
     ).toString("base64");
     headers["Authorization"] = `Basic ${basicAuth}`;
   }

@@ -30,25 +30,28 @@ function Gauge({
 
   useEffect(() => {
     if (!inView) return;
+    let innerIntervalId: ReturnType<typeof setInterval> | null = null;
     const duration = 1.5;
     let start = 0;
     const step = target / (duration * 60);
-    const timer = setTimeout(() => {
-      const id = setInterval(() => {
+
+    const timerId = setTimeout(() => {
+      innerIntervalId = setInterval(() => {
         start += step;
         if (start >= target) {
           setCount(target);
-          clearInterval(id);
+          if (innerIntervalId) clearInterval(innerIntervalId);
+          innerIntervalId = null;
         } else {
           setCount(Math.floor(start));
         }
       }, 1000 / 60);
-      // cleanup inner interval
-      const cleanup = () => clearInterval(id);
-      (timer as unknown as { cleanup: () => void }).cleanup = cleanup;
     }, delay * 1000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timerId);
+      if (innerIntervalId) clearInterval(innerIntervalId);
+    };
   }, [inView, target, delay]);
 
   const dashoffset = CIRCUMFERENCE - (count / 100) * CIRCUMFERENCE;

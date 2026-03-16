@@ -87,7 +87,7 @@ export function MissionControlOverview() {
       const json = await res.json();
       return json.agents || [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const {
@@ -102,7 +102,7 @@ export function MissionControlOverview() {
       const json = await res.json();
       return json.tasks || [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const {
@@ -117,7 +117,7 @@ export function MissionControlOverview() {
       const json = await res.json();
       return json.events || [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const {
@@ -130,7 +130,7 @@ export function MissionControlOverview() {
       const json = await res.json();
       return json.sessions || [];
     },
-    refetchInterval: 5000,
+    refetchInterval: 15000,
   });
 
   const m = metrics;

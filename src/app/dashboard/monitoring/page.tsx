@@ -29,8 +29,17 @@ export default async function MonitoringPage() {
     redirect("/login");
   }
 
-  let vps: any = null;
-  let subscription: any = null;
+  let vps: {
+    status: string;
+    hostname: string | null;
+    ip_address: string | null;
+    cpu_cores: number | null;
+    ram_gb: number | null;
+    storage_gb: number | null;
+    bandwidth_tb: number | null;
+    openclaw_dashboard_url: string | null;
+  } | null = null;
+  let subscription: { plan: string } | null = null;
 
   try {
     const [vpsRes, subRes] = await Promise.all([

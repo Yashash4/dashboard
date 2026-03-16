@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen,
@@ -121,13 +121,23 @@ async function fetchDocs(): Promise<{
   return res.json();
 }
 
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export function KnowledgeBaseManager() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [searchMode, setSearchMode] = useState<"name" | "content">("name");
   const [testQuery, setTestQuery] = useState("");
-  const [testResults, setTestResults] = useState<any[] | null>(null);
+  const [testResults, setTestResults] = useState<{ documentName: string; content: string; similarity?: number }[] | null>(null);
   const [testLoading, setTestLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadType, setUploadType] = useState<"file" | "url">("file");
@@ -146,7 +156,7 @@ export function KnowledgeBaseManager() {
   const indexedCount = docs.filter((d) => d.status === "indexed").length;
 
   const filtered = docs.filter(
-    (d) => !search || d.name.toLowerCase().includes(search.toLowerCase())
+    (d) => !debouncedSearch || d.name.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
   const handleTestKB = async () => {
@@ -622,6 +632,7 @@ export function KnowledgeBaseManager() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive"
+                            aria-label="Delete document"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -690,7 +701,7 @@ export function KnowledgeBaseManager() {
                   No matching content found. Try uploading more documents or rephrasing your query.
                 </p>
               ) : (
-                testResults.map((r: any, i: number) => (
+                testResults.map((r, i) => (
                   <div key={i} className="border border-border p-3 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-primary">{r.documentName}</span>

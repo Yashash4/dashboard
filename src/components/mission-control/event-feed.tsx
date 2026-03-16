@@ -109,6 +109,8 @@ export function EventFeed() {
   const [isLive, setIsLive] = useState(true);
   const [newEventCount, setNewEventCount] = useState(0);
   const prevEventCountRef = useRef(0);
+  // 4.10: Accumulate events across pages instead of replacing
+  const [accumulatedEvents, setAccumulatedEvents] = useState<MCEvent[]>([]);
 
   // Build URL with filter params sent to server (P1.3.2)
   const fetchUrl = useMemo(() => {
@@ -132,10 +134,32 @@ export function EventFeed() {
       if (!res.ok) throw new Error("Failed to fetch events");
       return res.json();
     },
-    refetchInterval: isLive ? 5000 : false,
+    refetchInterval: isLive ? 10000 : false,
   });
 
-  const events = data?.events || [];
+  // 4.10: When data changes, append new page results or refresh page 1
+  useEffect(() => {
+    if (!data?.events) return;
+    if (page === 1) {
+      // Page 1 always replaces (live refresh or filter change)
+      setAccumulatedEvents(data.events);
+    } else {
+      // Subsequent pages append, deduplicating by id
+      setAccumulatedEvents((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        const newEvents = data.events.filter((e) => !existingIds.has(e.id));
+        return [...prev, ...newEvents];
+      });
+    }
+  }, [data, page]);
+
+  // Reset accumulated events when filters change
+  useEffect(() => {
+    setAccumulatedEvents([]);
+    setPage(1);
+  }, [typeFilter, severityFilter]);
+
+  const events = accumulatedEvents;
   const total = data?.total || 0;
 
   // Track new events when paused

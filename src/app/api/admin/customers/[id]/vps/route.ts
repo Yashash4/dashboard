@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { encryptField } from "@/lib/credential-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,12 @@ export async function PATCH(
   const updateData: Record<string, any> = {};
   for (const field of allowedFields) {
     if (field in body) {
-      updateData[field] = body[field];
+      // Encrypt ssh_password before storing
+      if (field === "ssh_password" && body[field]) {
+        updateData[field] = encryptField(body[field]);
+      } else {
+        updateData[field] = body[field];
+      }
     }
   }
 

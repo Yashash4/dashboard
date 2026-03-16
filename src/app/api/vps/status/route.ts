@@ -52,10 +52,8 @@ export async function GET() {
           .eq("id", vps.id);
         vps.status = hostingerState;
       }
-    } catch (err) {
-      // Hostinger API failed — keep DB status but log for debugging
-      const message = err instanceof Error ? err.message : "Unknown error";
-      // Return a header hint so frontend could show a stale-data warning if needed
+    } catch {
+      // Hostinger API failed — keep DB status, return stale indicator
       return NextResponse.json(
         {
           status: vps.status,
@@ -68,7 +66,6 @@ export async function GET() {
           openclaw_dashboard_url: vps.openclaw_dashboard_url,
           created_at: vps.created_at,
           _stale: true,
-          _stale_reason: `Status sync failed: ${message}`,
         }
       );
     }

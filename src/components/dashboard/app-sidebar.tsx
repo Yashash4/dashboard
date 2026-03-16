@@ -56,21 +56,33 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-function getCustomerNav(plan: string) {
+function getCustomerNavGroups(plan: string) {
   const isPro = hasAccess(plan, "pro");
-  return [
-    { title: "Overview", href: "/", icon: LayoutDashboard }, // Relies on middleware rewrite: / → /dashboard
-    { title: isPro ? "Advanced VPS Controls" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
-    { title: "Models", href: "/models", icon: Brain },
-    { title: "Agents", href: "/agents", icon: Bot },
-    { title: "Store", href: "/store", icon: ShoppingBag },
-    { title: "Chat", href: "/chat", icon: MessageCircle },
-    { title: "Channels", href: "/channels", icon: MessageSquare },
-    { title: "OpenClaw", href: "/openclaw", icon: Globe },
-    { title: "Support", href: "/support", icon: HelpCircle },
-    { title: "Billing", href: "/billing", icon: CreditCard },
-    { title: "Account", href: "/account", icon: UserIcon },
-  ];
+  return {
+    main: [
+      { title: "Overview", href: "/", icon: LayoutDashboard },
+      { title: isPro ? "Advanced VPS Controls" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
+      { title: "Models", href: "/models", icon: Brain },
+    ],
+    agents: [
+      { title: "Agents", href: "/agents", icon: Bot },
+      { title: "Store", href: "/store", icon: ShoppingBag },
+      { title: "Chat", href: "/chat", icon: MessageCircle },
+      { title: "Channels", href: "/channels", icon: MessageSquare },
+      { title: "OpenClaw", href: "/openclaw", icon: Globe },
+    ],
+    account: [
+      { title: "Support", href: "/support", icon: HelpCircle },
+      { title: "Billing", href: "/billing", icon: CreditCard },
+      { title: "Account", href: "/account", icon: UserIcon },
+    ],
+  };
+}
+
+// Flat list for isActive matching
+function getCustomerNav(plan: string) {
+  const groups = getCustomerNavGroups(plan);
+  return [...groups.main, ...groups.agents, ...groups.account];
 }
 
 const proNav = [
@@ -122,6 +134,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   }, [pathname]);
 
   const customerNav = getCustomerNav(plan);
+  const customerNavGroups = getCustomerNavGroups(plan);
 
   // Collect all nav hrefs to find the most specific match
   const allHrefs = [
@@ -192,7 +205,53 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
           <SidebarGroupLabel>Dashboard</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {customerNav.map((item) => (
+              {customerNavGroups.main.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel>Agents & Channels</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {customerNavGroups.agents.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive(item.href)}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {customerNavGroups.account.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     asChild

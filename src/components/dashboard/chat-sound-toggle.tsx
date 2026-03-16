@@ -67,6 +67,7 @@ export function ChatSoundToggle({ enabled, onToggle }: ChatSoundToggleProps) {
       onClick={onToggle}
       className="text-xs text-muted-foreground"
       title={enabled ? "Mute notifications" : "Enable sound notifications"}
+      aria-label={enabled ? "Mute notifications" : "Enable sound notifications"}
     >
       {enabled ? (
         <Volume2 className="h-3.5 w-3.5" />

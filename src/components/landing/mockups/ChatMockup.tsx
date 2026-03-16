@@ -13,11 +13,27 @@ export function ChatMockup() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [streamedText, setStreamedText] = useState("");
   const charIndex = useRef(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isVisible = useRef(true);
 
   const reset = useCallback(() => {
     setPhase("idle");
     setStreamedText("");
     charIndex.current = 0;
+  }, []);
+
+  // IntersectionObserver: pause animation when not visible
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisible.current = entry.isIntersecting;
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
@@ -32,6 +48,7 @@ export function ChatMockup() {
     }
     if (phase === "streaming") {
       const id = setInterval(() => {
+        if (!isVisible.current) return; // Skip tick when not visible
         charIndex.current += 1;
         if (charIndex.current >= RESPONSE_TEXT.length) {
           setStreamedText(RESPONSE_TEXT);
@@ -40,7 +57,7 @@ export function ChatMockup() {
         } else {
           setStreamedText(RESPONSE_TEXT.slice(0, charIndex.current));
         }
-      }, 20);
+      }, 40); // Slowed from 20ms to 40ms
       return () => clearInterval(id);
     }
     if (phase === "done") {
@@ -48,13 +65,26 @@ export function ChatMockup() {
       return () => clearTimeout(t);
     }
     if (phase === "idle") {
-      const t = setTimeout(() => setPhase("typing"), 1000);
+      const t = setTimeout(() => {
+        if (isVisible.current) {
+          setPhase("typing");
+        } else {
+          // Retry when not visible
+          const retryId = setInterval(() => {
+            if (isVisible.current) {
+              setPhase("typing");
+              clearInterval(retryId);
+            }
+          }, 500);
+          return () => clearInterval(retryId);
+        }
+      }, 1000);
       return () => clearTimeout(t);
     }
   }, [phase, reset]);
 
   return (
-    <div className="w-full max-w-md mx-auto rounded-lg border border-border bg-card overflow-hidden font-mono text-xs">
+    <div ref={containerRef} className="w-full max-w-md mx-auto rounded-lg border border-border bg-card overflow-hidden font-mono text-xs">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-[#191919]">
         <span className="relative flex h-2 w-2">

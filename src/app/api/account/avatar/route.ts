@@ -61,11 +61,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "File must be under 5MB" }, { status: 400 });
   }
 
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Validate file magic bytes to prevent spoofed Content-Type
+  const allowedMagic: { mime: string; bytes: number[] }[] = [
+    { mime: "image/jpeg", bytes: [0xFF, 0xD8, 0xFF] },
+    { mime: "image/png", bytes: [0x89, 0x50, 0x4E, 0x47] },
+    { mime: "image/gif", bytes: [0x47, 0x49, 0x46, 0x38] },
+    { mime: "image/webp", bytes: [0x52, 0x49, 0x46, 0x46] }, // RIFF header
+  ];
+  const header = Array.from(buffer.subarray(0, 12));
+  const magicMatch = allowedMagic.some((m) =>
+    m.bytes.every((b, i) => header[i] === b)
+  );
+  if (!magicMatch) {
+    return NextResponse.json(
+      { error: "File does not appear to be a valid image (JPEG, PNG, GIF, or WebP)" },
+      { status: 400 }
+    );
+  }
+
   // Upload to Supabase Storage
   const ext = file.name.split(".").pop() || "jpg";
   const fileName = `${user.id}/avatar.${ext}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
 
   // Delete old avatar if exists
   await admin.storage.from("avatars").remove([`${user.id}/avatar.jpg`, `${user.id}/avatar.png`, `${user.id}/avatar.gif`, `${user.id}/avatar.webp`]);
