@@ -79,7 +79,7 @@ export async function DELETE(request: NextRequest) {
 
   // ST_HIGH_07: Track partial failures and log them
   const failedOps: string[] = [];
-  const trackSettled = async (label: string, promises: Promise<any>[]) => {
+  const trackSettled = async (label: string, promises: PromiseLike<any>[]) => {
     const results = await Promise.allSettled(promises);
     for (const r of results) {
       if (r.status === "rejected") {

@@ -82,7 +82,7 @@ function shellEscape(value: string): string {
 export async function provisionVPS(
   config: ProvisionConfig,
   onProgress: OnProgress
-): Promise<{ success: boolean; error?: string; gatewayToken?: string }> {
+): Promise<{ success: boolean; error?: string; gatewayToken?: string; dataApiToken?: string }> {
   let ssh: NodeSSH | null = null;
 
   try {

@@ -183,7 +183,7 @@ export async function GET(request: NextRequest) {
         .from("models")
         .update({ retry_count: retryCount + 1 })
         .eq("id", change.id)
-        .catch(() => {}); // Don't let retry tracking failure crash the loop
+        .then(() => {}, () => {}); // Don't let retry tracking failure crash the loop
       // ST_MED_11: Sanitize error — log internally, return generic message
       console.error(`[cron/apply-pending-changes] Error for model ${change.id}:`, err.message);
       results.push({

@@ -1,4 +1,3 @@
-import dynamic from "next/dynamic";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import ChannelBar from "@/components/landing/ChannelBar";
@@ -7,10 +6,8 @@ import Features from "@/components/landing/Features";
 import Pricing from "@/components/landing/Pricing";
 import Comparison from "@/components/landing/Comparison";
 import FAQ from "@/components/landing/FAQ";
-
-// Lazy load heavy animation components — keep ssr: false only for these
-const HowItWorks = dynamic(() => import("@/components/landing/HowItWorks"), { ssr: false });
-const CTA = dynamic(() => import("@/components/landing/CTA"), { ssr: false });
+import HowItWorks from "@/components/landing/HowItWorks";
+import CTA from "@/components/landing/CTA";
 
 export default function Home() {
   return (

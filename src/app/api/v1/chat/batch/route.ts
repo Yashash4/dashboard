@@ -7,9 +7,8 @@ import { isPrivateUrl } from "@/lib/knowledge-base";
 import { validateV1Auth } from "@/lib/v1-auth";
 
 const MAX_BODY_SIZE = 102_400; // 100 KB
-const MAX_DURATION = 300; // 5 minutes for batch processing
-
-export const maxDuration = MAX_DURATION;
+/** Max duration for batch processing (5 minutes) */
+export const maxDuration = 300;
 
 /** POST /api/v1/chat/batch — Submit batch of chat requests */
 export async function POST(request: NextRequest) {

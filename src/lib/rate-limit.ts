@@ -1,3 +1,9 @@
+export interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  reset: number;
+}
+
 /**
  * Rate limiter with Supabase persistence.
  *

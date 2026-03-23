@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { UserProvider } from "@/lib/user-context";
@@ -16,7 +17,7 @@ const DEMO_USER = {
   role: "user",
 };
 
-export default function DemoLayout({ children }: { children: React.ReactNode }) {
+function DemoLayoutInner({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const plan = searchParams.get("plan") || "pro";
 
@@ -37,5 +38,13 @@ export default function DemoLayout({ children }: { children: React.ReactNode }) 
         </SidebarInset>
       </SidebarProvider>
     </UserProvider>
+  );
+}
+
+export default function DemoLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <DemoLayoutInner>{children}</DemoLayoutInner>
+    </Suspense>
   );
 }
