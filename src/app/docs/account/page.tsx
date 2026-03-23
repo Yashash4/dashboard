@@ -33,12 +33,11 @@ export default function DocsAccountSettingsPage() {
         <strong>Choose Emoji</strong>.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Use a square image for best results. Non-square images will be
           center-cropped to fit the 200x200 pixel frame.
-        </p>
+        </div>
       </div>
 
       <h2>Profile Information</h2>
@@ -55,6 +54,7 @@ export default function DocsAccountSettingsPage() {
         can toggle each notification type independently, and choose whether to
         receive them via email, in-app notifications, or both.
       </p>
+      <div className="overflow-x-auto">
       <table>
         <thead>
           <tr>
@@ -86,19 +86,19 @@ export default function DocsAccountSettingsPage() {
           </tr>
         </tbody>
       </table>
+      </div>
       <p>
         Toggle notifications by clicking the <strong>Email</strong> and{" "}
         <strong>In-app</strong> switches next to each event type. Changes take
         effect immediately.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Even if you disable email notifications, critical alerts (such as
           billing failures or account security events) will always be sent to
           your registered email address.
-        </p>
+        </div>
       </div>
 
       <h2>Security</h2>
@@ -131,14 +131,13 @@ export default function DocsAccountSettingsPage() {
         unauthorized access to your account.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--warning)]">Warning:</strong>{" "}
           If you notice a login from an unfamiliar location or device, change
           your password immediately and{" "}
-          <Link href="/docs/support" className="text-primary hover:underline">contact support</Link>{" "}
+          <Link href="/docs/support" className="text-[var(--accent)] hover:underline">contact support</Link>{" "}
           to report the incident.
-        </p>
+        </div>
       </div>
 
       <h2>Timezone Setting</h2>
@@ -179,13 +178,12 @@ export default function DocsAccountSettingsPage() {
         prepared.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Use the data export feature to create periodic backups of your
           configuration. This is especially useful before making significant
           changes to your agent or channel setup.
-        </p>
+        </div>
       </div>
 
       <h2>Danger Zone</h2>
@@ -215,23 +213,22 @@ export default function DocsAccountSettingsPage() {
         begins immediately and cannot be cancelled once started.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Account deletion is permanent and irreversible. All data, including
           your VPS instance, will be destroyed. Export your data before deleting
           if you need to retain any information. If you have an active
           subscription, it will be cancelled and no refund will be issued for the
           remaining billing period.
-        </p>
+        </div>
       </div>
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/billing" className="text-primary hover:underline">Manage your subscription</Link> and view payment history.</li>
-        <li><Link href="/docs/support" className="text-primary hover:underline">Open a support ticket</Link> if you need account assistance.</li>
-        <li><Link href="/docs/channels" className="text-primary hover:underline">Configure channels</Link> to connect your agents to messaging platforms.</li>
-        <li><Link href="/dashboard/monitoring" className="text-primary hover:underline">Monitor your VPS</Link> for status and performance details.</li>
+        <li><Link href="/docs/billing" className="text-[var(--accent)] hover:underline">Manage your subscription</Link> and view payment history.</li>
+        <li><Link href="/docs/support" className="text-[var(--accent)] hover:underline">Open a support ticket</Link> if you need account assistance.</li>
+        <li><Link href="/docs/channels" className="text-[var(--accent)] hover:underline">Configure channels</Link> to connect your agents to messaging platforms.</li>
+        <li><Link href="/docs/vps" className="text-[var(--accent)] hover:underline">Monitor your VPS</Link> for status and performance details.</li>
       </ul>
     </article>
   );

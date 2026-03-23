@@ -58,10 +58,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ST_CRIT_02: Null check before decrypting ssh_password
+  if (!vps.ssh_password) {
+    return new Response(JSON.stringify({ error: "VPS credentials not available" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   // Create SSE stream
   const encoder = new TextEncoder();
   let sshConnection: NodeSSH | null = null;
   let keepaliveTimer: ReturnType<typeof setInterval> | null = null;
+  // ST_HIGH_09: Track maxDurationTimer so it can be cleared on close
+  let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
 
   const stream = new ReadableStream({
@@ -80,7 +90,7 @@ export async function GET(request: NextRequest) {
 
       // Keepalive every 15 seconds
       // Max connection duration: 30 minutes
-      const maxDurationTimer = setTimeout(() => {
+      maxDurationTimer = setTimeout(() => {
         sendEvent({ type: "timeout", message: "Maximum stream duration reached (30 min)" });
         if (keepaliveTimer) clearInterval(keepaliveTimer);
         if (sshConnection) { sshConnection.dispose(); sshConnection = null; }
@@ -88,11 +98,11 @@ export async function GET(request: NextRequest) {
       }, 30 * 60 * 1000);
 
       keepaliveTimer = setInterval(() => {
-        if (closed) { clearTimeout(maxDurationTimer); return; }
+        if (closed) { if (maxDurationTimer) clearTimeout(maxDurationTimer); return; }
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
         } catch {
-          clearTimeout(maxDurationTimer);
+          if (maxDurationTimer) clearTimeout(maxDurationTimer);
           closed = true;
         }
       }, 15_000);
@@ -176,6 +186,8 @@ export async function GET(request: NextRequest) {
           message: err instanceof Error ? err.message : "SSH connection failed",
         });
         if (keepaliveTimer) clearInterval(keepaliveTimer);
+        // ST_HIGH_09: Clear maxDurationTimer on error
+        if (maxDurationTimer) clearTimeout(maxDurationTimer);
         if (sshConnection) { sshConnection.dispose(); sshConnection = null; }
         if (!closed) {
           closed = true;
@@ -187,6 +199,8 @@ export async function GET(request: NextRequest) {
     cancel() {
       closed = true;
       if (keepaliveTimer) clearInterval(keepaliveTimer);
+      // ST_HIGH_09: Clear maxDurationTimer on cancel
+      if (maxDurationTimer) clearTimeout(maxDurationTimer);
       if (sshConnection) {
         sshConnection.dispose();
         sshConnection = null;
@@ -198,6 +212,8 @@ export async function GET(request: NextRequest) {
   request.signal.addEventListener("abort", () => {
     closed = true;
     if (keepaliveTimer) clearInterval(keepaliveTimer);
+    // ST_HIGH_09: Clear maxDurationTimer on abort
+    if (maxDurationTimer) clearTimeout(maxDurationTimer);
     if (sshConnection) {
       sshConnection.dispose();
       sshConnection = null;

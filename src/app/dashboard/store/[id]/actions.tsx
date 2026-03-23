@@ -64,7 +64,7 @@ export function AgentDetailActions({ agentId, agentName, isOwned, isFree, price 
   if (owned) {
     return (
       <Button className="w-full" disabled variant="outline">
-        <Check className="mr-2 h-4 w-4 text-green-500" />
+        <Check className="mr-2 h-4 w-4 text-[var(--success)]" />
         Already in Library
       </Button>
     );

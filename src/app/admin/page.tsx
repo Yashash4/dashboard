@@ -33,37 +33,59 @@ const PRIORITY_CONFIG: Record<string, { label: string; className: string }> = {
 export default async function AdminOverviewPage() {
   const admin = createAdminClient();
 
-  const [
-    { count: totalCustomers },
-    { count: activeSubscriptions },
-    { data: activeSubsData },
-    { count: openTickets },
-    { count: vpsRunning },
-    { count: vpsTotal },
-    { count: proCustomers },
-    { count: starterCustomers },
-    { count: ultraCustomers },
-    { data: recentTickets },
-    { data: vpsInstances },
-    { count: totalAgents },
-    { count: totalChannels },
-    { data: recentAuditLogs },
-  ] = await Promise.all([
-    admin.from("users").select("*", { count: "exact", head: true }).eq("role", "customer"),
-    admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("status", "active"),
-    admin.from("subscriptions").select("price, plan").eq("status", "active"),
-    admin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "in_progress"]),
-    admin.from("vps_instances").select("*", { count: "exact", head: true }).eq("status", "running"),
-    admin.from("vps_instances").select("*", { count: "exact", head: true }),
-    admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "pro").eq("status", "active"),
-    admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "starter").eq("status", "active"),
-    admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "ultra").eq("status", "active"),
-    admin.from("support_tickets").select("id, subject, status, priority, created_at, user_id, users!inner(email)").order("created_at", { ascending: false }).limit(5),
-    admin.from("vps_instances").select("user_id, hostname, ip_address, status, users!inner(name, email)").order("status", { ascending: true }),
-    admin.from("user_agents").select("*", { count: "exact", head: true }).eq("deployed", true),
-    admin.from("channels").select("*", { count: "exact", head: true }).eq("status", "connected"),
-    admin.from("audit_logs").select("id, action, entity_type, created_at, details, users!admin_id(name, email)").order("created_at", { ascending: false }).limit(10),
-  ]);
+  // ADMIN_MED_02: Wrap parallel queries in try/catch with error state
+  let totalCustomers: number | null = 0;
+  let activeSubscriptions: number | null = 0;
+  let activeSubsData: any[] | null = [];
+  let openTickets: number | null = 0;
+  let vpsRunning: number | null = 0;
+  let vpsTotal: number | null = 0;
+  let proCustomers: number | null = 0;
+  let starterCustomers: number | null = 0;
+  let ultraCustomers: number | null = 0;
+  let recentTickets: any[] | null = [];
+  let vpsInstances: any[] | null = [];
+  let totalAgents: number | null = 0;
+  let totalChannels: number | null = 0;
+  let recentAuditLogs: any[] | null = [];
+  let queryError: string | null = null;
+
+  try {
+    const results = await Promise.all([
+      admin.from("users").select("*", { count: "exact", head: true }).eq("role", "customer"),
+      admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("status", "active"),
+      admin.from("subscriptions").select("price, plan, billing_cycle").eq("status", "active"),
+      admin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "in_progress"]),
+      admin.from("vps_instances").select("*", { count: "exact", head: true }).eq("status", "running"),
+      admin.from("vps_instances").select("*", { count: "exact", head: true }),
+      admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "pro").eq("status", "active"),
+      admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "starter").eq("status", "active"),
+      admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "ultra").eq("status", "active"),
+      admin.from("support_tickets").select("id, subject, status, priority, created_at, user_id, users!inner(email)").order("created_at", { ascending: false }).limit(5),
+      admin.from("vps_instances").select("user_id, hostname, ip_address, status, users!inner(name, email)").order("status", { ascending: true }),
+      admin.from("user_agents").select("*", { count: "exact", head: true }).eq("deployed", true),
+      admin.from("channels").select("*", { count: "exact", head: true }).eq("status", "connected"),
+      admin.from("audit_logs").select("id, action, entity_type, created_at, details, users!admin_id(name, email)").order("created_at", { ascending: false }).limit(10),
+    ]);
+
+    totalCustomers = results[0].count;
+    activeSubscriptions = results[1].count;
+    activeSubsData = results[2].data;
+    openTickets = results[3].count;
+    vpsRunning = results[4].count;
+    vpsTotal = results[5].count;
+    proCustomers = results[6].count;
+    starterCustomers = results[7].count;
+    ultraCustomers = results[8].count;
+    recentTickets = results[9].data;
+    vpsInstances = results[10].data;
+    totalAgents = results[11].count;
+    totalChannels = results[12].count;
+    recentAuditLogs = results[13].data;
+  } catch (err: any) {
+    console.error("[admin] Failed to fetch overview data:", err);
+    queryError = err.message || "Failed to load admin data";
+  }
 
   // ADMIN_MED_12: ARR calculation accounts for annual billing cycles (price / 12)
   const monthlyRevenue = activeSubsData?.reduce((sum, sub) => {
@@ -72,11 +94,13 @@ export default async function AdminOverviewPage() {
     return sum + cycle;
   }, 0) ?? 0;
 
-  // MRR by plan
+  // ADMIN_HIGH_01: MRR by plan — divide annual price by 12 for monthly equivalent
   const mrrByPlan: Record<string, number> = {};
   activeSubsData?.forEach((sub: any) => {
     const plan = sub.plan || "unknown";
-    mrrByPlan[plan] = (mrrByPlan[plan] || 0) + (Number(sub.price) || 0);
+    const price = Number(sub.price) || 0;
+    const monthly = sub.billing_cycle === "annual" ? price / 12 : price;
+    mrrByPlan[plan] = (mrrByPlan[plan] || 0) + monthly;
   });
 
   // Alerts
@@ -93,6 +117,19 @@ export default async function AdminOverviewPage() {
     <div>
       <h1 className="text-2xl font-bold mb-1">Admin Overview</h1>
       <p className="text-muted-foreground mb-6">Platform health and key metrics.</p>
+
+      {/* ADMIN_MED_02: Error state for failed queries */}
+      {queryError && (
+        <div className="border border-red-600/30 bg-red-600/5 p-4 mb-6">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-400">Failed to load some data</p>
+              <p className="text-xs text-muted-foreground mt-1">{queryError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Alerts Banner */}
       {alerts.length > 0 && (

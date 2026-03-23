@@ -162,7 +162,7 @@ export default function Comparison() {
                         <p className="text-[8px] text-[var(--text-tertiary)]">CPU & RAM (24h)</p>
                         <div className="flex gap-2">
                           <span className="flex items-center gap-0.5 text-[6px] text-[var(--text-tertiary)]"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" />CPU</span>
-                          <span className="flex items-center gap-0.5 text-[6px] text-[var(--text-tertiary)]"><span className="w-1 h-1 rounded-full bg-emerald-500" />RAM</span>
+                          <span className="flex items-center gap-0.5 text-[6px] text-[var(--text-tertiary)]"><span className="w-1 h-1 rounded-full bg-[var(--success)]" />RAM</span>
                         </div>
                       </div>
                       <div className="h-16 flex items-end gap-[3px]">

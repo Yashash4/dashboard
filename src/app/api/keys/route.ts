@@ -51,39 +51,34 @@ export async function GET() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Fix H3: Single query to get all counts grouped by api_key_id
-    const { data: todayRows } = await admin
-      .from("agent_analytics")
-      .select("api_key_id")
-      .in("api_key_id", activeKeyIds)
-      .gte("created_at", todayStart);
-
-    const { data: weekRows } = await admin
-      .from("agent_analytics")
-      .select("api_key_id")
-      .in("api_key_id", activeKeyIds)
-      .gte("created_at", weekStart);
-
-    const { data: errorRows } = await admin
-      .from("agent_analytics")
-      .select("api_key_id")
-      .in("api_key_id", activeKeyIds)
-      .eq("metric_type", "error")
-      .gte("created_at", weekStart);
-
-    // Build count maps with single pass over each array
+    // CROSS_MED_05: Use COUNT aggregates instead of pulling all rows
     const todayCount: Record<string, number> = {};
-    for (const row of (todayRows || [])) {
-      todayCount[row.api_key_id] = (todayCount[row.api_key_id] || 0) + 1;
-    }
-
     const weekCount: Record<string, number> = {};
     const errorCount: Record<string, number> = {};
-    for (const row of (weekRows || [])) {
-      weekCount[row.api_key_id] = (weekCount[row.api_key_id] || 0) + 1;
-    }
-    for (const row of (errorRows || [])) {
-      errorCount[row.api_key_id] = (errorCount[row.api_key_id] || 0) + 1;
+
+    for (const keyId of activeKeyIds) {
+      const [todayRes, weekRes, errorRes] = await Promise.all([
+        admin
+          .from("agent_analytics")
+          .select("id", { count: "exact", head: true })
+          .eq("api_key_id", keyId)
+          .gte("created_at", todayStart),
+        admin
+          .from("agent_analytics")
+          .select("id", { count: "exact", head: true })
+          .eq("api_key_id", keyId)
+          .gte("created_at", weekStart),
+        admin
+          .from("agent_analytics")
+          .select("id", { count: "exact", head: true })
+          .eq("api_key_id", keyId)
+          .eq("metric_type", "error")
+          .gte("created_at", weekStart),
+      ]);
+
+      todayCount[keyId] = todayRes.count || 0;
+      weekCount[keyId] = weekRes.count || 0;
+      errorCount[keyId] = errorRes.count || 0;
     }
 
     for (const keyId of activeKeyIds) {
@@ -122,7 +117,13 @@ export async function POST(request: NextRequest) {
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  const body = await request.json();
+  // ST_LOW_01: Wrap request.json() in try-catch for malformed JSON
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { name, rate_limit_per_min } = body as { name?: string; rate_limit_per_min?: number };
 
   if (!name || !name.trim()) {

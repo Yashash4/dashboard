@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Key,
   Plus,
@@ -16,6 +16,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -54,6 +64,8 @@ export function AdminApiKeys({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  // ADMIN_HIGH_09: Confirmation dialog state for API key deletion
+  const [deleteConfirmProvider, setDeleteConfirmProvider] = useState<string | null>(null);
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -61,22 +73,22 @@ export function AdminApiKeys({
   const [apiKey, setApiKey] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
 
-  const fetchKeys = async () => {
+  // ADMIN_LOW_01: Wrap fetchKeys in useCallback for stable dependency
+  const fetchKeys = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/api-keys?userId=${userId}`);
       const data = await res.json();
       setKeys(data.keys || []);
     } catch (err) {
-      // ADMIN_MED_20: log error instead of ignoring
       console.error("Failed to fetch API keys:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchKeys();
-  }, [userId]);
+  }, [fetchKeys]);
 
   const handleSave = async () => {
     if (!provider || !apiKey) return;
@@ -199,8 +211,9 @@ export function AdminApiKeys({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(k.provider)}
+                      onClick={() => setDeleteConfirmProvider(k.provider)}
                       disabled={deleting === k.provider}
+                      aria-label={`Delete ${getProviderLabel(k.provider)} key`}
                     >
                       {deleting === k.provider ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -294,6 +307,29 @@ export function AdminApiKeys({
                 Add Key
               </Button>
             )}
+
+            {/* ADMIN_HIGH_09: Confirmation dialog for API key deletion */}
+            <AlertDialog open={!!deleteConfirmProvider} onOpenChange={(open) => { if (!open) setDeleteConfirmProvider(null); }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {deleteConfirmProvider ? getProviderLabel(deleteConfirmProvider) : ""} API key?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove this API key. If this customer has a VPS, the key will also be removed from their server configuration.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      if (deleteConfirmProvider) handleDelete(deleteConfirmProvider);
+                      setDeleteConfirmProvider(null);
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </CardContent>

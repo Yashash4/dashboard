@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api-errors";
 import { validateV1Auth } from "@/lib/v1-auth";
 
-/** GET /api/v1/conversations/:id/messages — Get messages for a conversation (cursor-based pagination) */
+/** GET /api/v1/conversations/:id/messages — Get messages for a conversation (offset-based pagination) */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,7 +22,7 @@ export async function GET(
       .single();
 
     if (!conversation) {
-      return apiError("invalid_request", "Conversation not found", ctx);
+      return apiError("not_found", "Conversation not found", ctx);
     }
 
     // Parse query params — offset-based pagination

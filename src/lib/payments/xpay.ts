@@ -11,34 +11,24 @@ export function isXPayConfigured(): boolean {
 
 /**
  * Create an XPay order.
- * TODO: Implement when XPay API is ready.
+ * XPay integration is not yet available. Callers should check
+ * isXPayConfigured() and fall back to Razorpay before calling this.
  */
 export async function createXPayOrder(
-  params: CreateOrderParams,
-  currency: string
+  _params: CreateOrderParams,
+  _currency: string
 ): Promise<CreateOrderResult> {
-  if (!isXPayConfigured()) {
-    throw new Error("XPay is not configured");
-  }
-
-  // TODO: Replace with actual XPay API call
-  // const client = getXPayClient();
-  // const order = await client.createPaymentIntent({ ... });
-
-  throw new Error("XPay integration pending — use Razorpay fallback");
+  console.warn("[xpay] createXPayOrder called but XPay integration is not implemented yet");
+  throw new Error("XPay payment provider is not yet available. Please use an alternative payment method.");
 }
 
 /**
  * Verify an XPay payment.
- * TODO: Implement when XPay API is ready.
+ * XPay integration is not yet available. Always returns unverified.
  */
 export function verifyXPayPayment(
-  params: VerifyPaymentParams
+  _params: VerifyPaymentParams
 ): VerifyPaymentResult {
-  if (!isXPayConfigured()) {
-    return { verified: false, error: "XPay is not configured" };
-  }
-
-  // TODO: Replace with actual XPay verification
-  return { verified: false, error: "XPay verification not implemented" };
+  console.warn("[xpay] verifyXPayPayment called but XPay integration is not implemented yet");
+  return { verified: false, error: "XPay payment provider is not yet available" };
 }

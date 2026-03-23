@@ -119,8 +119,8 @@ export default function DocsAgentStorePage() {
         to get a balanced perspective.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="font-semibold text-[var(--warning)] mb-1">Warning</p>
         <p className="text-sm text-muted-foreground">
           You can only submit a review for an agent that you have deployed and used. Reviews
           cannot be edited after submission, so take a moment to thoroughly test the agent

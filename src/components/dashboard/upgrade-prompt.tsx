@@ -4,28 +4,15 @@ import { Lock, Check } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { type Plan } from "@/lib/tier";
+import { PLANS } from "@/lib/payments/plans";
 
-const PLAN_FEATURES: Record<string, string[]> = {
-  pro: [
-    "Advanced VPS Controls — full server management",
-    "Multi-model support & model playground",
-    "No-code agent builder & workflows",
-    "Real-time monitoring with alerts",
-    "Logs explorer, usage analytics & audit log",
-    "Team access with role-based permissions",
-    "Direct API access to your OpenClaw instance",
-    "2x credits & priority support",
-  ],
-  ultra: [
-    "Full Mission Control command center",
-    "Agent squad builder & task board",
-    "Live event feed & session tracker",
-    "End-to-end tracing & time travel debugging",
-    "Workflow builder with continuous missions",
-    "Advanced analytics & standup reports",
-    "5x credits & enterprise-grade monitoring",
-  ],
-};
+// Derive upgrade features from the canonical plans.ts source of truth
+const PLAN_FEATURES: Record<string, string[]> = Object.fromEntries(
+  PLANS.filter((p) => p.name === "pro" || p.name === "ultra").map((p) => [
+    p.name,
+    p.features,
+  ])
+);
 
 export function UpgradePrompt({ requiredPlan = "pro" }: { requiredPlan?: Plan }) {
   const planLabel = requiredPlan.charAt(0).toUpperCase() + requiredPlan.slice(1);

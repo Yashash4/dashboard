@@ -378,8 +378,8 @@ export default function DocsFAQPage() {
         before canceling if you want to keep a copy.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="text-sm font-medium text-amber-500">Important: Export before canceling</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="text-sm font-medium text-[var(--warning)]">Important: Export before canceling</p>
         <p className="text-sm text-muted-foreground mt-1">
           Once the 30-day retention period expires after cancellation, your data cannot
           be recovered. Use the data export feature in{" "}

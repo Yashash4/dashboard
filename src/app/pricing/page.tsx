@@ -115,8 +115,10 @@ function PricingContent() {
           </p>
 
           {/* Monthly / Annual toggle */}
-          <div className="inline-flex items-center gap-1 p-1 border border-border bg-card">
+          <div className="inline-flex items-center gap-1 p-1 border border-border bg-card" role="radiogroup" aria-label="Billing cycle">
             <button
+              role="radio"
+              aria-checked={!annual}
               onClick={() => setAnnual(false)}
               className={`px-4 py-1.5 text-sm transition-colors ${
                 !annual
@@ -127,6 +129,8 @@ function PricingContent() {
               Monthly
             </button>
             <button
+              role="radio"
+              aria-checked={annual}
               onClick={() => setAnnual(true)}
               className={`px-4 py-1.5 text-sm transition-colors ${
                 annual
@@ -151,7 +155,9 @@ function PricingContent() {
                 className={`border-border relative transition-colors ${
                   plan.highlighted
                     ? "border-[var(--cream)]/30"
-                    : ""
+                    : plan.name === "ultra"
+                      ? "border-[var(--tier-ultra)]/40 shadow-[0_0_20px_rgba(245,158,11,0.08)]"
+                      : ""
                 } ${isPreselected ? "ring-2 ring-primary" : ""}`}
               >
                 {plan.badge && (
@@ -160,7 +166,9 @@ function PricingContent() {
                       className={`text-xs ${
                         plan.highlighted
                           ? "bg-[var(--cream)] text-[var(--cream-foreground)] border-[var(--cream)]"
-                          : "bg-muted text-muted-foreground border-border"
+                          : plan.name === "ultra"
+                            ? "bg-[var(--tier-ultra)] text-white border-[var(--tier-ultra)]"
+                            : "bg-muted text-muted-foreground border-border"
                       }`}
                     >
                       {plan.badge}

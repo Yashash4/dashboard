@@ -31,8 +31,14 @@ export async function GET(request: NextRequest) {
     if (action) query = query.eq("action", action);
     if (entityType) query = query.eq("entity_type", entityType);
     if (entityId) query = query.eq("entity_id", entityId);
-    if (from) query = query.gte("created_at", from);
-    if (to) query = query.lte("created_at", to);
+    if (from) {
+      if (isNaN(Date.parse(from))) return apiError("invalid_parameter", "from must be a valid ISO 8601 date", ctx, { param: "from" });
+      query = query.gte("created_at", from);
+    }
+    if (to) {
+      if (isNaN(Date.parse(to))) return apiError("invalid_parameter", "to must be a valid ISO 8601 date", ctx, { param: "to" });
+      query = query.lte("created_at", to);
+    }
 
     const { data: entries, error, count } = await query;
 

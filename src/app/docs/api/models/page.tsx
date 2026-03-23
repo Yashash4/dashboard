@@ -11,14 +11,14 @@ export default function DocsModelsAPIPage() {
       </p>
 
       <h2>Endpoint</h2>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>GET /api/v1/models</code></pre>
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>GET /api/v1/models</code></pre>
 
       <h2>Authentication</h2>
       <p>
         Requires a valid API key passed as a Bearer token. See the{" "}
-        <Link href="/docs/api/auth" className="text-primary">Authentication</Link> docs for details.
+        <Link href="/docs/api/auth" className="text-[var(--accent)] hover:underline">Authentication</Link> docs for details.
       </p>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>Authorization: Bearer clw_your_api_key_here</code></pre>
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>Authorization: Bearer $CLAWHQ_API_KEY</code></pre>
 
       <h2>Request</h2>
       <p>
@@ -30,7 +30,7 @@ export default function DocsModelsAPIPage() {
       <p>
         A successful request returns a JSON object containing an array of model objects:
       </p>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`{
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`{
   "models": [
     {
       "id": "k2.5-standard",
@@ -75,29 +75,29 @@ export default function DocsModelsAPIPage() {
       <div className="not-prose overflow-x-auto my-6">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="text-left py-2 px-3 text-white">Field</th>
-              <th className="text-left py-2 px-3 text-white">Type</th>
-              <th className="text-left py-2 px-3 text-white">Description</th>
+            <tr className="border-b border-[var(--border-primary)]">
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Field</th>
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Type</th>
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Description</th>
             </tr>
           </thead>
           <tbody className="text-muted-foreground">
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>id</code></td>
               <td className="py-2 px-3">string</td>
               <td className="py-2 px-3">Unique model identifier used when configuring agents</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>name</code></td>
               <td className="py-2 px-3">string</td>
               <td className="py-2 px-3">Human-readable display name</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>context_window</code></td>
               <td className="py-2 px-3">number</td>
               <td className="py-2 px-3">Maximum number of tokens the model can process in a single request (input + output)</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>description</code></td>
               <td className="py-2 px-3">string</td>
               <td className="py-2 px-3">Brief summary of the model&apos;s strengths and use cases</td>
@@ -123,7 +123,7 @@ export default function DocsModelsAPIPage() {
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> Model availability may vary based on your
+          <strong className="text-[var(--text-primary)]">Tip:</strong> Model availability may vary based on your
           plan and region. The Models API always returns the accurate list of models you can
           currently use. Check this endpoint before configuring a new agent to see the latest options.
         </p>
@@ -132,13 +132,14 @@ export default function DocsModelsAPIPage() {
       <h2>Code Examples</h2>
 
       <h3>cURL</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`curl https://app.clawhq.tech/api/v1/models \\
-  -H "Authorization: Bearer clw_your_api_key_here"`}</code></pre>
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`curl https://app.clawhq.tech/api/v1/models \\
+  -H "Authorization: Bearer $CLAWHQ_API_KEY"`}</code></pre>
 
       <h3>Python</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`import requests
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`import os
+import requests
 
-API_KEY = "clw_your_api_key_here"
+API_KEY = os.environ["CLAWHQ_API_KEY"]
 
 response = requests.get(
     "https://app.clawhq.tech/api/v1/models",
@@ -152,7 +153,7 @@ for model in models:
     print(f"  {model['description']}")`}</code></pre>
 
       <h3>JavaScript</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`const API_KEY = "clw_your_api_key_here";
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`const API_KEY = process.env.CLAWHQ_API_KEY;
 
 const response = await fetch("https://app.clawhq.tech/api/v1/models", {
   headers: {
@@ -182,7 +183,7 @@ models.forEach((model) => {
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> You can assign both a primary and fallback
+          <strong className="text-[var(--text-primary)]">Tip:</strong> You can assign both a primary and fallback
           model to each agent via the dashboard. If the primary model is temporarily unavailable,
           the agent automatically falls back to the secondary model with no downtime.
         </p>
@@ -192,21 +193,21 @@ models.forEach((model) => {
       <div className="not-prose overflow-x-auto my-6">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="text-left py-2 px-3 text-white">Status</th>
-              <th className="text-left py-2 px-3 text-white">Description</th>
+            <tr className="border-b border-[var(--border-primary)]">
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Status</th>
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Description</th>
             </tr>
           </thead>
           <tbody className="text-muted-foreground">
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>401</code></td>
               <td className="py-2 px-3">Invalid or missing API key</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>403</code></td>
               <td className="py-2 px-3">Account does not have an active Pro or Ultra plan</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>429</code></td>
               <td className="py-2 px-3">Rate limit exceeded</td>
             </tr>
@@ -216,9 +217,9 @@ models.forEach((model) => {
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/api/agents" className="text-primary">Agents API</Link> &mdash; See which models your agents are using</li>
-        <li><Link href="/docs/api/chat" className="text-primary">Chat API</Link> &mdash; Send messages to your agents</li>
-        <li><Link href="/docs/api/webhooks" className="text-primary">Usage API</Link> &mdash; Monitor your API consumption</li>
+        <li><Link href="/docs/api/agents" className="text-[var(--accent)] hover:underline">Agents API</Link> &mdash; See which models your agents are using</li>
+        <li><Link href="/docs/api/chat" className="text-[var(--accent)] hover:underline">Chat API</Link> &mdash; Send messages to your agents</li>
+        <li><Link href="/docs/api/rate-limits" className="text-[var(--accent)] hover:underline">Rate Limits</Link> &mdash; Understand rate limiting and best practices</li>
       </ul>
     </article>
   );

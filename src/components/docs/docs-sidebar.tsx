@@ -18,9 +18,13 @@ interface Section {
 }
 
 const DOC_PAGES = [
-  { label: "Chat API", href: "/docs", icon: "01" },
-  { label: "Webhooks", href: "/docs/api/webhooks", icon: "02" },
-  { label: "Knowledge Base", href: "/docs/pro/knowledge-base", icon: "03" },
+  { label: "Getting Started", href: "/docs", icon: "01" },
+  { label: "Dashboard", href: "/docs/dashboard", icon: "02" },
+  { label: "Pro Features", href: "/docs/pro", icon: "03" },
+  { label: "Ultra", href: "/docs/ultra", icon: "04" },
+  { label: "API Reference", href: "/docs/api/auth", icon: "05" },
+  { label: "Billing", href: "/docs/billing", icon: "06" },
+  { label: "Support", href: "/docs/support", icon: "07" },
 ];
 
 export function DocsSidebar({

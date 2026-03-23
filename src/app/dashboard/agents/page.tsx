@@ -112,7 +112,7 @@ export default async function AgentsPage() {
         <h1 className="text-2xl font-bold mb-1">Agents</h1>
         <p className="text-muted-foreground mb-6">Manage your AI agents.</p>
         {vpsWarning && (
-          <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+          <div className="mb-4 flex items-center gap-2 rounded-none border border-[color-mix(in_srgb,var(--warning),transparent_70%)] bg-[color-mix(in_srgb,var(--warning),transparent_90%)] p-3 text-sm text-[var(--warning)]">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to deploy or manage agents.</span>
           </div>
@@ -153,7 +153,7 @@ export default async function AgentsPage() {
         </Button>
       </div>
       {vpsWarning && (
-        <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+        <div className="mb-4 flex items-center gap-2 rounded-none border border-[color-mix(in_srgb,var(--warning),transparent_70%)] bg-[color-mix(in_srgb,var(--warning),transparent_90%)] p-3 text-sm text-[var(--warning)]">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to deploy or manage agents.</span>
         </div>

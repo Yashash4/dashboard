@@ -77,8 +77,19 @@ export async function DELETE(request: NextRequest) {
   const webhookIds = webhookRes.data?.map((w) => w.id) || [];
   const mcTaskIds = mcTaskRes.data?.map((t) => t.id) || [];
 
+  // ST_HIGH_07: Track partial failures and log them
+  const failedOps: string[] = [];
+  const trackSettled = async (label: string, promises: Promise<any>[]) => {
+    const results = await Promise.allSettled(promises);
+    for (const r of results) {
+      if (r.status === "rejected") {
+        failedOps.push(`${label}: ${r.reason?.message || "unknown error"}`);
+      }
+    }
+  };
+
   // Phase 1: deep child tables (FK dependencies on other user tables)
-  await Promise.allSettled([
+  await trackSettled("phase1", [
     // Ticket children
     ...(ticketIds.length > 0
       ? [
@@ -113,7 +124,7 @@ export async function DELETE(request: NextRequest) {
   ]);
 
   // Phase 2: parent tables with user_id FK
-  await Promise.allSettled([
+  await trackSettled("phase2", [
     admin.from("chat_conversations").delete().eq("user_id", userId),
     admin.from("support_tickets").delete().eq("user_id", userId),
     admin.from("user_agents").delete().eq("user_id", userId),
@@ -142,7 +153,7 @@ export async function DELETE(request: NextRequest) {
   ]);
 
   // Phase 3: clean up Supabase Storage
-  await Promise.allSettled([
+  await trackSettled("phase3", [
     admin.storage.from("avatars").remove([`${userId}/avatar.jpg`, `${userId}/avatar.png`, `${userId}/avatar.gif`, `${userId}/avatar.webp`]),
     // Clean up ticket attachment files
     ...(ticketIds.length > 0
@@ -156,6 +167,11 @@ export async function DELETE(request: NextRequest) {
       : []),
   ]);
 
+  // Log partial failures if any
+  if (failedOps.length > 0) {
+    console.error(`[account/delete] Partial failures for user ${userId}:`, failedOps);
+  }
+
   // Delete the users table entry
   await admin.from("users").delete().eq("id", userId);
 
@@ -167,6 +183,14 @@ export async function DELETE(request: NextRequest) {
       { error: "Account data deleted but auth cleanup failed. Contact support." },
       { status: 500 }
     );
+  }
+
+  // ST_HIGH_07: Notify about partial failures if any occurred
+  if (failedOps.length > 0) {
+    return NextResponse.json({
+      success: true,
+      warning: `Account deleted but ${failedOps.length} cleanup operation(s) had issues. Contact support if you notice orphaned data.`,
+    });
   }
 
   return NextResponse.json({ success: true });

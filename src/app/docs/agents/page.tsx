@@ -92,8 +92,8 @@ export default function DocsAgentsPage() {
         interface for modifying agent configurations.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="font-semibold text-[var(--warning)] mb-1">Warning</p>
         <p className="text-sm text-muted-foreground">
           Modifying an agent&apos;s configuration files directly can change its behavior in
           unexpected ways. Always test the agent after making changes using the quick test

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { UpgradePrompt } from "@/components/dashboard/upgrade-prompt";
 import { OpenClawCredentialsBanner } from "@/components/dashboard/openclaw-credentials-banner";
 import { OpenClawEmbed } from "@/components/dashboard/openclaw-embed";
-import { decryptField } from "@/lib/credential-utils";
+// ST_MED_09: decryptField removed — password no longer decrypted server-side for client props
 
 export default async function OpenClawPage() {
   const supabase = await createClient();
@@ -112,15 +112,17 @@ export default async function OpenClawPage() {
           </a>
         </Button>
       </div>
+      {/* ST_MED_09: Don't pass decrypted password to client components via server props.
+          Credentials banner and embed should fetch password client-side via PUT /api/vps/password. */}
       {vps?.dashboard_username && vps?.dashboard_password && (
         <OpenClawCredentialsBanner
           username={vps.dashboard_username}
-          password={decryptField(vps.dashboard_password)}
+          password="••••••••"
         />
       )}
       <OpenClawEmbed
         dashboardUrl={dashboardUrl}
-        embedKey={vps?.dashboard_password ? decryptField(vps.dashboard_password) : ""}
+        embedKey=""
       />
     </div>
   );

@@ -32,13 +32,12 @@ export default function DocsSupportPage() {
         </li>
       </ul>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Choosing the correct category helps route your ticket to the right team
           member. Billing questions go to the finance team, while technical
           issues go to the engineering team.
-        </p>
+        </div>
       </div>
 
       <h2>Ticket Reference Numbers</h2>
@@ -56,6 +55,7 @@ export default function DocsSupportPage() {
         the support team understand your issue faster, especially for visual bugs
         or error logs.
       </p>
+      <div className="overflow-x-auto">
       <table>
         <thead>
           <tr>
@@ -70,14 +70,15 @@ export default function DocsSupportPage() {
           <tr><td>Supported document formats</td><td>PDF, TXT, CSV</td></tr>
         </tbody>
       </table>
+      </div>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Files that exceed the size limit or use an unsupported format will be
           rejected. Compress large files or convert them to a supported format
           before uploading.
-        </p>
+        </div>
       </div>
 
       <h2>Rich Text Formatting</h2>
@@ -108,8 +109,8 @@ export default function DocsSupportPage() {
           solution or completed the request.
         </li>
         <li>
-          <strong>Auto-Closed</strong> &mdash; If a resolved ticket receives no
-          further replies within 48 hours, it is automatically closed.
+          <strong>Auto-Deleted</strong> &mdash; If a resolved ticket receives no
+          further replies within 48 hours, it is automatically deleted.
         </li>
       </ol>
       <p>
@@ -124,9 +125,9 @@ export default function DocsSupportPage() {
         by clicking the <strong>Reopen</strong> button on the ticket detail page.
         Reopening a ticket moves it back to <strong>In Progress</strong> status
         and notifies the support team. You can only reopen tickets that are in
-        the <strong>Resolved</strong> state; auto-closed tickets must be
-        reopened by creating a new ticket and referencing the original reference
-        number.
+        the <strong>Resolved</strong> state; auto-deleted tickets cannot be
+        recovered, so create a new ticket and reference the original reference
+        number if needed.
       </p>
 
       <h2>Satisfaction Rating</h2>
@@ -151,6 +152,7 @@ export default function DocsSupportPage() {
         and represent the time until a support team member begins reviewing your
         ticket.
       </p>
+      <div className="overflow-x-auto">
       <table>
         <thead>
           <tr>
@@ -165,16 +167,16 @@ export default function DocsSupportPage() {
           <tr><td>Enterprise</td><td>1 hour (SLA-backed)</td></tr>
         </tbody>
       </table>
+      </div>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Enterprise plans include a formal SLA with guaranteed response times.
           If a response is not received within the SLA window, automatic
           escalation procedures are triggered. See{" "}
-          <Link href="/docs/billing" className="text-primary hover:underline">Billing</Link>{" "}
+          <Link href="/docs/billing" className="text-[var(--accent)] hover:underline">Billing</Link>{" "}
           for plan details.
-        </p>
+        </div>
       </div>
 
       <h2>Email Notifications</h2>
@@ -183,7 +185,7 @@ export default function DocsSupportPage() {
         replies to your ticket. Notifications are sent to the email address
         associated with your ClawHQ account. You can manage notification
         preferences from your{" "}
-        <Link href="/docs/account" className="text-primary hover:underline">Account Settings</Link>.
+        <Link href="/docs/account" className="text-[var(--accent)] hover:underline">Account Settings</Link>.
       </p>
 
       <h2>Auto-Deletion Policy</h2>
@@ -195,13 +197,13 @@ export default function DocsSupportPage() {
         ticket system clean and focused on active issues.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Auto-deleted tickets cannot be recovered. Make sure to save any
           important information from resolved tickets before the 48-hour
           deletion window closes.
-        </p>
+        </div>
       </div>
 
       <h2>Best Practices</h2>
@@ -209,15 +211,15 @@ export default function DocsSupportPage() {
         <li>Include screenshots or error logs as attachments when reporting technical issues.</li>
         <li>Use the correct category and priority to ensure fast routing.</li>
         <li>Reference specific pages, agents, or channels by name to help the support team reproduce issues.</li>
-        <li>Check the <Link href="/docs/faq" className="text-primary hover:underline">FAQ</Link> before opening a ticket &mdash; your question may already be answered.</li>
+        <li>Check the <Link href="/docs/faq" className="text-[var(--accent)] hover:underline">FAQ</Link> before opening a ticket &mdash; your question may already be answered.</li>
         <li>Reply to existing tickets rather than creating duplicates for the same issue.</li>
       </ul>
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/account" className="text-primary hover:underline">Manage notification preferences</Link> for ticket replies.</li>
-        <li><Link href="/docs/billing" className="text-primary hover:underline">Compare plans</Link> to understand response time differences.</li>
-        <li><Link href="/docs/faq" className="text-primary hover:underline">Search the FAQ</Link> for self-service answers.</li>
+        <li><Link href="/docs/account" className="text-[var(--accent)] hover:underline">Manage notification preferences</Link> for ticket replies.</li>
+        <li><Link href="/docs/billing" className="text-[var(--accent)] hover:underline">Compare plans</Link> to understand response time differences.</li>
+        <li><Link href="/docs/faq" className="text-[var(--accent)] hover:underline">Search the FAQ</Link> for self-service answers.</li>
       </ul>
     </article>
   );

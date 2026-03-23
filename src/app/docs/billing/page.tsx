@@ -29,41 +29,41 @@ export default function DocsBillingPage() {
         needs.
       </p>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Feature</th>
-            <th>Starter</th>
-            <th>Pro</th>
-            <th>Ultra</th>
-            <th>Enterprise</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>Price (monthly)</td><td>$59/mo</td><td>$129/mo</td><td>$350/mo</td><td>Custom</td></tr>
-          <tr><td>Price (annual)</td><td>$50/mo</td><td>$110/mo</td><td>$298/mo</td><td>Custom</td></tr>
-          <tr><td>AI Agents</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
-          <tr><td>Channels</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td></tr>
-          <tr><td>Knowledge Base documents</td><td>50</td><td>500</td><td>Unlimited</td><td>Unlimited</td></tr>
-          <tr><td>Monthly messages</td><td>5,000</td><td>50,000</td><td>Unlimited</td><td>Unlimited</td></tr>
-          <tr><td>API access</td><td>Basic</td><td>Full</td><td>Full</td><td>Full + dedicated</td></tr>
-          <tr><td>Support response time</td><td>24 hours</td><td>12 hours</td><td>4 hours</td><td>1 hour (SLA)</td></tr>
-          <tr><td>Custom domain</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
-          <tr><td>Analytics</td><td>Basic</td><td>Advanced</td><td>Advanced + exports</td><td>Advanced + exports</td></tr>
-          <tr><td>Webhooks</td><td>2</td><td>10</td><td>Unlimited</td><td>Unlimited</td></tr>
-          <tr><td>Mission Control</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
-          <tr><td>Audit logging</td><td>7 days</td><td>30 days</td><td>90 days</td><td>365 days</td></tr>
-          <tr><td>VPS resources</td><td>2 vCPU / 8 GB / 100 GB</td><td>4 vCPU / 16 GB / 200 GB</td><td>8 vCPU / 32 GB / 400 GB</td><td>Custom</td></tr>
-        </tbody>
-      </table>
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Starter</th>
+              <th>Pro</th>
+              <th>Ultra</th>
+              <th>Enterprise</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Price (monthly)</td><td>$59/mo</td><td>$129/mo</td><td>$350/mo</td><td>Custom</td></tr>
+            <tr><td>Price (annual)</td><td>$49.92/mo ($599/yr)</td><td>$108.25/mo ($1,299/yr)</td><td>$291.58/mo ($3,499/yr)</td><td>Custom</td></tr>
+            <tr><td>AI Agents</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
+            <tr><td>Channels</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td></tr>
+            <tr><td>API access</td><td>No</td><td>Full</td><td>Full</td><td>Full + dedicated</td></tr>
+            <tr><td>Knowledge Base</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Support response time</td><td>24 hours</td><td>12 hours</td><td>4 hours</td><td>1 hour (SLA)</td></tr>
+            <tr><td>Custom domain</td><td>Yes (auto-SSL)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Analytics</td><td>No</td><td>Advanced</td><td>Advanced + exports</td><td>Advanced + exports</td></tr>
+            <tr><td>Webhooks</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Mission Control</td><td>No</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>VPS resources</td><td>2 vCPU / 8 GB / 100 GB</td><td>4 vCPU / 16 GB / 200 GB</td><td>8 vCPU / 32 GB / 400 GB</td><td>Custom</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Switching to annual billing saves approximately 15% compared to monthly
           billing. You can switch between monthly and annual at any time from the
           Billing page.
-        </p>
+        </div>
       </div>
 
       <h2>Annual Billing</h2>
@@ -94,18 +94,18 @@ export default function DocsBillingPage() {
         Downgrades take effect at the end of your current billing cycle. You
         retain access to all features of your current plan until the renewal
         date, at which point the lower-tier plan activates. If your current
-        usage exceeds the limits of the new plan (for example, you have 10
-        agents but are downgrading to Starter which allows 1), you will be
-        prompted to reduce usage before the downgrade activates.
+        usage exceeds the capabilities of the new plan (for example, you are using
+        Pro features like Webhooks or Knowledge Base that are not available on Starter),
+        those features will become inaccessible after the downgrade activates.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          If you do not reduce usage before a downgrade activates, excess agents,
-          channels, and documents will be deactivated automatically. Make sure to
-          review your usage before confirming a downgrade.
-        </p>
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
+          If you downgrade from Pro or Ultra to Starter, you will lose access to
+          API keys, Knowledge Base, Webhooks, Analytics, and other Pro-tier features.
+          Make sure to review your usage before confirming a downgrade.
+        </div>
       </div>
 
       <h2>Payment Method</h2>
@@ -154,13 +154,13 @@ export default function DocsBillingPage() {
         active at a time.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           Coupon discounts are applied before tax. If you switch plans while a
           coupon is active, the discount carries over to the new plan for the
           remaining duration.
-        </p>
+        </div>
       </div>
 
       <h2>Usage Summary</h2>
@@ -174,7 +174,7 @@ export default function DocsBillingPage() {
       </p>
       <p>
         For deeper usage insights, visit the{" "}
-        <Link href="/docs/pro/analytics" className="text-primary hover:underline">Analytics</Link>{" "}
+        <Link href="/docs/pro/analytics" className="text-[var(--accent)] hover:underline">Analytics</Link>{" "}
         page.
       </p>
 
@@ -195,15 +195,15 @@ export default function DocsBillingPage() {
         associated data will remain accessible until the cycle ends. After that,
         your instance is deprovisioned. If you wish to permanently delete your
         account and data immediately, see the{" "}
-        <Link href="/docs/account" className="text-primary hover:underline">Account Settings</Link>{" "}
+        <Link href="/docs/account" className="text-[var(--accent)] hover:underline">Account Settings</Link>{" "}
         danger zone.
       </p>
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/account" className="text-primary hover:underline">Manage your account</Link> settings and security.</li>
-        <li><Link href="/dashboard/analytics" className="text-primary hover:underline">View detailed analytics</Link> to understand your usage patterns.</li>
-        <li><Link href="/docs/support" className="text-primary hover:underline">Contact support</Link> for billing questions or disputes.</li>
+        <li><Link href="/docs/account" className="text-[var(--accent)] hover:underline">Manage your account</Link> settings and security.</li>
+        <li><Link href="/docs/pro/analytics" className="text-[var(--accent)] hover:underline">View detailed analytics</Link> to understand your usage patterns.</li>
+        <li><Link href="/docs/support" className="text-[var(--accent)] hover:underline">Contact support</Link> for billing questions or disputes.</li>
       </ul>
     </article>
   );

@@ -5,7 +5,7 @@ export default function DocsEventFeedPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Event Feed{" "}
-        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+        <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
       </h1>
       <p className="lead text-lg text-muted-foreground">
         The Event Feed provides a live, streaming log of every significant action and state change
@@ -160,13 +160,13 @@ export default function DocsEventFeedPage() {
       </p>
       <ul>
         <li><code>task.*</code> events open the Task Detail modal on the{" "}
-          <Link href="/docs/ultra/task-board" className="text-amber-500">Task Board</Link>
+          <Link href="/docs/ultra/task-board" className="text-[var(--tier-ultra)]">Task Board</Link>
         </li>
         <li><code>agent.*</code> events scroll to and highlight the agent on the{" "}
-          <Link href="/docs/ultra/agent-roster" className="text-amber-500">Agent Roster</Link>
+          <Link href="/docs/ultra/agent-roster" className="text-[var(--tier-ultra)]">Agent Roster</Link>
         </li>
         <li><code>session.*</code> events open the session detail on the{" "}
-          <Link href="/docs/ultra/sessions" className="text-amber-500">Session Tracker</Link>
+          <Link href="/docs/ultra/sessions" className="text-[var(--tier-ultra)]">Session Tracker</Link>
         </li>
         <li><code>system.*</code> events open a detail popover with full alert information</li>
       </ul>

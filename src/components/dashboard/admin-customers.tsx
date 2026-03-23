@@ -19,6 +19,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -56,6 +66,8 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState<string | null>(null);
+  // ADMIN_HIGH_08: Confirmation dialog for bulk actions
+  const [bulkConfirmAction, setBulkConfirmAction] = useState<"suspend" | "activate" | null>(null);
 
   const filtered = useMemo(() => {
     let result = customers.filter((c) => {
@@ -182,7 +194,8 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
       ];
     });
 
-    const csv = [headers, ...rows].map((row) => row.map((v) => `"${v}"`).join(",")).join("\n");
+    // ADMIN_MED_08: Properly escape CSV values — double quotes inside values must be escaped
+    const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -288,8 +301,9 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
               variant="outline"
               size="sm"
               className="h-7 text-xs"
-              onClick={() => handleBulkAction("suspend")}
+              onClick={() => setBulkConfirmAction("suspend")}
               disabled={!!bulkLoading}
+              aria-label="Suspend selected customers"
             >
               {bulkLoading === "suspend" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Ban className="h-3 w-3 mr-1" />}
               Suspend
@@ -298,8 +312,9 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
               variant="outline"
               size="sm"
               className="h-7 text-xs"
-              onClick={() => handleBulkAction("activate")}
+              onClick={() => setBulkConfirmAction("activate")}
               disabled={!!bulkLoading}
+              aria-label="Activate selected customers"
             >
               {bulkLoading === "activate" ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <CheckCircle2 className="h-3 w-3 mr-1" />}
               Activate
@@ -310,11 +325,39 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
               className="h-7 text-xs"
               onClick={() => setSelectedIds(new Set())}
               disabled={!!bulkLoading}
+              aria-label="Clear selection"
             >
               <X className="h-3 w-3" />
             </Button>
           </div>
         )}
+
+        {/* ADMIN_HIGH_08: Confirmation dialog for bulk actions */}
+        <AlertDialog open={!!bulkConfirmAction} onOpenChange={(open) => { if (!open) setBulkConfirmAction(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {bulkConfirmAction === "suspend" ? "Suspend" : "Activate"} {selectedIds.size} customer{selectedIds.size !== 1 ? "s" : ""}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {bulkConfirmAction === "suspend"
+                  ? "This will suspend the selected customers and disable their access. This action can be reversed."
+                  : "This will activate the selected customers and restore their access."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (bulkConfirmAction) handleBulkAction(bulkConfirmAction);
+                  setBulkConfirmAction(null);
+                }}
+              >
+                {bulkConfirmAction === "suspend" ? "Suspend" : "Activate"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       {/* Table */}
@@ -337,8 +380,9 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
               <tr className="border-b border-border">
                 <th className="px-4 py-3 w-10">
                   <Checkbox
-                    checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                    checked={filtered.length > 0 && selectedIds.size === filtered.length ? true : selectedIds.size > 0 ? "indeterminate" : false}
                     onCheckedChange={toggleAll}
+                    aria-label="Select all customers"
                   />
                 </th>
                 <th className="text-left px-4 py-3">
@@ -417,6 +461,7 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
                       <Checkbox
                         checked={selectedIds.has(customer.id)}
                         onCheckedChange={() => toggleSelect(customer.id)}
+                        aria-label={`Select ${customer.name || customer.email}`}
                       />
                     </td>
                     <td

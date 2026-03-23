@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchKBChunks } from "@/lib/knowledge-base";
 import { shouldSearchKB } from "@/lib/rag-classifier";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
-import { apiError } from "@/lib/api-errors";
+import { apiError, apiSuccess, corsHeaders } from "@/lib/api-errors";
 import { decryptField } from "@/lib/credential-utils";
 import { moderateApiInput } from "@/lib/moderation";
 import { validateV1Auth } from "@/lib/v1-auth";
@@ -68,8 +68,8 @@ export async function POST(request: NextRequest) {
     return apiError("missing_parameter", "message field is required", ctx, { param: "message" });
   }
 
-  if (message.length > 100_000) {
-    return apiError("invalid_request", "Message too long (max 100,000 characters)", ctx);
+  if (message.length > 10_000) {
+    return apiError("invalid_request", "Message too long (max 10,000 characters)", ctx);
   }
 
   // Content moderation — block harmful inputs before sending to model
@@ -114,12 +114,13 @@ export async function POST(request: NextRequest) {
     agentId = (match as any).agent_id;
     agentSlug = sanitizeAgentName((match as any).agents?.name || "main");
   } else {
-    // Default: first deployed agent
+    // Default: most recently deployed agent
     const { data: firstAgent } = await admin
       .from("user_agents")
       .select("agent_id, agents(name)")
       .eq("user_id", userId)
       .eq("deployed", true)
+      .order("deployed_at", { ascending: false })
       .limit(1)
       .single();
 
@@ -217,14 +218,17 @@ export async function POST(request: NextRequest) {
       openclawBody.stream = true;
     }
 
-    const openclawResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(openclawBody),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeout);
+    let openclawResponse: Response;
+    try {
+      openclawResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(openclawBody),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!openclawResponse.ok) {
       // Track error analytics
@@ -327,6 +331,7 @@ export async function POST(request: NextRequest) {
       });
 
       const sseHeaders: Record<string, string> = {
+        ...corsHeaders(),
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
@@ -386,14 +391,6 @@ export async function POST(request: NextRequest) {
       response_time_ms: responseTimeMs,
     }).catch(() => {});
 
-    const successHeaders: Record<string, string> = {
-      "X-Request-Id": ctx.requestId,
-      "X-RateLimit-Limit": String(rateLimitInfo.limit),
-      "X-RateLimit-Remaining": String(Math.max(0, rateLimitInfo.remaining)),
-      "X-RateLimit-Reset": String(rateLimitInfo.reset),
-    };
-    if (ctx.clientRequestId) successHeaders["X-Client-Request-Id"] = ctx.clientRequestId;
-
     const successBody = {
       response: assistantContent,
       agent: agentSlug,
@@ -405,7 +402,7 @@ export async function POST(request: NextRequest) {
       storeIdempotency(apiKey.user_id, idempotencyKey, 200, successBody).catch(() => {});
     }
 
-    return NextResponse.json(successBody, { headers: successHeaders });
+    return apiSuccess(successBody, ctx, rateLimitInfo);
   } catch (err) {
     // Track error analytics
     admin

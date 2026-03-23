@@ -7,7 +7,7 @@ import { provisionVPS } from "@/lib/provision-v3";
 import { createSubdomain, ensureSslFull, ensureAlwaysHttps } from "@/lib/cloudflare";
 import { ensureFirewallPorts } from "@/lib/hostinger";
 import {
-  createJob,
+  createJobIfIdle,
   getJob,
   getActiveJob,
   updateStep,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/provision-store";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 import { encryptField } from "@/lib/credential-utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Prevent Next.js from caching this route
 export const dynamic = "force-dynamic";
@@ -40,7 +41,19 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const body = await request.json();
+  // ADMIN_HIGH_04: Rate limit provision POST — max 5 per minute
+  const rl = rateLimit(`admin:provision:${user.id}`, 5, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Rate limit exceeded. Try again later." }, { status: 429 });
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    // ADMIN_MED_07: Missing try/catch on request.json()
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { userId, ip, sshUser, sshPassword, sshPort, subdomain, email } =
     body as {
       userId?: string;
@@ -59,18 +72,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check if there's already an active job
-  const active = getActiveJob();
-  if (active) {
+  // ADMIN_CRIT_02: Validate subdomain to prevent command injection
+  if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(subdomain) || subdomain.length > 63) {
     return NextResponse.json(
-      { error: "A provisioning job is already running", jobId: active.id },
-      { status: 409 }
+      { error: "Invalid subdomain. Only alphanumeric characters and hyphens allowed (no leading/trailing hyphens)." },
+      { status: 400 }
     );
   }
 
-  // Create job and return immediately
+  // ADMIN_MED_09: Validate sshPort as number 1-65535
+  if (sshPort !== undefined) {
+    const port = Number(sshPort);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return NextResponse.json(
+        { error: "Invalid SSH port. Must be a number between 1 and 65535." },
+        { status: 400 }
+      );
+    }
+  }
+
+  // ADMIN_HIGH_02: Atomic check-and-create to prevent TOCTOU race
   const jobId = crypto.randomUUID();
-  createJob(jobId);
+  const newJob = createJobIfIdle(jobId);
+  if (!newJob) {
+    const active = getActiveJob();
+    return NextResponse.json(
+      { error: "A provisioning job is already running", jobId: active?.id },
+      { status: 409 }
+    );
+  }
 
   const ip_addr = getClientIp(request);
 

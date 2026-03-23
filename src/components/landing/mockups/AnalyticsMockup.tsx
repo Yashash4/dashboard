@@ -81,7 +81,7 @@ export function AnalyticsMockup() {
             initial={{ opacity: 0, y: 10 }}
             animate={inView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="rounded-md border border-border bg-[#222222] p-2"
+            className="rounded-md border border-border bg-[var(--bg-subtle)] p-2"
           >
             <div className="text-[10px] text-muted-foreground">{stat.label}</div>
             <div className="text-sm font-semibold text-foreground mt-0.5">
@@ -94,7 +94,7 @@ export function AnalyticsMockup() {
 
       {/* Chart */}
       <div className="px-3 pb-3">
-        <div className="rounded-md border border-border bg-[#222222] p-3">
+        <div className="rounded-md border border-border bg-[var(--bg-subtle)] p-3">
           <div className="text-[10px] text-muted-foreground mb-2">Messages (7 days)</div>
           <svg viewBox="0 0 360 80" className="w-full h-auto overflow-visible">
             {/* Grid lines */}

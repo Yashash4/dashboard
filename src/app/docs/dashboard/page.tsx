@@ -119,8 +119,8 @@ export default function DocsDashboardOverviewPage() {
         <li><strong>No Agents Deployed</strong> — No agents are currently deployed on your VPS. Conversations cannot be handled.</li>
       </ul>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="font-semibold text-[var(--warning)] mb-1">Warning</p>
         <p className="text-sm text-muted-foreground">
           System alerts indicate conditions that directly impact your service availability.
           Address them promptly to avoid downtime for your end users.

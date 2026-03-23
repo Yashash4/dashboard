@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu, X, Search } from "lucide-react";
@@ -73,9 +73,22 @@ const DOCS_NAV = [
   },
 ];
 
-function NavGroup({ group }: { group: (typeof DOCS_NAV)[number] }) {
+/** Check if pathname belongs to a nav group */
+function isGroupActive(group: (typeof DOCS_NAV)[number], pathname: string): boolean {
+  return group.items.some(
+    (item) => pathname === item.href || pathname.startsWith(item.href + "/")
+  );
+}
+
+function NavGroup({
+  group,
+  defaultOpen,
+}: {
+  group: (typeof DOCS_NAV)[number];
+  defaultOpen: boolean;
+}) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className="mb-4">
@@ -111,14 +124,37 @@ function NavGroup({ group }: { group: (typeof DOCS_NAV)[number] }) {
 }
 
 export function DocsNav() {
+  const pathname = usePathname();
   const [search, setSearch] = useState("");
+
+  // Build a flat list of all items for content keyword matching
+  const allKeywords = useMemo(() => {
+    const keywords: Record<string, string[]> = {};
+    DOCS_NAV.forEach((group) => {
+      group.items.forEach((item) => {
+        // Include group title and item title as searchable keywords
+        keywords[item.href] = [
+          group.title.toLowerCase(),
+          item.title.toLowerCase(),
+        ];
+      });
+    });
+    return keywords;
+  }, []);
 
   const filteredNav = search
     ? DOCS_NAV.map((group) => ({
         ...group,
-        items: group.items.filter((item) =>
-          item.title.toLowerCase().includes(search.toLowerCase())
-        ),
+        items: group.items.filter((item) => {
+          const q = search.toLowerCase();
+          // Match against item title, group title
+          const itemKeywords = allKeywords[item.href] || [];
+          return (
+            item.title.toLowerCase().includes(q) ||
+            group.title.toLowerCase().includes(q) ||
+            itemKeywords.some((kw) => kw.includes(q))
+          );
+        }),
       })).filter((group) => group.items.length > 0)
     : DOCS_NAV;
 
@@ -139,12 +175,19 @@ export function DocsNav() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full bg-muted border border-border rounded-md pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          aria-label="Search documentation"
         />
       </div>
 
-      <nav className="flex-1 overflow-y-auto">
+      <nav className="flex-1 overflow-y-auto" aria-label="Documentation navigation">
         {filteredNav.map((group) => (
-          <NavGroup key={group.title} group={group} />
+          <NavGroup
+            key={group.title}
+            group={group}
+            defaultOpen={
+              !!search || isGroupActive(group, pathname)
+            }
+          />
         ))}
       </nav>
     </div>
@@ -158,10 +201,10 @@ export function MobileDocsNav() {
     <>
       <button
         onClick={() => setOpen(!open)}
-        className="md:hidden fixed top-4 left-4 z-50 w-8 h-8 flex items-center justify-center rounded-md bg-card border border-border"
+        className="md:hidden fixed top-4 left-4 z-50 w-11 h-11 flex items-center justify-center rounded-md bg-card border border-border shadow-lg"
         aria-label="Toggle docs navigation"
       >
-        {open ? <X size={16} /> : <Menu size={16} />}
+        {open ? <X size={18} /> : <Menu size={18} />}
       </button>
       {open && (
         <>

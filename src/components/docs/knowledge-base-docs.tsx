@@ -28,22 +28,22 @@ const SECTIONS = [
 const BASE_URL = "https://app.clawhq.tech/api";
 
 const CURL_UPLOAD = `curl -X POST ${BASE_URL}/knowledge-base/upload \\
-  -H "Cookie: <your_session_cookie>" \\
+  -H "Authorization: Bearer $CLAWHQ_API_KEY" \\
   -F "file=@./product-docs.pdf"`;
 
 const CURL_URL = `curl -X POST ${BASE_URL}/knowledge-base/url \\
-  -H "Cookie: <your_session_cookie>" \\
+  -H "Authorization: Bearer $CLAWHQ_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"url": "https://docs.example.com/faq"}'`;
 
 const CURL_SEARCH = `curl "${BASE_URL}/knowledge-base/search?q=how+to+reset+password" \\
-  -H "Cookie: <your_session_cookie>"`;
+  -H "Authorization: Bearer $CLAWHQ_API_KEY"`;
 
 const CURL_DELETE = `curl -X DELETE ${BASE_URL}/knowledge-base/{document_id} \\
-  -H "Cookie: <your_session_cookie>"`;
+  -H "Authorization: Bearer $CLAWHQ_API_KEY"`;
 
 const CURL_REINDEX = `curl -X POST ${BASE_URL}/knowledge-base/{document_id}/reindex \\
-  -H "Cookie: <your_session_cookie>"`;
+  -H "Authorization: Bearer $CLAWHQ_API_KEY"`;
 
 const CHUNKING_PSEUDO = `function chunkText(text):
   paragraphs = text.split("\\n\\n")  // Split on double newlines
@@ -129,7 +129,7 @@ export default function KnowledgeBaseDocs() {
 
         <div className="mt-6">
           <Callout type="info">
-            All Knowledge Base endpoints require <strong>dashboard session authentication</strong> (cookie-based).
+            All Knowledge Base endpoints require <strong>API key authentication</strong> (Bearer token).
             Documents are automatically used in{" "}
             <Link href="/docs" className="text-primary hover:underline">Chat API</Link>{" "}
             responses — no extra parameters needed.
@@ -303,13 +303,14 @@ export default function KnowledgeBaseDocs() {
           <TabsContent value="python" className="mt-3">
             <CodeBlock
               language="python"
-              code={`import requests
+              code={`import os
+import requests
 
 with open("product-docs.pdf", "rb") as f:
     response = requests.post(
         "${BASE_URL}/knowledge-base/upload",
         files={"file": f},
-        cookies={"session": "your_session_cookie"},
+        headers={"Authorization": f"Bearer {os.environ['CLAWHQ_API_KEY']}"},
     )
 
 data = response.json()
@@ -326,7 +327,9 @@ formData.append("file", fileInput.files[0]);
 const response = await fetch("${BASE_URL}/knowledge-base/upload", {
   method: "POST",
   body: formData,
-  credentials: "include", // Send session cookie
+  headers: {
+    "Authorization": \`Bearer \${process.env.CLAWHQ_API_KEY}\`,
+  },
 });
 
 const data = await response.json();

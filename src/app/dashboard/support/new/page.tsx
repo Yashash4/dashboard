@@ -76,9 +76,8 @@ export default function NewTicketPage() {
         return;
       }
 
-      toast.success("Ticket created");
+      toast.success("Ticket created! You can attach files below or view your ticket.");
       setTicketId(data.ticket_id);
-      router.push(`/support/${data.ticket_id}`);
     } catch {
       toast.error("Failed to create ticket");
     } finally {
@@ -169,27 +168,39 @@ export default function NewTicketPage() {
               <p className="text-xs text-muted-foreground text-right">{description.length}/5000</p>
             </div>
 
-            {/* UX_06: File attachments -- only shown after ticket is created */}
+            {/* File attachments -- shown after ticket is created */}
             {ticketId && (
-              <div className="space-y-2">
-                <Label>Attachments</Label>
+              <div className="space-y-2 border border-border p-4 bg-muted/30">
+                <Label>Attachments (optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Your ticket has been created. You can attach files now or go to your ticket.
+                </p>
                 <TicketAttachmentUpload ticketId={ticketId} onAttached={() => {}} />
+                <Button
+                  type="button"
+                  className="w-full mt-3"
+                  onClick={() => router.push(`/support/${ticketId}`)}
+                >
+                  View Ticket
+                </Button>
               </div>
             )}
 
             <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={submitting}>
-                {submitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Submit Ticket
-              </Button>
+              {!ticketId && (
+                <Button type="submit" disabled={submitting}>
+                  {submitting && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Submit Ticket
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.push("/support")}
               >
-                Cancel
+                {ticketId ? "Back to Support" : "Cancel"}
               </Button>
             </div>
           </form>

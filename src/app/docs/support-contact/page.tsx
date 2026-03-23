@@ -310,8 +310,8 @@ export default function DocsContactSupportPage() {
         </li>
       </ul>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="text-sm font-medium text-amber-500">When in doubt, restart</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="text-sm font-medium text-[var(--warning)]">When in doubt, restart</p>
         <p className="text-sm text-muted-foreground mt-1">
           A surprising number of issues are resolved by restarting your VPS from the
           VPS page. This restarts all OpenClaw services and re-establishes channel

@@ -7,7 +7,48 @@ interface VPSCredentials {
   ssh_port?: number;
 }
 
+/* ---------- Connection pool (ARCH_HIGH_04) ---------- */
+
+interface PoolEntry {
+  ssh: NodeSSH;
+  lastUsed: number;
+  refCount: number;
+}
+
+const sshPool = new Map<string, PoolEntry>();
+const POOL_TTL_MS = 60_000; // idle connections expire after 60s
+
+function poolKey(creds: VPSCredentials): string {
+  return `${creds.ssh_user}@${creds.ip_address}:${creds.ssh_port || 22}`;
+}
+
+// Cleanup idle connections periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of sshPool) {
+    if (entry.refCount <= 0 && now - entry.lastUsed > POOL_TTL_MS) {
+      entry.ssh.dispose();
+      sshPool.delete(key);
+    }
+  }
+}, 30_000).unref();
+
 async function connect(creds: VPSCredentials): Promise<NodeSSH> {
+  const key = poolKey(creds);
+  const existing = sshPool.get(key);
+
+  if (existing && existing.ssh.isConnected()) {
+    existing.lastUsed = Date.now();
+    existing.refCount++;
+    return existing.ssh;
+  }
+
+  // Remove stale entry if it exists
+  if (existing) {
+    existing.ssh.dispose();
+    sshPool.delete(key);
+  }
+
   const ssh = new NodeSSH();
   await ssh.connect({
     host: creds.ip_address,
@@ -16,7 +57,19 @@ async function connect(creds: VPSCredentials): Promise<NodeSSH> {
     port: creds.ssh_port || 22,
     readyTimeout: 10000,
   });
+
+  sshPool.set(key, { ssh, lastUsed: Date.now(), refCount: 1 });
   return ssh;
+}
+
+/** Release a pooled connection (decrements refCount instead of disposing) */
+function releaseConnection(creds: VPSCredentials) {
+  const key = poolKey(creds);
+  const entry = sshPool.get(key);
+  if (entry) {
+    entry.refCount = Math.max(0, entry.refCount - 1);
+    entry.lastUsed = Date.now();
+  }
 }
 
 // Detect if OpenClaw runs in Docker or as a native process
@@ -409,9 +462,9 @@ export async function deployAgent(
 
       for (const [filename, content] of Object.entries(configFiles)) {
         const safeFilename = sanitizeFilename(filename);
-        const safeContent = content.replace(/'/g, "'\\''");
+        const contentB64 = Buffer.from(content).toString("base64");
         await ssh.execCommand(
-          `cat > ${agentDir}/${safeFilename} << 'AGENTEOF'\n${safeContent}\nAGENTEOF`
+          `echo '${contentB64}' | base64 -d > ${agentDir}/${safeFilename}`
         );
       }
 

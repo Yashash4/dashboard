@@ -38,6 +38,14 @@ export async function DELETE(
     if (auth instanceof NextResponse) return auth;
     const { apiKey, admin, ctx } = auth;
 
+    // Verify thread exists first
+    const { data: thread } = await admin.from("api_threads").select("id").eq("id", id).eq("user_id", apiKey.user_id).single();
+    if (!thread) return apiError("thread_not_found", "Thread not found", ctx);
+
+    // Delete child messages first
+    await admin.from("api_thread_messages").delete().eq("thread_id", id);
+
+    // Then delete the thread
     const { data: deleted } = await admin.from("api_threads").delete().eq("id", id).eq("user_id", apiKey.user_id).select("id").single();
     if (!deleted) return apiError("thread_not_found", "Thread not found", ctx);
 

@@ -65,7 +65,7 @@ export default async function ChatPage() {
           Chat with your deployed agents.
         </p>
         {vpsWarning && (
-          <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+          <div className="mb-4 flex items-center gap-2 rounded-none border border-[color-mix(in_srgb,var(--warning),transparent_70%)] bg-[color-mix(in_srgb,var(--warning),transparent_90%)] p-3 text-sm text-[var(--warning)]">
             <AlertTriangle className="h-4 w-4 shrink-0" />
             <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to chat with agents.</span>
           </div>
@@ -91,7 +91,7 @@ export default async function ChatPage() {
   return (
     <div className="absolute inset-0 flex flex-col">
       {vpsWarning && (
-        <div className="m-6 mb-0 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+        <div className="m-6 mb-0 flex items-center gap-2 rounded-none border border-[color-mix(in_srgb,var(--warning),transparent_70%)] bg-[color-mix(in_srgb,var(--warning),transparent_90%)] p-3 text-sm text-[var(--warning)]">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to chat with agents.</span>
         </div>

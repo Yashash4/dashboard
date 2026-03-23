@@ -17,12 +17,12 @@ export async function GET(
       .select("id, name, type, file_size, status, chunk_count, created_at")
       .eq("id", id).eq("user_id", apiKey.user_id).single();
 
-    if (!file) return apiError("invalid_request", "File not found", ctx);
+    if (!file) return apiError("not_found", "File not found", ctx);
 
     return apiSuccess({
       file_id: file.id,
       filename: file.name,
-      type: file.type,
+      mime_type: file.type,
       size: file.file_size,
       status: file.status === "indexed" ? "processed" : file.status,
       chunks: file.chunk_count,
@@ -46,22 +46,16 @@ export async function DELETE(
     if (auth instanceof NextResponse) return auth;
     const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
-    // Get file record to find storage_path for cleanup
-    const { data: file } = await admin.from("kb_documents")
-      .select("id, storage_path")
-      .eq("id", id).eq("user_id", apiKey.user_id).single();
-
-    if (!file) return apiError("invalid_request", "File not found", ctx);
-
-    // Delete from Supabase Storage if storage_path exists
-    if (file.storage_path) {
-      await admin.storage.from("kb-files").remove([file.storage_path]).then(() => {}, () => {});
-    }
-
+    // Delete in a single query to avoid TOCTOU race
     const { data: deleted } = await admin.from("kb_documents")
-      .delete().eq("id", id).eq("user_id", apiKey.user_id).select("id").single();
+      .delete().eq("id", id).eq("user_id", apiKey.user_id).select("id, storage_path").single();
 
-    if (!deleted) return apiError("invalid_request", "File not found", ctx);
+    if (!deleted) return apiError("not_found", "File not found", ctx);
+
+    // Clean up storage after successful DB deletion (best-effort)
+    if (deleted.storage_path) {
+      admin.storage.from("kb-files").remove([deleted.storage_path]).then(() => {}, () => {});
+    }
 
     return apiSuccess({ deleted: true }, ctx, rateLimitInfo);
   } catch {

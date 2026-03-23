@@ -21,8 +21,6 @@ export async function GET(request: NextRequest) {
     return apiSuccess({
       status: "ok",
       plan,
-      key_name: apiKey.name,
-      rate_limit: apiKey.rate_limit_per_min || 60,
       agents,
     }, ctx, rateLimitInfo);
   } catch {

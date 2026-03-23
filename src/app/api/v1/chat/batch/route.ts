@@ -86,8 +86,11 @@ export async function POST(request: NextRequest) {
 
     if (error) return apiError("internal_error", "Failed to create batch", ctx);
 
-    // Process in background (awaited to prevent serverless kill mid-execution)
-    await processBatch(admin, batchId, apiKey.user_id, batchRequests);
+    // Process in background — do NOT await; return immediately with "processing" status
+    processBatch(admin, batchId, apiKey.user_id, batchRequests).catch((err) => {
+      console.error(`[v1/batch] Background processing failed for ${batchId}:`, err?.message);
+      admin.from("api_batches").update({ status: "failed" }).eq("id", batchId).then(() => {}, () => {});
+    });
 
     return apiSuccess({
       batch_id: batchId,
@@ -120,7 +123,10 @@ async function processBatch(
   }
 
   const dashboardUrl = vps.openclaw_dashboard_url || (vps.hostname ? `https://${vps.hostname}` : null);
-  if (!dashboardUrl) return;
+  if (!dashboardUrl) {
+    await admin.from("api_batches").update({ status: "failed" }).eq("id", batchId);
+    return;
+  }
 
   const baseUrl = dashboardUrl.replace(/\/$/, "");
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -213,23 +219,27 @@ async function processBatch(
 
   if (batchRecord?.webhook_url) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-      await fetch(batchRecord.webhook_url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          batch_id: batchId,
-          status: finalStatus,
-          total: results.length,
-          completed,
-          failed,
-          results,
-          completed_at: completedAt,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
+      // Re-validate URL at fetch time to prevent DNS rebinding SSRF
+      if (isPrivateUrl(batchRecord.webhook_url)) {
+        console.warn(`[v1/batch] Webhook URL resolved to private address, skipping: ${batchId}`);
+      } else {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        await fetch(batchRecord.webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batch_id: batchId,
+            status: finalStatus,
+            total: results.length,
+            completed,
+            failed,
+            completed_at: completedAt,
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+      }
     } catch {
       // Webhook delivery is best-effort — don't fail the batch for it
     }

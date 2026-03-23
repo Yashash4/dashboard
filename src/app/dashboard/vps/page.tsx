@@ -87,9 +87,26 @@ export default async function VpsPage() {
             <div className="text-center py-8">
               <Server className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h2 className="text-lg font-semibold mb-2">No VPS Provisioned</h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mb-2">
                 Your VPS will appear here once it&apos;s provisioned.
               </p>
+              <p className="text-sm text-muted-foreground mb-6">
+                If you just subscribed, provisioning usually takes a few minutes. If your VPS hasn&apos;t appeared after 15 minutes, contact support.
+              </p>
+              <div className="flex items-center justify-center gap-3">
+                <a
+                  href="/vps"
+                  className="inline-flex items-center justify-center text-sm font-medium border border-border px-4 py-2 hover:bg-muted transition-colors"
+                >
+                  Refresh
+                </a>
+                <a
+                  href="/support/new"
+                  className="inline-flex items-center justify-center text-sm font-medium border border-border px-4 py-2 hover:bg-muted transition-colors"
+                >
+                  Contact Support
+                </a>
+              </div>
             </div>
           </CardContent>
         </Card>

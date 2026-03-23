@@ -5,7 +5,7 @@ export default function DocsUltraFeaturesOverviewPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Mission Control{" "}
-        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+        <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
       </h1>
       <p className="lead text-lg text-muted-foreground">
         Mission Control is the command center for your AI agent workforce. Available exclusively on the
@@ -36,11 +36,11 @@ export default function DocsUltraFeaturesOverviewPage() {
       <div className="not-prose grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 my-8">
         <Link
           href="/docs/ultra"
-          className="block border border-white/10 rounded-lg p-5 hover:border-amber-500/40 transition-colors"
+          className="block border border-[var(--border-primary)] rounded-lg p-5 hover:border-[color-mix(in_srgb,var(--tier-ultra),transparent_60%)] transition-colors"
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">📊</span>
-            <h3 className="text-base font-semibold text-white m-0">Overview Dashboard</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] m-0">Overview Dashboard</h3>
           </div>
           <p className="text-sm text-muted-foreground m-0">
             High-level metrics at a glance: active agents, pending tasks, running sessions,
@@ -50,11 +50,11 @@ export default function DocsUltraFeaturesOverviewPage() {
 
         <Link
           href="/docs/ultra/task-board"
-          className="block border border-white/10 rounded-lg p-5 hover:border-amber-500/40 transition-colors"
+          className="block border border-[var(--border-primary)] rounded-lg p-5 hover:border-[color-mix(in_srgb,var(--tier-ultra),transparent_60%)] transition-colors"
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">📋</span>
-            <h3 className="text-base font-semibold text-white m-0">Task Board</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] m-0">Task Board</h3>
           </div>
           <p className="text-sm text-muted-foreground m-0">
             Kanban-style task management with four view modes, configurable columns,
@@ -64,11 +64,11 @@ export default function DocsUltraFeaturesOverviewPage() {
 
         <Link
           href="/docs/ultra/agent-roster"
-          className="block border border-white/10 rounded-lg p-5 hover:border-amber-500/40 transition-colors"
+          className="block border border-[var(--border-primary)] rounded-lg p-5 hover:border-[color-mix(in_srgb,var(--tier-ultra),transparent_60%)] transition-colors"
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🤖</span>
-            <h3 className="text-base font-semibold text-white m-0">Agent Roster</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] m-0">Agent Roster</h3>
           </div>
           <p className="text-sm text-muted-foreground m-0">
             Real-time agent status monitoring with capacity indicators, performance metrics,
@@ -78,11 +78,11 @@ export default function DocsUltraFeaturesOverviewPage() {
 
         <Link
           href="/docs/ultra/event-feed"
-          className="block border border-white/10 rounded-lg p-5 hover:border-amber-500/40 transition-colors"
+          className="block border border-[var(--border-primary)] rounded-lg p-5 hover:border-[color-mix(in_srgb,var(--tier-ultra),transparent_60%)] transition-colors"
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">⚡</span>
-            <h3 className="text-base font-semibold text-white m-0">Event Feed</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] m-0">Event Feed</h3>
           </div>
           <p className="text-sm text-muted-foreground m-0">
             Live-streaming event log powered by SSE. Filter by type, agent, or time range.
@@ -92,11 +92,11 @@ export default function DocsUltraFeaturesOverviewPage() {
 
         <Link
           href="/docs/ultra/sessions"
-          className="block border border-white/10 rounded-lg p-5 hover:border-amber-500/40 transition-colors"
+          className="block border border-[var(--border-primary)] rounded-lg p-5 hover:border-[color-mix(in_srgb,var(--tier-ultra),transparent_60%)] transition-colors"
         >
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl">🔍</span>
-            <h3 className="text-base font-semibold text-white m-0">Session Tracker</h3>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] m-0">Session Tracker</h3>
           </div>
           <p className="text-sm text-muted-foreground m-0">
             Trace every agent session from start to finish with Gantt timeline views,
@@ -130,7 +130,7 @@ export default function DocsUltraFeaturesOverviewPage() {
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> Use the Overview Dashboard as your primary
+          <strong className="text-[var(--text-primary)]">Tip:</strong> Use the Overview Dashboard as your primary
           monitoring screen. Its lightweight design makes it ideal for display on a secondary monitor
           or wall-mounted dashboard where you need continuous visibility into operations.
         </p>
@@ -160,7 +160,7 @@ export default function DocsUltraFeaturesOverviewPage() {
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> Explore each component in detail using the links
+          <strong className="text-[var(--text-primary)]">Tip:</strong> Explore each component in detail using the links
           above. The Task Board documentation is the most comprehensive, covering all four view modes,
           keyboard shortcuts, automation rules, and bulk operations.
         </p>

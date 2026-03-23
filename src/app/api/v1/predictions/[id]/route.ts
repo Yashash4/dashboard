@@ -17,7 +17,7 @@ export async function GET(
       .select("id, status, response_body, processing_time_ms, created_at, completed_at")
       .eq("id", id).eq("user_id", apiKey.user_id).single();
 
-    if (!prediction) return apiError("invalid_request", "Prediction not found", ctx);
+    if (!prediction) return apiError("not_found", "Prediction not found", ctx);
 
     return apiSuccess({
       prediction_id: prediction.id,

@@ -6,6 +6,9 @@ import { decryptField } from "@/lib/credential-utils";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // 5 min max for SSH operations
 
+// ST_MED_01: Maximum retry attempts before giving up on a failed change
+const MAX_RETRY_ATTEMPTS = 3;
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
@@ -15,9 +18,10 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
 
   // Find all pending model changes that are due
+  // ST_MED_01: Only fetch changes that haven't exceeded max retries
   const { data: pendingChanges, error } = await admin
     .from("models")
-    .select("id, user_id, requested_model, current_model, context_limit")
+    .select("id, user_id, requested_model, current_model, context_limit, retry_count")
     .not("requested_model", "is", null)
     .lte("change_effective_date", new Date().toISOString());
 
@@ -31,6 +35,22 @@ export async function GET(request: NextRequest) {
   const results: { idx: number; model: string; status: string }[] = [];
 
   for (const change of pendingChanges) {
+    // ST_MED_01: Skip changes that have exceeded max retry attempts
+    const retryCount = (change as any).retry_count || 0;
+    if (retryCount >= MAX_RETRY_ATTEMPTS) {
+      results.push({
+        idx: results.length + 1,
+        model: change.requested_model,
+        status: `abandoned: exceeded ${MAX_RETRY_ATTEMPTS} retries`,
+      });
+      // Clear the pending change so it stops being retried
+      await admin
+        .from("models")
+        .update({ requested_model: null, change_effective_date: null })
+        .eq("id", change.id);
+      continue;
+    }
+
     try {
       // Get the new model's details
       const { data: modelInfo } = await admin
@@ -93,6 +113,16 @@ export async function GET(request: NextRequest) {
         .eq("id", change.user_id)
         .single();
 
+      // ST_CRIT_02: Null check before decrypting ssh_password
+      if (!vps.ssh_password) {
+        results.push({
+          idx: results.length + 1,
+          model: change.requested_model,
+          status: "skipped: VPS credentials not available",
+        });
+        continue;
+      }
+
       // Push new model config to VPS via SSH
       const sshResult = await configureApiKeys(
         {
@@ -116,10 +146,16 @@ export async function GET(request: NextRequest) {
       );
 
       if (!sshResult.success) {
+        // ST_MED_01: Increment retry count on failure
+        await admin
+          .from("models")
+          .update({ retry_count: retryCount + 1 })
+          .eq("id", change.id);
         results.push({
           idx: results.length + 1,
           model: change.requested_model,
-          status: `failed: ${sshResult.error}`,
+          // ST_MED_11: Sanitize SSH error details — don't leak internal info
+          status: `failed: SSH configuration error (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`,
         });
         continue;
       }
@@ -132,6 +168,7 @@ export async function GET(request: NextRequest) {
           context_limit: modelInfo.context_limit,
           requested_model: null,
           change_effective_date: null,
+          retry_count: 0,
         })
         .eq("id", change.id);
 
@@ -141,10 +178,18 @@ export async function GET(request: NextRequest) {
         status: "applied",
       });
     } catch (err: any) {
+      // ST_MED_01: Increment retry count on error
+      await admin
+        .from("models")
+        .update({ retry_count: retryCount + 1 })
+        .eq("id", change.id)
+        .catch(() => {}); // Don't let retry tracking failure crash the loop
+      // ST_MED_11: Sanitize error — log internally, return generic message
+      console.error(`[cron/apply-pending-changes] Error for model ${change.id}:`, err.message);
       results.push({
         idx: results.length + 1,
         model: change.requested_model,
-        status: `error: ${err.message}`,
+        status: `error: processing failed (attempt ${retryCount + 1}/${MAX_RETRY_ATTEMPTS})`,
       });
     }
   }

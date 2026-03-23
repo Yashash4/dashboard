@@ -71,7 +71,7 @@ export default async function ChannelsPage() {
         Connect your messaging platforms.
       </p>
       {vpsWarning && (
-        <div className="mb-4 flex items-center gap-2 rounded-none border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-500">
+        <div className="mb-4 flex items-center gap-2 rounded-none border border-[color-mix(in_srgb,var(--warning),transparent_70%)] bg-[color-mix(in_srgb,var(--warning),transparent_90%)] p-3 text-sm text-[var(--warning)]">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span>Your server is not running. <Link href="/vps" className="underline font-medium">Start it</Link> to manage channels.</span>
         </div>

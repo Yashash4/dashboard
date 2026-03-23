@@ -5,7 +5,7 @@ export default function DocsAgentRosterPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Agent Roster{" "}
-        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+        <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
       </h1>
       <p className="lead text-lg text-muted-foreground">
         The Agent Roster provides real-time visibility into every AI agent in your fleet. Monitor
@@ -36,7 +36,7 @@ export default function DocsAgentRosterPage() {
             </tr>
             <tr className="border-b border-white/5">
               <td className="py-2 px-3 font-medium">Busy</td>
-              <td className="py-2 px-3"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500" /> Amber</td>
+              <td className="py-2 px-3"><span className="inline-block w-2.5 h-2.5 rounded-full bg-[var(--tier-ultra)]" /> Amber</td>
               <td className="py-2 px-3">Agent is actively processing one or more tasks</td>
             </tr>
             <tr className="border-b border-white/5">
@@ -173,15 +173,15 @@ export default function DocsAgentRosterPage() {
       </p>
       <ul>
         <li>
-          <Link href="/docs/ultra/task-board" className="text-amber-500">Task Board</Link> &mdash;
+          <Link href="/docs/ultra/task-board" className="text-[var(--tier-ultra)]">Task Board</Link> &mdash;
           Agent status affects which agents appear in the assignee dropdown and auto-assign rules
         </li>
         <li>
-          <Link href="/docs/ultra/event-feed" className="text-amber-500">Event Feed</Link> &mdash;
+          <Link href="/docs/ultra/event-feed" className="text-[var(--tier-ultra)]">Event Feed</Link> &mdash;
           Agent status changes generate <code>agent.status_changed</code> events
         </li>
         <li>
-          <Link href="/docs/ultra/sessions" className="text-amber-500">Session Tracker</Link> &mdash;
+          <Link href="/docs/ultra/sessions" className="text-[var(--tier-ultra)]">Session Tracker</Link> &mdash;
           Click an agent&apos;s active session count to jump directly to their filtered session list
         </li>
       </ul>

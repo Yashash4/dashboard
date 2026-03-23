@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
   try {
     const cutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // Find resolved tickets older than 48 hours (by resolved_at or updated_at)
+    // ST_MED_04: Only check resolved_at to avoid deleting recently-resolved tickets.
+    // The old OR condition with updated_at could delete tickets that were resolved
+    // moments ago but had an old updated_at timestamp.
+    // Fall back to updated_at only if resolved_at is null (legacy tickets).
     const { data: oldTickets, error: fetchError } = await supabase
       .from("support_tickets")
-      .select("id")
+      .select("id, resolved_at")
       .eq("status", "resolved")
-      .or(`resolved_at.lt.${cutoff},updated_at.lt.${cutoff}`);
+      .not("resolved_at", "is", null)
+      .lt("resolved_at", cutoff);
 
     if (fetchError) throw fetchError;
     if (!oldTickets || oldTickets.length === 0) {

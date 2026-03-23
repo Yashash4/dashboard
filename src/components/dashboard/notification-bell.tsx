@@ -104,10 +104,10 @@ export function NotificationBell() {
   return (
     <Popover onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0">
+        <Button variant="ghost" size="sm" className="relative h-8 w-8 p-0" aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : "Notifications"}>
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-bold bg-red-600 text-white rounded-full">
+            <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-1 flex items-center justify-center text-[10px] font-bold bg-[var(--error)] text-white rounded-full" aria-hidden="true">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}
@@ -139,14 +139,22 @@ export function NotificationBell() {
               {notifications.map((n) => {
                 const Icon = TYPE_ICONS[n.type] || Bell;
                 return (
-                  <button
+                  <div
                     key={n.id}
+                    role={n.href ? "button" : undefined}
+                    tabIndex={n.href ? 0 : undefined}
                     onClick={() => {
                       if (n.href) router.push(n.href);
                     }}
-                    className={`w-full text-left px-4 py-3 border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${
-                      !n.read ? "bg-primary/5" : ""
-                    }`}
+                    onKeyDown={(e) => {
+                      if (n.href && (e.key === "Enter" || e.key === " ")) {
+                        e.preventDefault();
+                        router.push(n.href);
+                      }
+                    }}
+                    className={`w-full text-left px-4 py-3 border-b border-border last:border-0 transition-colors ${
+                      n.href ? "cursor-pointer hover:bg-muted/50" : ""
+                    } ${!n.read ? "bg-primary/5" : ""}`}
                   >
                     <div className="flex gap-3">
                       <Icon className={`h-4 w-4 shrink-0 mt-0.5 ${!n.read ? "text-primary" : "text-muted-foreground"}`} />
@@ -161,7 +169,7 @@ export function NotificationBell() {
                         <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1.5" />
                       )}
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>

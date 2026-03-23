@@ -49,8 +49,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    // Only escape LIKE wildcards %, _, and backslash — preserve underscores, periods, letters, numbers
-    const safe = search.replace(/[%_\\]/g, (c) => c === '\\' ? '\\\\' : c === '%' ? '\\%' : '\\_');
+    // ST_LOW_03: Escape LIKE wildcards AND PostgREST .or() special chars (comma, period, parentheses)
+    // to prevent ilike injection in the filter syntax.
+    const safe = search
+      .replace(/[%_\\]/g, (c) => c === '\\' ? '\\\\' : c === '%' ? '\\%' : '\\_')
+      .replace(/[,.()"']/g, ''); // Strip PostgREST syntax chars that could inject filter expressions
     if (safe.trim()) {
       query = query.or(
         `action.ilike.%${safe}%,entity_type.ilike.%${safe}%`

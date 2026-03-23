@@ -206,6 +206,54 @@ async function fulfill(
       }
       break;
     }
+
+    case "subscription_downgrade": {
+      if (meta.plan) {
+        const now = new Date();
+        const billingCycle = meta.billing_cycle || "monthly";
+        const expiresAt = new Date(now);
+        if (billingCycle === "annual") {
+          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        } else {
+          expiresAt.setMonth(expiresAt.getMonth() + 1);
+        }
+
+        // Update subscription to the lower plan
+        await admin.from("subscriptions").upsert(
+          {
+            user_id: userId,
+            plan: meta.plan,
+            billing_cycle: billingCycle,
+            price: amount,
+            status: "active",
+            started_at: now.toISOString(),
+            expires_at: expiresAt.toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+        // Clean up tier-specific data that no longer applies:
+        // Remove Mission Control data if downgrading below Ultra
+        const ultraPlans = ["ultra", "enterprise"];
+        if (!ultraPlans.includes(meta.plan)) {
+          await admin
+            .from("mission_control_rules")
+            .delete()
+            .eq("user_id", userId);
+          await admin
+            .from("mission_control_tasks")
+            .delete()
+            .eq("user_id", userId);
+        }
+
+        // Reset model change counter
+        await admin
+          .from("models")
+          .update({ changes_this_month: 0 })
+          .eq("user_id", userId);
+      }
+      break;
+    }
   }
 }
 

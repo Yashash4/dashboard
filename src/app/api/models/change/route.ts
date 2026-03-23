@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
   // Get subscription to check plan + billing date
   const { data: subscription } = await admin
     .from("subscriptions")
-    .select("plan, expires_at, started_at")
+    .select("plan, expires_at, started_at, billing_cycle")
     .eq("user_id", user.id)
     .single();
 
@@ -89,19 +89,38 @@ export async function POST(request: NextRequest) {
   }
 
   // Lazy reset: if billing cycle renewed since last change, reset counter
+  // ST_MED_03: Handle both monthly and annual billing cycles
   if (modelConfig.last_change_at && subscription.expires_at) {
     const lastChange = new Date(modelConfig.last_change_at);
     const expiresAt = new Date(subscription.expires_at);
-    // Calculate current cycle start (expires_at minus one billing period)
-    const cycleStart = new Date(expiresAt);
-    cycleStart.setMonth(cycleStart.getMonth() - 1);
+    const billingCycle = (subscription as any).billing_cycle || "monthly";
 
-    if (lastChange < cycleStart) {
-      await admin
-        .from("models")
-        .update({ changes_this_month: 0 })
-        .eq("id", modelConfig.id);
-      modelConfig.changes_this_month = 0;
+    // Calculate current cycle start based on billing period
+    const cycleStart = new Date(expiresAt);
+    if (billingCycle === "annual" || billingCycle === "yearly") {
+      // For annual subscribers, the "cycle" for model changes resets monthly
+      // (same as monthly subscribers — they get changes_this_month per calendar month)
+      cycleStart.setMonth(cycleStart.getMonth() - 1);
+      // But we need to find the most recent monthly boundary within the annual period
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      if (lastChange < monthStart) {
+        await admin
+          .from("models")
+          .update({ changes_this_month: 0 })
+          .eq("id", modelConfig.id);
+        modelConfig.changes_this_month = 0;
+      }
+    } else {
+      // Monthly billing — original logic
+      cycleStart.setMonth(cycleStart.getMonth() - 1);
+      if (lastChange < cycleStart) {
+        await admin
+          .from("models")
+          .update({ changes_this_month: 0 })
+          .eq("id", modelConfig.id);
+        modelConfig.changes_this_month = 0;
+      }
     }
   }
 
@@ -163,7 +182,8 @@ export async function POST(request: NextRequest) {
         .eq("user_id", user.id)
         .single();
 
-      if (vps && vps.status === "running") {
+      // ST_CRIT_02: Null check before decrypting ssh_password
+      if (vps && vps.status === "running" && vps.ssh_password) {
         const { data: apiKeys } = await admin
           .from("user_api_keys")
           .select("provider, api_key, base_url")

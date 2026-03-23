@@ -1,3 +1,4 @@
+import dns from "dns/promises";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
@@ -6,6 +7,22 @@ import { rateLimit } from "@/lib/rate-limit";
 import { indexDocument, stripHTML, isPrivateUrl } from "@/lib/knowledge-base";
 import { logAudit, getClientIp } from "@/lib/audit-log";
 import { dispatchWebhooks } from "@/lib/webhook-dispatch";
+
+// ST_HIGH_11: Check if resolved IP is private (prevents DNS rebinding SSRF)
+function isPrivateIP(ip: string): boolean {
+  // IPv4 private ranges
+  if (/^127\./.test(ip)) return true;
+  if (/^10\./.test(ip)) return true;
+  if (/^172\.(1[6-9]|2\d|3[01])\./.test(ip)) return true;
+  if (/^192\.168\./.test(ip)) return true;
+  if (ip === "0.0.0.0" || ip === "::1" || ip === "::") return true;
+  // Link-local
+  if (/^169\.254\./.test(ip)) return true;
+  // IPv6 private
+  if (/^f[cd]/.test(ip)) return true;
+  if (/^fe80:/.test(ip)) return true;
+  return false;
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -30,7 +47,12 @@ export async function POST(request: NextRequest) {
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { url } = body as { url?: string };
 
   if (!url || !url.startsWith("http")) {
@@ -48,6 +70,23 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // ST_HIGH_11: Resolve hostname and check IP AFTER DNS resolution to prevent DNS rebinding
+    const parsedUrl = new URL(url);
+    try {
+      const { address } = await dns.lookup(parsedUrl.hostname);
+      if (isPrivateIP(address)) {
+        return NextResponse.json(
+          { error: "URL resolves to a private/internal IP address" },
+          { status: 400 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to resolve URL hostname" },
+        { status: 400 }
+      );
+    }
+
     // Fetch URL content
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);

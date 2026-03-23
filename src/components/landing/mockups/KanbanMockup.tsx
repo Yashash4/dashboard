@@ -48,7 +48,7 @@ function TaskCard({ task }: { task: Task }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="rounded-md border border-border bg-[#222222] p-2 text-[10px]"
+      className="rounded-md border border-border bg-[var(--bg-subtle)] p-2 text-[10px]"
       style={{ borderLeftWidth: 3, borderLeftColor: task.borderColor }}
     >
       <div className="flex items-center justify-between">

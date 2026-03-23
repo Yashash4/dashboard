@@ -5,7 +5,7 @@ export default function DocsSessionTrackerPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Session Tracker{" "}
-        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+        <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
       </h1>
       <p className="lead text-lg text-muted-foreground">
         The Session Tracker gives you full visibility into every agent execution session. View running,
@@ -155,10 +155,10 @@ export default function DocsSessionTrackerPage() {
         <li><strong>Step list</strong> &mdash; Expandable list of each step with input/output data</li>
         <li><strong>Error panel</strong> &mdash; For failed sessions, a prominent error panel showing the failure step, error message, and context</li>
         <li><strong>Related events</strong> &mdash; Links to corresponding events in the{" "}
-          <Link href="/docs/ultra/event-feed" className="text-amber-500">Event Feed</Link>
+          <Link href="/docs/ultra/event-feed" className="text-[var(--tier-ultra)]">Event Feed</Link>
         </li>
         <li><strong>Related task</strong> &mdash; If the session was triggered by a task, a link to the task on the{" "}
-          <Link href="/docs/ultra/task-board" className="text-amber-500">Task Board</Link>
+          <Link href="/docs/ultra/task-board" className="text-[var(--tier-ultra)]">Task Board</Link>
         </li>
       </ul>
 

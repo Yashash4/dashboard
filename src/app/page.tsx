@@ -1,17 +1,15 @@
-"use client";
-
 import dynamic from "next/dynamic";
 import Navbar from "@/components/landing/Navbar";
 import Hero from "@/components/landing/Hero";
 import ChannelBar from "@/components/landing/ChannelBar";
 import Footer from "@/components/landing/Footer";
+import Features from "@/components/landing/Features";
+import Pricing from "@/components/landing/Pricing";
+import Comparison from "@/components/landing/Comparison";
+import FAQ from "@/components/landing/FAQ";
 
-// Lazy load below-fold sections
-const Features = dynamic(() => import("@/components/landing/Features"), { ssr: false });
-const Pricing = dynamic(() => import("@/components/landing/Pricing"), { ssr: false });
+// Lazy load heavy animation components — keep ssr: false only for these
 const HowItWorks = dynamic(() => import("@/components/landing/HowItWorks"), { ssr: false });
-const Comparison = dynamic(() => import("@/components/landing/Comparison"), { ssr: false });
-const FAQ = dynamic(() => import("@/components/landing/FAQ"), { ssr: false });
 const CTA = dynamic(() => import("@/components/landing/CTA"), { ssr: false });
 
 export default function Home() {

@@ -47,7 +47,13 @@ export async function PATCH(
     return NextResponse.json({ error: "Webhook not found" }, { status: 404 });
   }
 
-  const body = await request.json();
+  // ST_LOW_01: Wrap request.json() in try-catch for malformed JSON
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const {
     url, events, enabled, description,
     filter_conditions, transformation,

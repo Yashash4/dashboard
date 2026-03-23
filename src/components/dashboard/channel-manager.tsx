@@ -496,10 +496,14 @@ export function ChannelManager({
       }
 
       setChannels((prev) =>
-        prev.filter((c) => c.id !== disconnectChannel.id)
+        prev.map((c) =>
+          c.id === disconnectChannel.id
+            ? { ...c, status: "disconnected" }
+            : c
+        )
       );
       toast.success(
-        `${CHANNEL_TYPES[disconnectChannel.channel_type]?.label || disconnectChannel.channel_type} disconnected`
+        `${CHANNEL_TYPES[disconnectChannel.channel_type]?.label || disconnectChannel.channel_type} disconnected. You can reconnect it anytime.`
       );
     } catch {
       toast.error("Failed to disconnect channel");
@@ -585,22 +589,22 @@ export function ChannelManager({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-8 w-8 min-h-[44px] min-w-[44px]"
                         disabled={index === 0}
                         onClick={() => moveChannel(index, "up")}
-                        aria-label="Move channel up"
+                        aria-label={`Move ${config?.label || channel.channel_type} up`}
                       >
-                        <ArrowUp className="h-3 w-3" />
+                        <ArrowUp className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
+                        className="h-8 w-8 min-h-[44px] min-w-[44px]"
                         disabled={index === channels.length - 1}
                         onClick={() => moveChannel(index, "down")}
-                        aria-label="Move channel down"
+                        aria-label={`Move ${config?.label || channel.channel_type} down`}
                       >
-                        <ArrowDown className="h-3 w-3" />
+                        <ArrowDown className="h-4 w-4" />
                       </Button>
                       <Badge className={`${status.className} text-xs ml-1`}>
                         <StatusIcon className="mr-1 h-3 w-3" />

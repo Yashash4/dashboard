@@ -193,7 +193,8 @@ export function VPSControls({ initialData }: { initialData: VPSData }) {
       ];
       return next.slice(-180);
     });
-  }, [monitoring, monitoring?.cpu_percent, monitoring?.ram_used_mb, monitoring?.net_rx_bytes, monitoring?.net_tx_bytes]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monitoring]);
 
   // VPS actions
   const performAction = async (action: "start" | "stop" | "restart") => {

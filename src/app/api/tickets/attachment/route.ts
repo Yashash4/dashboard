@@ -98,18 +98,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 
-  // 2.33: Generate signed URL with 1-hour expiry instead of public URL
-  const { data: signedUrlData, error: signError } = await admin.storage
-    .from("ticket-attachments")
-    .createSignedUrl(fileName, 3600); // 1 hour expiry
-
-  if (signError || !signedUrlData?.signedUrl) {
-    // Cleanup uploaded file on signed URL error
-    await admin.storage.from("ticket-attachments").remove([fileName]);
-    return NextResponse.json({ error: "Failed to generate download URL" }, { status: 500 });
-  }
-
-  // Record in DB — store storage_path for re-generating signed URLs later
+  // ST_MED_08: Store the storage path/key in DB, NOT a signed URL (which expires in 1hr).
+  // Generate signed URLs on-demand when reading attachments instead.
   const { data: attachment, error: dbError } = await admin
     .from("ticket_attachments")
     .insert({
@@ -119,9 +109,9 @@ export async function POST(request: NextRequest) {
       file_size: file.size,
       file_type: file.type,
       storage_path: fileName,
-      url: signedUrlData.signedUrl,
+      url: fileName, // Store path, not signed URL — generate signed URL on read
     })
-    .select("id, file_name, file_size, file_type, url")
+    .select("id, file_name, file_size, file_type, storage_path")
     .single();
 
   if (dbError || !attachment) {
@@ -130,5 +120,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to save attachment" }, { status: 500 });
   }
 
-  return NextResponse.json({ attachment });
+  // Generate a fresh signed URL for the response
+  const { data: signedUrlData } = await admin.storage
+    .from("ticket-attachments")
+    .createSignedUrl(fileName, 3600);
+
+  return NextResponse.json({
+    attachment: {
+      ...attachment,
+      url: signedUrlData?.signedUrl || null,
+    },
+  });
 }

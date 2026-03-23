@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api-errors";
 import { validateV1Auth } from "@/lib/v1-auth";
 
-/** GET /api/v1/conversations — List user's conversations (cursor-based pagination) */
+/** GET /api/v1/conversations — List user's conversations (offset-based pagination) */
 export async function GET(request: NextRequest) {
   try {
     const auth = await validateV1Auth(request, "conversations", { limit: 60 });
@@ -56,7 +56,12 @@ export async function GET(request: NextRequest) {
       last_message_at: c.updated_at,
     }));
 
-    return apiSuccess({ conversations: mapped, has_more: hasMore, total }, ctx, rateLimitInfo);
+    return apiSuccess({
+      conversations: mapped,
+      has_more: hasMore,
+      next_cursor: hasMore ? String(offset + results.length) : null,
+      total,
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

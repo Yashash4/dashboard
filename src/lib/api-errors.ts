@@ -20,6 +20,7 @@ export type APIErrorCode =
   | "unsupported_file_type"
   | "batch_too_large"
   | "thread_not_found"
+  | "not_found"
   | "request_in_progress"
   | "internal_error";
 
@@ -48,6 +49,7 @@ const ERROR_TYPE_MAP: Record<APIErrorCode, APIErrorType> = {
   unsupported_file_type: "validation_error",
   batch_too_large: "validation_error",
   thread_not_found: "validation_error",
+  not_found: "validation_error",
   request_in_progress: "api_error",
   internal_error: "api_error",
 };
@@ -55,7 +57,7 @@ const ERROR_TYPE_MAP: Record<APIErrorCode, APIErrorType> = {
 const ERROR_STATUS_MAP: Record<APIErrorCode, number> = {
   rate_limited: 429,
   invalid_api_key: 401,
-  revoked_api_key: 401,
+  revoked_api_key: 403,
   plan_required: 403,
   invalid_request: 400,
   missing_parameter: 400,
@@ -69,6 +71,7 @@ const ERROR_STATUS_MAP: Record<APIErrorCode, number> = {
   unsupported_file_type: 400,
   batch_too_large: 400,
   thread_not_found: 404,
+  not_found: 404,
   request_in_progress: 409,
   internal_error: 500,
 };
@@ -85,6 +88,19 @@ export function createRequestContext(request: Request): RequestContext {
     requestId: `req_${crypto.randomUUID().replace(/-/g, "")}`,
     clientRequestId: request.headers.get("x-client-request-id") || null,
   };
+}
+
+// --- CORS Headers for V1 API ---
+
+const V1_CORS_HEADERS: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type, X-Client-Request-Id, X-Idempotency-Key",
+  "Access-Control-Expose-Headers": "X-Request-Id, X-Client-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Retry-After",
+};
+
+export function corsHeaders(): Record<string, string> {
+  return { ...V1_CORS_HEADERS };
 }
 
 // --- Rate Limit Headers ---
@@ -114,7 +130,7 @@ export function apiError(
   code: APIErrorCode,
   message: string,
   ctx: RequestContext,
-  options?: { param?: string }
+  options?: { param?: string; retryAfterSeconds?: number }
 ): NextResponse {
   const status = ERROR_STATUS_MAP[code] || 500;
   const type = ERROR_TYPE_MAP[code] || "api_error";
@@ -133,13 +149,15 @@ export function apiError(
   }
 
   const headers: Record<string, string> = {
+    ...V1_CORS_HEADERS,
     "X-Request-Id": ctx.requestId,
   };
   if (ctx.clientRequestId) {
     headers["X-Client-Request-Id"] = ctx.clientRequestId;
   }
   if (code === "rate_limited") {
-    headers["Retry-After"] = "60";
+    const retryAfter = options?.retryAfterSeconds ?? 60;
+    headers["Retry-After"] = String(Math.max(1, Math.ceil(retryAfter)));
   }
 
   return NextResponse.json(body, { status, headers });
@@ -153,6 +171,7 @@ export function apiSuccess(
   rlInfo?: RateLimitInfo
 ): NextResponse {
   const headers: Record<string, string> = {
+    ...V1_CORS_HEADERS,
     "X-Request-Id": ctx.requestId,
   };
   if (ctx.clientRequestId) {

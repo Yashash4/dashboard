@@ -125,7 +125,8 @@ export function AdminAuditLogs() {
         </Select>
       </div>
 
-      <div className="border rounded-none">
+      {/* ADMIN_LOW_04: Responsive table with overflow-x-auto */}
+      <div className="border rounded-none overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>

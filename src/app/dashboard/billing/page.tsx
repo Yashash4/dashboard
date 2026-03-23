@@ -47,6 +47,7 @@ export default async function BillingPage() {
         .order("created_at", { ascending: false }),
     ]);
     if (subRes.error && subRes.error.code !== "PGRST116") throw subRes.error;
+    if (paymentsRes.error) throw paymentsRes.error;
     subscription = subRes.data;
     payments = paymentsRes.data;
   } catch {

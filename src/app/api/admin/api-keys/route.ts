@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { configureApiKeys } from "@/lib/ssh";
 import { logAudit, getClientIp } from "@/lib/audit-log";
-import { decryptField } from "@/lib/credential-utils";
+import { decryptField, encryptField } from "@/lib/credential-utils";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // ADMIN_HIGH_04: Rate limit admin API key operations
+  const rl = rateLimit(`admin:api-keys:${user.id}`, 20, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
+
   const body = await request.json();
   const { userId, provider, apiKey, baseUrl } = body as {
     userId?: string;
@@ -81,12 +88,12 @@ export async function POST(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Upsert key in Supabase
+  // ADMIN_HIGH_07: Encrypt API key before storing
   const { error: dbError } = await admin.from("user_api_keys").upsert(
     {
       user_id: userId,
       provider: provider.toLowerCase(),
-      api_key: apiKey,
+      api_key: encryptField(apiKey),
       base_url: baseUrl || null,
     },
     { onConflict: "user_id,provider" }
@@ -131,12 +138,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, configured: false });
   }
 
-  // Push to VPS (decrypt ssh_password for SSH connection)
+  // ADMIN_HIGH_07: Decrypt API keys before pushing to VPS
   const result = await configureApiKeys(
     { ...vps, ssh_password: decryptField(vps.ssh_password) },
     allKeys.map((k) => ({
       provider: k.provider,
-      apiKey: k.api_key,
+      apiKey: decryptField(k.api_key),
       baseUrl: k.base_url?.trim() || undefined,
     })),
     {
@@ -230,11 +237,12 @@ export async function DELETE(request: NextRequest) {
       .select("provider, api_key, base_url")
       .eq("user_id", userId);
 
-    await configureApiKeys(
+    // ADMIN_MED_03: Log error and return warning if SSH config push fails
+    const pushResult = await configureApiKeys(
       { ...vps, ssh_password: decryptField(vps.ssh_password) },
       (remainingKeys || []).map((k) => ({
         provider: k.provider,
-        apiKey: k.api_key,
+        apiKey: decryptField(k.api_key),
         baseUrl: k.base_url?.trim() || undefined,
       })),
       {
@@ -245,6 +253,13 @@ export async function DELETE(request: NextRequest) {
         contextLimit: delModel?.context_limit || undefined,
       }
     );
+
+    if (!pushResult.success) {
+      console.error(`[admin/api-keys] SSH config push failed after key deletion for user ${userId}: ${pushResult.error}`);
+      const ip = getClientIp(request);
+      logAudit({ adminId: user.id, action: "api_key_deleted", entityType: "api_key", entityId: userId, details: { provider, warning: "SSH config push failed: " + pushResult.error }, ip });
+      return NextResponse.json({ success: true, warning: `Key deleted but VPS config push failed: ${pushResult.error}` });
+    }
   }
 
   const ip = getClientIp(request);

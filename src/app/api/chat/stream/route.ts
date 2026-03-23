@@ -31,6 +31,11 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: "Agent ID and message required" }), { status: 400 });
   }
 
+  // ST_HIGH_06: Message length validation matching chat/send's 10K limit
+  if (message.length > 10000) {
+    return new Response(JSON.stringify({ error: "Message must be at most 10000 characters" }), { status: 400 });
+  }
+
   const admin = createAdminClient();
 
   const { data: userAgent } = await admin
@@ -63,6 +68,18 @@ export async function POST(request: NextRequest) {
     return new Response(JSON.stringify({ error: "Endpoint not configured" }), { status: 400 });
   }
 
+  // Validate dashboard URL against SSRF (same as chat/send ST_MED_10)
+  try {
+    const parsedDashUrl = new URL(dashboardUrl);
+    const h = parsedDashUrl.hostname.toLowerCase();
+    if (["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].includes(h) ||
+        /^10\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^192\.168\./.test(h)) {
+      return new Response(JSON.stringify({ error: "Invalid endpoint" }), { status: 400 });
+    }
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid endpoint URL" }), { status: 400 });
+  }
+
   // Upsert conversation
   const { data: conversation } = await admin
     .from("chat_conversations")
@@ -93,6 +110,7 @@ export async function POST(request: NextRequest) {
     "x-openclaw-session-key": sessionKey,
   };
 
+  // ST_CRIT_02: Null check before decrypting dashboard_password
   if (vps.dashboard_username && vps.dashboard_password) {
     headers["Authorization"] = `Basic ${Buffer.from(`${vps.dashboard_username}:${decryptField(vps.dashboard_password)}`).toString("base64")}`;
   }
@@ -168,16 +186,20 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Store final message
+        // ST_HIGH_05: Store final message with error handling instead of fire-and-forget
         if (fullContent.trim()) {
-          await admin.from("chat_messages").insert({
+          const { error: insertError } = await admin.from("chat_messages").insert({
             conversation_id: conversation.id,
             role: "assistant",
             content: fullContent.trim(),
           });
+          if (insertError) {
+            console.error("[chat/stream] Failed to save assistant message:", insertError.message);
+          }
         }
-      } catch {
-        // Stream error
+      } catch (streamErr) {
+        // ST_HIGH_05: Log stream errors instead of silently swallowing
+        console.error("[chat/stream] Stream processing error:", streamErr instanceof Error ? streamErr.message : "unknown");
       } finally {
         await writer.close();
       }

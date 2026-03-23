@@ -226,7 +226,7 @@ export default async function OverviewPage() {
           <CardContent>
             <p className="text-2xl font-bold">{model?.current_model || "—"}</p>
             {model?.requested_model && (
-              <p className="text-xs text-yellow-500 mt-1">
+              <p className="text-xs text-[var(--warning)] mt-1">
                 Pending: {model.requested_model}
                 {model.change_effective_date &&
                   ` (${new Date(model.change_effective_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })})`}

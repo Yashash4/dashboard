@@ -24,9 +24,9 @@ export default function MissionControlLayout({
   const { connectionState } = useMCRealtime(userId);
 
   const statusConfig = {
-    connected: { color: "text-green-500", label: "Live" },
-    reconnecting: { color: "text-yellow-500 animate-pulse", label: "Reconnecting..." },
-    offline: { color: "text-zinc-500", label: "Offline" },
+    connected: { color: "text-[var(--success)]", label: "Live" },
+    reconnecting: { color: "text-[var(--warning)] animate-pulse", label: "Reconnecting..." },
+    offline: { color: "text-[var(--text-tertiary)]", label: "Offline" },
   };
 
   const status = statusConfig[connectionState] || statusConfig.offline;

@@ -116,6 +116,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // ST_MED_10: Validate DB-stored dashboard URL against SSRF at fetch time
+  try {
+    const parsedDashUrl = new URL(dashboardUrl);
+    if (!["https:", "http:"].includes(parsedDashUrl.protocol)) {
+      return NextResponse.json({ error: "Invalid dashboard URL protocol" }, { status: 400 });
+    }
+    // Block obvious private IPs
+    const h = parsedDashUrl.hostname.toLowerCase();
+    if (["localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]"].includes(h) ||
+        /^10\./.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^192\.168\./.test(h)) {
+      return NextResponse.json({ error: "Dashboard URL points to internal network" }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Invalid dashboard URL" }, { status: 400 });
+  }
+
   const analyticsStart = Date.now();
 
   try {
@@ -384,13 +400,15 @@ export async function POST(request: NextRequest) {
       try {
         const kbChunks = kbContext.split("\n\n---\n\n").map((c) => c.replace(/^\[Source:.*?\]\n/, ""));
         const evalResult = evaluateGroundedness(assistantContent, kbChunks);
-        // Log score for analytics (fire-and-forget)
+        // ST_LOW_02: Log errors on RAG eval insert instead of silently swallowing
         admin.from("agent_analytics").insert({
           user_id: user.id,
           agent_id: agent_id,
           metric_type: "rag_eval",
           metadata: { groundedness: evalResult.groundednessScore, supported: evalResult.supportedClaims, total: evalResult.totalClaims },
-        }).then(() => {}, () => {});
+        }).then(() => {}, (err) => {
+          console.warn("[chat/send] RAG evaluation insert failed:", err?.message || "unknown");
+        });
       } catch {
         // Never let evaluation break the chat flow
       }

@@ -18,9 +18,10 @@ export async function GET(
       .select("agent_id, deployed, deployed_at, primary_model, fallback_model, custom_config, agents(name, description)")
       .eq("user_id", apiKey.user_id)
       .eq("agent_id", id)
+      .eq("deployed", true)
       .single();
 
-    if (!userAgent) return apiError("agent_not_found", "Agent not found", ctx);
+    if (!userAgent) return apiError("agent_not_found", "Agent not found or not deployed", ctx);
 
     return apiSuccess({
       agent: {
@@ -72,8 +73,9 @@ export async function DELETE(
           { ip_address: vps.ip_address, ssh_user: vps.ssh_user, ssh_password: decryptField(vps.ssh_password), ssh_port: vps.ssh_port },
           (userAgent as any).agents?.name || id
         );
-      } catch {
-        // SSH failure — still mark as undeployed in DB
+      } catch (sshErr) {
+        console.error(`[v1/agents] SSH undeploy failed for agent ${id}:`, sshErr instanceof Error ? sshErr.message : sshErr);
+        return apiError("internal_error", "Failed to undeploy agent on VPS. Please try again or contact support.", ctx);
       }
     }
 

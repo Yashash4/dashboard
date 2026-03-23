@@ -29,8 +29,19 @@ const DASHBOARD_PATHS = [
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
-  // If Supabase env vars are not set, let requests through (landing page works without auth)
+  // If Supabase env vars are not set, block all protected routes (ST_MED_06)
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    const isProtected =
+      path.startsWith("/api/") ||
+      path.startsWith("/admin") ||
+      path.startsWith("/dashboard") ||
+      DASHBOARD_PATHS.some((p) => path === p || path.startsWith(p + "/"));
+    if (isProtected) {
+      return NextResponse.json(
+        { error: "Service unavailable — authentication not configured" },
+        { status: 503 }
+      );
+    }
     return NextResponse.next();
   }
 
@@ -89,6 +100,19 @@ export async function middleware(request: NextRequest) {
 
     if (!isPublicApi && !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // ADMIN_HIGH_05: Enforce admin role on /api/admin/* routes in middleware
+    if (path.startsWith("/api/admin/") && user) {
+      const { data: adminProfile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (!adminProfile || adminProfile.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     // API routes pass through — individual handlers do fine-grained auth

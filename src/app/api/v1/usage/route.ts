@@ -16,7 +16,10 @@ export async function GET(request: NextRequest) {
     const { data: analytics, error } = await admin.from("agent_analytics")
       .select("metric_type, response_time_ms, created_at")
       .eq("api_key_id", apiKey.id)
-      .gte("created_at", since);
+      .gte("created_at", since)
+      .lte("created_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1000);
 
     if (error) {
       return apiError("internal_error", "Failed to fetch usage data", ctx);

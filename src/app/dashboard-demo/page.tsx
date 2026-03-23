@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CreditCard,
@@ -27,18 +28,30 @@ function formatContext(limit: number | null) {
   return String(limit);
 }
 
+// Demo data per plan tier
+const DEMO_PLANS: Record<string, { plan: string; cpu_cores: number; ram_gb: number; storage_gb: number }> = {
+  starter: { plan: "starter", cpu_cores: 2, ram_gb: 8, storage_gb: 100 },
+  pro: { plan: "pro", cpu_cores: 4, ram_gb: 16, storage_gb: 200 },
+  ultra: { plan: "ultra", cpu_cores: 8, ram_gb: 32, storage_gb: 400 },
+  enterprise: { plan: "enterprise", cpu_cores: 16, ram_gb: 64, storage_gb: 800 },
+};
+
 export default function DemoOverviewPage() {
+  const searchParams = useSearchParams();
+  const planParam = searchParams.get("plan")?.toLowerCase() || "pro";
+  const demoConfig = DEMO_PLANS[planParam] || DEMO_PLANS.pro;
+
   const subscription = {
-    plan: "pro",
+    plan: demoConfig.plan,
     status: "active",
     expires_at: "2026-04-22T00:00:00Z",
   };
   const vps = {
     status: "running",
     openclaw_dashboard_url: "https://demo.clawhq.tech",
-    cpu_cores: 8,
-    ram_gb: 32,
-    storage_gb: 400,
+    cpu_cores: demoConfig.cpu_cores,
+    ram_gb: demoConfig.ram_gb,
+    storage_gb: demoConfig.storage_gb,
   };
   const model = {
     current_model: "Kimi K2.5",

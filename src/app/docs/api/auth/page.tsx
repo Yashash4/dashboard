@@ -29,11 +29,11 @@ export default function DocsAPIAuthPage() {
         <li><strong>Character set:</strong> Alphanumeric characters (a-z, 0-9)</li>
       </ul>
       <p>Example key:</p>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>clw_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code></pre>
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>clw_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6</code></pre>
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> API keys are shown only once at creation time.
+          <strong className="text-[var(--text-primary)]">Tip:</strong> API keys are shown only once at creation time.
           Store your key in a secure location immediately. If you lose a key, you will need to
           revoke it and create a new one.
         </p>
@@ -62,7 +62,7 @@ export default function DocsAPIAuthPage() {
         Include your API key in the <code>Authorization</code> header of every request using the
         Bearer token scheme:
       </p>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>Authorization: Bearer clw_your_api_key_here</code></pre>
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>Authorization: Bearer $CLAWHQ_API_KEY</code></pre>
 
       <h3>Key Validation</h3>
       <p>
@@ -81,15 +81,16 @@ export default function DocsAPIAuthPage() {
       <h2>Code Examples</h2>
 
       <h3>cURL</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`curl -X POST https://app.clawhq.tech/api/v1/chat \\
-  -H "Authorization: Bearer clw_your_api_key_here" \\
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`curl -X POST https://app.clawhq.tech/api/v1/chat \\
+  -H "Authorization: Bearer $CLAWHQ_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"message": "Hello, how can I help you?"}'`}</code></pre>
 
       <h3>Python</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`import requests
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`import os
+import requests
 
-API_KEY = "clw_your_api_key_here"
+API_KEY = os.environ["CLAWHQ_API_KEY"]
 BASE_URL = "https://app.clawhq.tech/api/v1"
 
 headers = {
@@ -106,7 +107,7 @@ response = requests.post(
 print(response.json())`}</code></pre>
 
       <h3>JavaScript</h3>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`const API_KEY = "clw_your_api_key_here";
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`const API_KEY = process.env.CLAWHQ_API_KEY;
 const BASE_URL = "https://app.clawhq.tech/api/v1";
 
 const response = await fetch(\`\${BASE_URL}/chat\`, {
@@ -131,24 +132,24 @@ console.log(data);`}</code></pre>
       <div className="not-prose overflow-x-auto my-6">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="text-left py-2 px-3 text-white">Status</th>
-              <th className="text-left py-2 px-3 text-white">Error</th>
-              <th className="text-left py-2 px-3 text-white">Cause</th>
+            <tr className="border-b border-[var(--border-primary)]">
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Status</th>
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Error</th>
+              <th className="text-left py-2 px-3 text-[var(--text-primary)]">Cause</th>
             </tr>
           </thead>
           <tbody className="text-muted-foreground">
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>401</code></td>
               <td className="py-2 px-3">Invalid API key</td>
               <td className="py-2 px-3">The key is missing, malformed, or does not match any active key</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>403</code></td>
               <td className="py-2 px-3">Plan required</td>
               <td className="py-2 px-3">The account does not have an active Pro or Ultra subscription</td>
             </tr>
-            <tr className="border-b border-white/5">
+            <tr className="border-b border-[var(--border-subtle)]">
               <td className="py-2 px-3"><code>429</code></td>
               <td className="py-2 px-3">Rate limit exceeded</td>
               <td className="py-2 px-3">The key has exceeded its requests-per-minute limit</td>
@@ -158,7 +159,7 @@ console.log(data);`}</code></pre>
       </div>
 
       <p>Example error response:</p>
-      <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`{
+      <pre className="bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-lg p-4 text-sm overflow-x-auto"><code>{`{
   "error": "Invalid API key",
   "code": "INVALID_KEY",
   "status": 401
@@ -176,7 +177,7 @@ console.log(data);`}</code></pre>
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
         <p className="text-sm text-muted-foreground m-0">
-          <strong className="text-white">Tip:</strong> If you suspect a key has been compromised,
+          <strong className="text-[var(--text-primary)]">Tip:</strong> If you suspect a key has been compromised,
           revoke it immediately from the API Access page. Revoking a key is instant and all
           subsequent requests using that key will receive a 401 error.
         </p>
@@ -184,9 +185,9 @@ console.log(data);`}</code></pre>
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/api/chat" className="text-primary">Chat API</Link> &mdash; Send messages and receive AI responses</li>
-        <li><Link href="/docs/api/agents" className="text-primary">Agents API</Link> &mdash; List your deployed agents</li>
-        <li><Link href="/docs/api/rate-limits" className="text-primary">Rate Limits</Link> &mdash; Understand rate limiting and best practices</li>
+        <li><Link href="/docs/api/chat" className="text-[var(--accent)] hover:underline">Chat API</Link> &mdash; Send messages and receive AI responses</li>
+        <li><Link href="/docs/api/agents" className="text-[var(--accent)] hover:underline">Agents API</Link> &mdash; List your deployed agents</li>
+        <li><Link href="/docs/api/rate-limits" className="text-[var(--accent)] hover:underline">Rate Limits</Link> &mdash; Understand rate limiting and best practices</li>
       </ul>
     </article>
   );

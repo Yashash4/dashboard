@@ -17,7 +17,7 @@ export async function GET(
       .select("id, status, total, completed, failed, results, created_at, completed_at")
       .eq("id", id).eq("user_id", apiKey.user_id).single();
 
-    if (!batch) return apiError("invalid_request", "Batch not found", ctx);
+    if (!batch) return apiError("not_found", "Batch not found", ctx);
 
     return apiSuccess({ batch }, ctx, auth.rateLimitInfo);
   } catch {

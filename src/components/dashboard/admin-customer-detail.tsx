@@ -255,6 +255,7 @@ function CredentialField({
           <button
             onClick={() => setVisible(!visible)}
             className="text-muted-foreground hover:text-foreground p-0.5"
+            aria-label={visible ? "Hide value" : "Show value"}
           >
             {visible ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
           </button>
@@ -262,6 +263,7 @@ function CredentialField({
         <button
           onClick={handleCopy}
           className="text-muted-foreground hover:text-foreground p-0.5"
+          aria-label={`Copy ${label}`}
         >
           {copied ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
         </button>
@@ -384,7 +386,7 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<ServiceStatus | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [checkPendingRef = { current: false }, setActionLoading] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [logsData, setLogsData] = useState<string | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -758,9 +760,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_openclaw")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "restart_openclaw" ? (
+                {actionLoading === "restart_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -771,9 +773,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_nginx")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "restart_nginx" ? (
+                {actionLoading === "restart_nginx" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -784,9 +786,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_embeddings")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "restart_embeddings" ? (
+                {actionLoading === "restart_embeddings" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -797,9 +799,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_data_api")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "restart_data_api" ? (
+                {actionLoading === "restart_data_api" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -810,9 +812,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("stop_openclaw")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "stop_openclaw" ? (
+                {actionLoading === "stop_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Square className="h-3 w-3 mr-1" />
@@ -823,9 +825,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("start_openclaw")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "start_openclaw" ? (
+                {actionLoading === "start_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Play className="h-3 w-3 mr-1" />
@@ -836,9 +838,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("view_logs")}
-                disabled={!!checkPendingRef = { current: false }}
+                disabled={!!actionLoading}
               >
-                {checkPendingRef = { current: false } === "view_logs" ? (
+                {actionLoading === "view_logs" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Terminal className="h-3 w-3 mr-1" />

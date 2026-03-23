@@ -25,12 +25,12 @@ export default function DocsVPSManagementPage() {
         <strong>Stopped</strong> (red), or <strong>Restarting</strong> (yellow).
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Stopping your VPS will immediately interrupt all active conversations. End users
           connected via channels will receive no response until the VPS is started again.
-        </p>
+        </div>
       </div>
 
       <h2>Hostname and IP Display</h2>
@@ -55,12 +55,11 @@ export default function DocsVPSManagementPage() {
         <li><strong>SSL Provisioning</strong> — Once DNS is verified, ClawHQ automatically provisions an SSL certificate for your custom domain. This process takes approximately 1-2 minutes.</li>
       </ol>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary mb-1">Tip</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           DNS propagation can take anywhere from a few minutes to 48 hours depending on your
           registrar and DNS provider. If verification fails, wait 15 minutes and try again.
-        </p>
+        </div>
       </div>
 
       <h2>SSL Certificate Management</h2>
@@ -87,10 +86,10 @@ export default function DocsVPSManagementPage() {
         individual service recovery:
       </p>
       <ul>
-        <li><strong>OpenClaw Gateway (port 18789)</strong> — The core AI gateway that routes conversations to your deployed agents. This is the most critical service.</li>
-        <li><strong>Web Server (port 443)</strong> — The HTTPS server that handles incoming web traffic, API requests, and the OpenClaw dashboard interface.</li>
-        <li><strong>ClawHQ Embeddings (port 5555)</strong> — The embeddings service used by the <Link href="/docs/agents" className="text-primary hover:underline">knowledge base</Link> for semantic search and document retrieval.</li>
-        <li><strong>ClawHQ Data API (port 5556)</strong> — The internal data API that powers analytics, logging, and inter-service communication.</li>
+        <li><strong>OpenClaw Gateway</strong> — The core AI gateway that routes conversations to your deployed agents. This is the most critical service.</li>
+        <li><strong>Web Server (HTTPS)</strong> — The HTTPS server that handles incoming web traffic, API requests, and the OpenClaw dashboard interface.</li>
+        <li><strong>Embeddings Service</strong> — The embeddings service used by the <Link href="/docs/agents" className="text-[var(--accent)] hover:underline">knowledge base</Link> for semantic search and document retrieval.</li>
+        <li><strong>Data API</strong> — The internal data API that powers analytics, logging, and inter-service communication.</li>
       </ul>
       <p>
         Service status is checked every 60 seconds. A green dot indicates the service is
@@ -98,13 +97,13 @@ export default function DocsVPSManagementPage() {
         or unresponsive.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Restarting the OpenClaw Gateway will temporarily disconnect all active conversations.
           Only restart individual services if you are troubleshooting a specific issue. For
           general maintenance, use the full VPS restart instead.
-        </p>
+        </div>
       </div>
 
       <h2>Scheduled Restart</h2>
@@ -120,13 +119,12 @@ export default function DocsVPSManagementPage() {
         <li><strong>Day and time</strong> — Select the day of the week and time of day (in your local timezone) for the restart to occur. Choose a low-traffic window to minimize disruption.</li>
       </ul>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary mb-1">Tip</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           An OpenClaw-only restart is faster (under 10 seconds of downtime) and sufficient for
           most maintenance needs. Reserve the full reboot option for situations where you suspect
           an OS-level issue.
-        </p>
+        </div>
       </div>
 
       <h2>Resource Display Card</h2>
@@ -175,20 +173,19 @@ export default function DocsVPSManagementPage() {
         re-authenticate on your next visit to the OpenClaw dashboard.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary mb-1">Tip</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           The dashboard password is separate from your ClawHQ account password. Changing one
           does not affect the other. Use a strong, unique password for each.
-        </p>
+        </div>
       </div>
 
       <h2>Related Documentation</h2>
       <ul>
-        <li><Link href="/docs/dashboard" className="text-primary hover:underline">Dashboard Overview</Link> — Return to the main dashboard documentation.</li>
-        <li><Link href="/docs/agents" className="text-primary hover:underline">Agents</Link> — Deploy and manage agents on your VPS.</li>
-        <li><Link href="/docs/models" className="text-primary hover:underline">AI Models</Link> — Configure the AI model running on your VPS.</li>
-        <li><Link href="/docs/chat" className="text-primary hover:underline">Chat</Link> — Test your deployment through the built-in chat interface.</li>
+        <li><Link href="/docs/dashboard" className="text-[var(--accent)] hover:underline">Dashboard Overview</Link> — Return to the main dashboard documentation.</li>
+        <li><Link href="/docs/agents" className="text-[var(--accent)] hover:underline">Agents</Link> — Deploy and manage agents on your VPS.</li>
+        <li><Link href="/docs/models" className="text-[var(--accent)] hover:underline">AI Models</Link> — Configure the AI model running on your VPS.</li>
+        <li><Link href="/docs/chat" className="text-[var(--accent)] hover:underline">Chat</Link> — Test your deployment through the built-in chat interface.</li>
       </ul>
     </article>
   );

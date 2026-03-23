@@ -72,7 +72,7 @@ export const PLANS: PlanDef[] = [
     name: "enterprise",
     label: "Enterprise",
     monthlyUsd: 999,
-    annualUsd: 0,
+    annualUsd: 9999,
     annualSavings: "",
     tagline: "Built around your business.",
     contactUs: true,
@@ -94,4 +94,5 @@ export const PLAN_PRICES: Record<string, { monthly: number; annual: number }> = 
   starter: { monthly: 59, annual: 599 },
   pro: { monthly: 129, annual: 1299 },
   ultra: { monthly: 350, annual: 3499 },
+  enterprise: { monthly: 999, annual: 9999 },
 };

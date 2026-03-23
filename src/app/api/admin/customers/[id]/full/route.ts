@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { decryptVpsCredentials } from "@/lib/credential-utils";
 import { logAudit, getClientIp } from "@/lib/audit-log";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,12 @@ export async function GET(
 
   if (!profile || profile.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // ADMIN_HIGH_04: Rate limit customer detail access
+  const rl = rateLimit(`admin:customer-detail:${user.id}`, 30, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
   }
 
   const admin = createAdminClient();

@@ -93,6 +93,52 @@ export function rateLimit(
   return { success, remaining };
 }
 
+/* ---------- Tier-aware rate limiting (CROSS_HIGH_04) ---------- */
+
+/** Multiplier applied to base rate limits per plan tier */
+const TIER_MULTIPLIERS: Record<string, number> = {
+  starter: 1,
+  pro: 5,
+  ultra: 10,
+  enterprise: 25,
+};
+
+/**
+ * Get the rate limit multiplier for a given plan tier.
+ */
+export function getTierMultiplier(plan: string): number {
+  return TIER_MULTIPLIERS[plan] || 1;
+}
+
+/**
+ * Tier-aware synchronous rate limiter.
+ * Applies plan-based multiplier to the base limit.
+ * Usage: rateLimitByTier("user123:chat", 10, "ultra") → effective limit = 100
+ */
+export function rateLimitByTier(
+  identifier: string,
+  baseLimit: number,
+  plan: string,
+  windowMs: number = 60_000
+): { success: boolean; remaining: number } {
+  const effectiveLimit = baseLimit * getTierMultiplier(plan);
+  return rateLimit(identifier, effectiveLimit, windowMs);
+}
+
+/**
+ * Tier-aware async (durable) rate limiter.
+ * Applies plan-based multiplier to the base limit, backed by Supabase.
+ */
+export async function rateLimitByTierAsync(
+  identifier: string,
+  baseLimit: number,
+  plan: string,
+  windowMs: number = 60_000
+): Promise<{ success: boolean; remaining: number }> {
+  const effectiveLimit = baseLimit * getTierMultiplier(plan);
+  return rateLimitAsync(identifier, effectiveLimit, windowMs);
+}
+
 /* ---------- Supabase-backed (durable) ---------- */
 
 /**

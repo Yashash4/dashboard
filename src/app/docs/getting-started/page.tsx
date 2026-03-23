@@ -57,8 +57,8 @@ export default function DocsQuickStartGuidePage() {
         running. You can safely close the browser and come back later — provisioning continues
         in the background.
       </p>
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="text-sm font-medium text-amber-500">Don&apos;t worry if it takes a moment</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="text-sm font-medium text-[var(--warning)]">Don&apos;t worry if it takes a moment</p>
         <p className="text-sm text-muted-foreground mt-1">
           Provisioning involves 12 sequential steps including DNS setup, firewall configuration,
           and SSL certificate generation. If it takes longer than 30 minutes, reach out via{" "}

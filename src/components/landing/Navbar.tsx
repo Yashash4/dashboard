@@ -171,7 +171,7 @@ export default function Navbar() {
                           return (
                             <div
                               key={card.title}
-                              className="relative overflow-hidden rounded-xl bg-[#161616] border border-[var(--border-primary)] p-4 pr-6 group hover:border-[var(--text-tertiary)]/20 transition-all duration-300 cursor-default flex items-center gap-3.5 min-w-[200px]"
+                              className="relative overflow-hidden rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-primary)] p-4 pr-6 group hover:border-[var(--text-tertiary)]/20 transition-all duration-300 cursor-default flex items-center gap-3.5 min-w-[200px]"
                             >
                               <div className={`absolute inset-0 ${card.gradient} opacity-[0.04] group-hover:opacity-[0.08] transition-opacity duration-500`} />
                               <div className="relative z-10 w-9 h-9 rounded-lg bg-[var(--bg-subtle)] flex items-center justify-center shrink-0">

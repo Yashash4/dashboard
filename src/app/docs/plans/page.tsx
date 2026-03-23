@@ -11,9 +11,9 @@ export default function DocsPlansPricingPage() {
 
       <h2>Plan Overview</h2>
       <div className="not-prose grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-        <div className="p-5 rounded-lg border border-green-500/20 bg-green-500/5">
+        <div className="p-5 rounded-lg border border-[var(--accent-border)] bg-[var(--accent-subtle)]">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs bg-green-500/10 text-green-500 px-2 py-0.5 rounded font-mono">STARTER</span>
+            <span className="text-xs bg-[var(--accent-muted)] text-[var(--accent)] px-2 py-0.5 rounded font-mono">STARTER</span>
           </div>
           <p className="text-2xl font-bold text-foreground mt-2">$59<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
           <p className="text-sm text-muted-foreground mt-1">$599/year (save ~15%)</p>
@@ -22,9 +22,9 @@ export default function DocsPlansPricingPage() {
             Agent Store, and managed infrastructure.
           </p>
         </div>
-        <div className="p-5 rounded-lg border border-[#ffe0c2]/20 bg-[#ffe0c2]/5">
+        <div className="p-5 rounded-lg border border-[color-mix(in_srgb,var(--tier-pro),transparent_80%)] bg-[color-mix(in_srgb,var(--tier-pro),transparent_95%)]">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs bg-[#ffe0c2]/10 text-[#ffe0c2] px-2 py-0.5 rounded font-mono">PRO</span>
+            <span className="text-xs bg-[color-mix(in_srgb,var(--tier-pro),transparent_90%)] text-[var(--tier-pro)] px-2 py-0.5 rounded font-mono">PRO</span>
           </div>
           <p className="text-2xl font-bold text-foreground mt-2">$129<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
           <p className="text-sm text-muted-foreground mt-1">$1,299/year (save ~15%)</p>
@@ -33,9 +33,9 @@ export default function DocsPlansPricingPage() {
             Knowledge Base, Webhooks, API Access, Audit Log, Agent Builder, and Model Playground.
           </p>
         </div>
-        <div className="p-5 rounded-lg border border-amber-500/20 bg-amber-500/5">
+        <div className="p-5 rounded-lg border border-[color-mix(in_srgb,var(--tier-ultra),transparent_80%)] bg-[color-mix(in_srgb,var(--tier-ultra),transparent_95%)]">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+            <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
           </div>
           <p className="text-2xl font-bold text-foreground mt-2">$350<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
           <p className="text-sm text-muted-foreground mt-1">$3,499/year (save ~15%)</p>
@@ -44,9 +44,9 @@ export default function DocsPlansPricingPage() {
             agent workforce with task boards, real-time monitoring, and session tracking.
           </p>
         </div>
-        <div className="p-5 rounded-lg border border-teal-500/20 bg-teal-500/5">
+        <div className="p-5 rounded-lg border border-[color-mix(in_srgb,var(--tier-enterprise),transparent_80%)] bg-[color-mix(in_srgb,var(--tier-enterprise),transparent_95%)]">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs bg-teal-500/10 text-teal-500 px-2 py-0.5 rounded font-mono">ENTERPRISE</span>
+            <span className="text-xs bg-[color-mix(in_srgb,var(--tier-enterprise),transparent_90%)] text-[var(--tier-enterprise)] px-2 py-0.5 rounded font-mono">ENTERPRISE</span>
           </div>
           <p className="text-2xl font-bold text-foreground mt-2">$999+<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
           <p className="text-sm text-muted-foreground mt-1">Custom pricing</p>
@@ -63,10 +63,10 @@ export default function DocsPlansPricingPage() {
           <thead>
             <tr className="border-b border-border">
               <th className="text-left py-3 px-4 text-muted-foreground font-medium">Feature</th>
-              <th className="text-center py-3 px-3 text-green-500 font-medium">Starter</th>
-              <th className="text-center py-3 px-3 text-[#ffe0c2] font-medium">Pro</th>
-              <th className="text-center py-3 px-3 text-amber-500 font-medium">Ultra</th>
-              <th className="text-center py-3 px-3 text-teal-500 font-medium">Enterprise</th>
+              <th className="text-center py-3 px-3 text-[var(--accent)] font-medium">Starter</th>
+              <th className="text-center py-3 px-3 text-[var(--tier-pro)] font-medium">Pro</th>
+              <th className="text-center py-3 px-3 text-[var(--tier-ultra)] font-medium">Ultra</th>
+              <th className="text-center py-3 px-3 text-[var(--tier-enterprise)] font-medium">Enterprise</th>
             </tr>
           </thead>
           <tbody className="text-foreground">

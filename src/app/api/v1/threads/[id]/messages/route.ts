@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiSuccess } from "@/lib/api-errors";
 import { searchKBChunks } from "@/lib/knowledge-base";
 import { decryptField } from "@/lib/credential-utils";
+import { moderateApiInput } from "@/lib/moderation";
 import { validateV1Auth } from "@/lib/v1-auth";
 
-/** GET /api/v1/threads/:id/messages — Get thread message history (cursor-based pagination) */
+/** GET /api/v1/threads/:id/messages — Get thread message history (offset-based pagination) */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -43,7 +44,12 @@ export async function GET(
     const hasMore = offset + results.length < total;
 
     return apiSuccess({
-      messages: results,
+      messages: results.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        created_at: m.created_at,
+      })),
       thread_id: id,
       has_more: hasMore,
       total,
@@ -83,22 +89,34 @@ export async function POST(
     if (!message?.trim()) return apiError("missing_parameter", "message is required", ctx, { param: "message" });
     if (message.length > 10000) return apiError("invalid_request", "message must be 10000 characters or fewer", ctx, { param: "message" });
 
-    // Store user message
-    const userMsgId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
-    await admin.from("api_thread_messages").insert({
-      id: userMsgId,
-      thread_id: id,
-      role: "user",
-      content: message.trim(),
-    });
+    // Content moderation — block harmful inputs before sending to model
+    const modResult = moderateApiInput(message);
+    if (modResult.blocked) {
+      return apiError("content_blocked", modResult.category
+        ? `Content blocked: ${modResult.category}`
+        : "Your message was blocked by our content policy.", ctx);
+    }
 
-    // Get conversation history (last 20 messages — fetch descending, then reverse)
+    // Get conversation history BEFORE inserting the new message to avoid duplicate
     const { data: historyDesc } = await admin.from("api_thread_messages")
       .select("role, content")
       .eq("thread_id", id)
       .order("created_at", { ascending: false })
       .limit(20);
     const history = (historyDesc || []).reverse();
+
+    // Store user message
+    const userMsgId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
+    const { error: insertError } = await admin.from("api_thread_messages").insert({
+      id: userMsgId,
+      thread_id: id,
+      role: "user",
+      content: message.trim(),
+    });
+
+    if (insertError) {
+      return apiError("internal_error", "Failed to save message", ctx);
+    }
 
     // Get VPS
     const { data: vps } = await admin.from("vps_instances")
@@ -130,6 +148,7 @@ export async function POST(
     const messages_to_send = [
       ...(kbContext ? [{ role: "system" as const, content: `Use the following knowledge base context to answer. Cite the document name. If not relevant, ignore.\n\n${kbContext}` }] : []),
       ...(history || []).map((m) => ({ role: m.role as "user" | "assistant", content: m.content || "" })),
+      { role: "user" as const, content: message.trim() },
     ];
 
     const controller = new AbortController();
@@ -159,12 +178,17 @@ export async function POST(
 
     // Store assistant message
     const asstMsgId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
-    await admin.from("api_thread_messages").insert({
+    const { error: asstInsertError } = await admin.from("api_thread_messages").insert({
       id: asstMsgId,
       thread_id: id,
       role: "assistant",
       content,
     });
+
+    if (asstInsertError) {
+      console.error(`[v1/threads/messages] Failed to save assistant message: ${asstInsertError.message}`);
+      return apiError("internal_error", "Failed to save assistant response", ctx);
+    }
 
     // Update thread timestamp
     await admin.from("api_threads").update({ updated_at: new Date().toISOString() }).eq("id", id);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Shield, Eye, EyeOff, RefreshCw, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,7 +17,8 @@ export function AdminDashboardAuth({ userId }: { userId: string }) {
   const [showPassword, setShowPassword] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const fetchCredentials = async () => {
+  // ADMIN_LOW_01: Wrap fetchCredentials in useCallback for stable dependency
+  const fetchCredentials = useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/vps-password?userId=${userId}`);
       if (res.ok) {
@@ -26,16 +27,15 @@ export function AdminDashboardAuth({ userId }: { userId: string }) {
         setPassword(data.password);
       }
     } catch (err) {
-      // ADMIN_MED_20: log error instead of ignoring
       console.error("Failed to fetch dashboard credentials:", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     fetchCredentials();
-  }, [userId]);
+  }, [fetchCredentials]);
 
   const handleRegenerate = async () => {
     setRegenerating(true);
@@ -137,6 +137,7 @@ export function AdminDashboardAuth({ userId }: { userId: string }) {
                 size="sm"
                 className="absolute right-0 top-0 h-full px-3"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
                   <EyeOff className="h-3.5 w-3.5" />

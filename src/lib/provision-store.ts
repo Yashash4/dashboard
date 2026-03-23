@@ -30,6 +30,18 @@ export function createJob(id: string): ProvisionJob {
   return job;
 }
 
+// ADMIN_HIGH_02: Atomic check-and-create to prevent TOCTOU race
+// Returns the new job if created, or null if an active job already exists
+export function createJobIfIdle(id: string): ProvisionJob | null {
+  // Single-pass atomic check: if any running job exists, reject
+  for (const job of jobs.values()) {
+    if (job.status === "running") return null;
+  }
+  const job: ProvisionJob = { id, status: "running", steps: [] };
+  jobs.set(id, job);
+  return job;
+}
+
 export function getJob(id: string): ProvisionJob | undefined {
   return jobs.get(id);
 }

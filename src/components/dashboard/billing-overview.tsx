@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { usePayment } from "@/hooks/use-payment";
 import { hasAccess, type Plan } from "@/lib/tier";
+import { PLANS as SOURCE_PLANS } from "@/lib/payments/plans";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -64,71 +65,14 @@ const PAY_STATUS_CONFIG: Record<string, { label: string; className: string }> = 
   refunded: { label: "Refunded", className: "bg-secondary text-secondary-foreground border-secondary" },
 };
 
-const PLANS = [
-  {
-    name: "starter",
-    label: "Starter",
-    monthlyUsd: 59,
-    annualUsd: 599,
-    features: [
-      "2 vCPU, 8GB RAM, 100GB storage",
-      "128K context window",
-      "5 model changes per billing cycle",
-      "All messaging channels",
-      "Chat with agents from dashboard",
-      "OpenClaw dashboard access",
-      "Dashboard ticket support",
-      "Managed updates & backups",
-    ],
-  },
-  {
-    name: "pro",
-    label: "Pro",
-    monthlyUsd: 129,
-    annualUsd: 1299,
-    features: [
-      "4 vCPU, 16GB RAM, 200GB storage",
-      "Full context window (no cap)",
-      "Instant & unlimited model changes",
-      "Advanced monitoring & analytics",
-      "Custom agent templates",
-      "Priority support + live chat",
-      "5x higher rate limits",
-    ],
-  },
-  {
-    name: "ultra",
-    label: "Ultra",
-    monthlyUsd: 350,
-    annualUsd: 3499,
-    features: [
-      "8 vCPU, 32GB RAM, 400GB storage",
-      "5X credits — full context window",
-      "Mission Control command center",
-      "Agent Squad Builder & orchestration",
-      "Cost & token dashboard",
-      "End-to-end tracing & debugging",
-      "Workflow builder & automation",
-      "RBAC workspaces & approvals",
-      "Advanced API access & webhooks",
-    ],
-  },
-  {
-    name: "enterprise",
-    label: "Enterprise",
-    monthlyUsd: 999,
-    annualUsd: 0,
-    contactUs: true,
-    features: [
-      "Custom infrastructure",
-      "Custom agents built for you",
-      "Custom integrations & workflows",
-      "Dedicated support + 1-on-1 calls",
-      "5x rate limits",
-      "White-glove setup",
-    ],
-  },
-];
+const PLANS = SOURCE_PLANS.map((p) => ({
+  name: p.name,
+  label: p.label,
+  monthlyUsd: p.monthlyUsd,
+  annualUsd: p.annualUsd,
+  contactUs: p.contactUs,
+  features: p.features,
+}));
 
 function formatDate(date: string) {
   return new Date(date).toLocaleDateString("en-US", {
@@ -378,6 +322,30 @@ export function BillingOverview({
           })}
         </div>
       </div>
+
+      {/* Downgrade / Cancel */}
+      {subscription.status === "active" && (
+        <Card className="border-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Need to change or cancel your plan?</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Contact support to downgrade or cancel your subscription. Changes take effect at the end of your current billing cycle.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <a
+                  href={`mailto:support@clawhq.tech?subject=${encodeURIComponent(`${subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} Plan - Downgrade/Cancellation Request`)}`}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Contact Support
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Plan Comparison Matrix */}
       <PlanComparison currentPlan={subscription.plan} />

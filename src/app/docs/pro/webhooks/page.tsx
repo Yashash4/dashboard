@@ -5,7 +5,7 @@ export default function DocsWebhooksPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Webhooks{" "}
-        <span className="text-xs bg-[#ffe0c2]/10 text-[#ffe0c2] px-2 py-0.5 rounded font-mono">PRO</span>
+        <span className="text-xs bg-[var(--accent-muted)] text-[var(--accent)] px-2 py-0.5 rounded font-mono">PRO</span>
       </h1>
 
       <p className="lead text-lg text-muted-foreground">
@@ -137,26 +137,31 @@ export default function DocsWebhooksPage() {
       <h2>HMAC Signature Verification</h2>
 
       <p>
-        Every webhook delivery includes an <code>X-ClawHQ-Signature</code> header containing an
-        HMAC-SHA256 signature. This allows you to verify that the payload was sent by ClawHQ and
-        has not been tampered with in transit.
+        Every webhook delivery includes an <code>X-ClawHQ-Signature</code> header and an{" "}
+        <code>X-ClawHQ-Timestamp</code> header. Together, these allow you to verify that the
+        payload was sent by ClawHQ and has not been tampered with in transit.
       </p>
 
       <p>
-        To verify a signature:
+        The signature is computed over a concatenation of the delivery timestamp and the raw
+        request body, separated by a period: <code>timestamp.body</code>. To verify:
       </p>
 
       <ol>
+        <li>Read the <code>X-ClawHQ-Timestamp</code> header value</li>
         <li>Read the raw request body (do not parse it first)</li>
-        <li>Compute the HMAC-SHA256 hash of the raw body using your webhook&apos;s signing secret as the key</li>
-        <li>Compare the computed hash with the value in the <code>X-ClawHQ-Signature</code> header</li>
+        <li>Concatenate the timestamp, a literal period (<code>.</code>), and the raw body to form the signed payload: <code>{`{timestamp}.{body}`}</code></li>
+        <li>Compute the HMAC-SHA256 hash of the signed payload using your webhook&apos;s signing secret as the key</li>
+        <li>Compare the computed hash with the value in the <code>X-ClawHQ-Signature</code> header using a constant-time comparison</li>
         <li>If they match, the payload is authentic. If not, reject the request.</li>
       </ol>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <strong className="text-primary">Security note:</strong> Always verify the HMAC signature
-        before processing webhook payloads. This protects against spoofed requests from
-        unauthorized sources. Use a constant-time comparison function to prevent timing attacks.
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Security note:</strong> Always verify the HMAC signature
+          before processing webhook payloads. This protects against spoofed requests from
+          unauthorized sources. Use a constant-time comparison function to prevent timing attacks.
+        </div>
       </div>
 
       <h2>Automatic Retries</h2>
@@ -251,10 +256,12 @@ export default function DocsWebhooksPage() {
         unauthorized internal requests.
       </p>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <strong className="text-primary">Tip:</strong> Use the &quot;Test&quot; button on any
-        webhook to send a sample payload to your endpoint without waiting for a real event. This
-        is the fastest way to verify your integration is working correctly.
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--text-primary)]">Tip:</strong> Use the &quot;Test&quot; button on any
+          webhook to send a sample payload to your endpoint without waiting for a real event. This
+          is the fastest way to verify your integration is working correctly.
+        </div>
       </div>
 
       <h2>Related Documentation</h2>

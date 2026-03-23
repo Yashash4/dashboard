@@ -50,7 +50,13 @@ export async function POST(request: NextRequest) {
   if (!rl.success)
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
-  const body = await request.json();
+  // ST_LOW_01: Wrap request.json() in try-catch for malformed JSON
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
   const { restart_type, day_of_week, time_utc } = body as {
     restart_type?: string;
     day_of_week?: number;

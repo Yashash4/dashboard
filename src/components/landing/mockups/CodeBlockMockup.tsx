@@ -5,15 +5,15 @@ import { useRef, useState, useEffect, useCallback } from "react";
 
 const CODE_LINES = [
   { text: 'curl -X POST https://api.clawhq.tech/v1/chat \\', color: "text-foreground" },
-  { text: '  -H "Authorization: Bearer sk_live_..." \\', color: "text-[#ffe0c2]" },
-  { text: '  -H "Content-Type: application/json" \\', color: "text-[#ffe0c2]" },
+  { text: '  -H "Authorization: Bearer sk_live_..." \\', color: "text-[var(--cta)]" },
+  { text: '  -H "Content-Type: application/json" \\', color: "text-[var(--cta)]" },
   { text: "  -d '{\"message\": \"Hello!\", \"agent\": \"support\"}'", color: "text-primary" },
 ];
 
 const RESPONSE_LINES = [
   { text: '{', color: "text-muted-foreground" },
   { text: '  "reply": "Hi! How can I help?",', color: "text-primary" },
-  { text: '  "status": 200', color: "text-[#ffe0c2]" },
+  { text: '  "status": 200', color: "text-[var(--cta)]" },
   { text: '}', color: "text-muted-foreground" },
 ];
 
@@ -109,10 +109,10 @@ export function CodeBlockMockup() {
   return (
     <div
       ref={containerRef}
-      className="w-full max-w-lg mx-auto font-mono rounded-lg border border-border bg-[#191919] overflow-hidden"
+      className="w-full max-w-lg mx-auto font-mono rounded-lg border border-border bg-[var(--bg-elevated)] overflow-hidden"
     >
       {/* Window Chrome */}
-      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-[#191919]">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border bg-[var(--bg-elevated)]">
         <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f57]" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
         <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
@@ -123,7 +123,7 @@ export function CodeBlockMockup() {
           initial={{ opacity: 0, scale: 0.8 }}
           animate={showBadge ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.8 }}
           transition={{ duration: 0.3 }}
-          className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-medium"
+          className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-[color-mix(in_srgb,var(--success),transparent_85%)] text-[var(--success)] font-medium"
         >
           200 OK
         </motion.span>

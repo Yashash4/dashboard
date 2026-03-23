@@ -22,7 +22,13 @@ import {
  */
 export function encryptField(value: string): string {
   if (!value) return value;
-  if (!isEncryptionConfigured()) return value;
+  if (!isEncryptionConfigured()) {
+    console.error(
+      "[credential-utils] CREDENTIAL_ENCRYPTION_KEY is not set — storing credentials in PLAINTEXT. " +
+      "Set this environment variable immediately to enable encryption."
+    );
+    throw new Error("Encryption is not configured. Set CREDENTIAL_ENCRYPTION_KEY environment variable.");
+  }
   return encryptCredentials({ v: value });
 }
 
@@ -34,7 +40,13 @@ export function encryptField(value: string): string {
  */
 export function decryptField(value: string): string {
   if (!value) return value;
-  if (!isEncryptionConfigured()) return value;
+  if (!isEncryptionConfigured()) {
+    console.warn(
+      "[credential-utils] CREDENTIAL_ENCRYPTION_KEY is not set — returning value as-is. " +
+      "Credentials may be stored in plaintext. Set this environment variable to enable encryption."
+    );
+    return value;
+  }
 
   // Encrypted format is "iv_hex:tag_hex:ciphertext_hex"
   // Each part is hex-only. Quick check: must have exactly 2 colons and all hex.

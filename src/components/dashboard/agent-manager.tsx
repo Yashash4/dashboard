@@ -248,9 +248,6 @@ export function AgentManager({
         break;
       }
 
-      const completed = successCount + failed + 1;
-      toast.info(`${apiAction === "deploy" ? "Deploying" : "Undeploying"} ${completed}/${targets.length}...`);
-
       try {
         const res = await fetch(`/api/agents/${apiAction}`, {
           method: "POST",
@@ -354,25 +351,30 @@ export function AgentManager({
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1.5">
-          {(["all", "deployed", "not_deployed"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-2.5 py-1 text-xs font-medium border transition-colors ${
-                statusFilter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-transparent text-muted-foreground border-border hover:text-foreground"
-              }`}
-            >
-              {f === "all" ? "All" : f === "deployed" ? "Deployed" : "Not Deployed"}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5" role="group" aria-label="Filter agents by status">
+          {(["all", "deployed", "not_deployed"] as const).map((f) => {
+            const label = f === "all" ? "All" : f === "deployed" ? "Deployed" : "Not Deployed";
+            return (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                aria-pressed={statusFilter === f}
+                className={`px-3 py-1.5 text-xs font-medium border transition-colors min-h-[36px] ${
+                  statusFilter === f
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-transparent text-muted-foreground border-border hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as "name" | "recent")}
-          className="text-xs bg-transparent border border-border px-2 py-1 text-muted-foreground"
+          aria-label="Sort agents"
+          className="text-xs bg-transparent border border-border px-2 py-1.5 text-muted-foreground min-h-[36px]"
         >
           <option value="recent">Recent</option>
           <option value="name">A-Z</option>
@@ -656,7 +658,10 @@ export function AgentManager({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleBulkAction}>
+            <AlertDialogAction
+              onClick={handleBulkAction}
+              className={bulkAction === "undeploy_all" ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
               {bulkAction === "deploy_all" ? "Deploy All" : "Undeploy All"}
             </AlertDialogAction>
           </AlertDialogFooter>

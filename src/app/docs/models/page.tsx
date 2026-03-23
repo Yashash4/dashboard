@@ -80,8 +80,8 @@ export default function DocsAIModelsPage() {
         revert to a previous one. The counter resets on the first day of each billing cycle.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400 mb-1">Warning</p>
+      <div className="not-prose bg-[color-mix(in_srgb,var(--warning),transparent_95%)] border border-[color-mix(in_srgb,var(--warning),transparent_80%)] rounded-lg p-4 my-6">
+        <p className="font-semibold text-[var(--warning)] mb-1">Warning</p>
         <p className="text-sm text-muted-foreground">
           Switching models restarts the OpenClaw Gateway on your VPS, which causes a brief
           interruption (typically under 10 seconds). Plan switches during low-traffic periods.

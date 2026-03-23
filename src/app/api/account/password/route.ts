@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Verify current password by attempting sign-in with a throwaway client
+  // ST_MED_07: Verify current password using a throwaway client.
+  // We sign out immediately to avoid stale sessions, with error handling on signOut.
   const { createClient: createAnonClient } = await import("@supabase/supabase-js");
   const verifyClient = createAnonClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,8 +59,12 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-  // Sign out the throwaway session immediately to avoid stale sessions
-  await verifyClient.auth.signOut();
+  // Sign out the throwaway session immediately — log but don't block on failure
+  try {
+    await verifyClient.auth.signOut();
+  } catch (signOutErr) {
+    console.warn("[account/password] Failed to sign out verification session:", signOutErr);
+  }
 
   const { error } = await supabase.auth.updateUser({ password });
 

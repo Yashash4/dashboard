@@ -18,6 +18,7 @@ export default function DocsChannelsPage() {
         workflow requires.
       </p>
 
+      <div className="overflow-x-auto">
       <table>
         <thead>
           <tr>
@@ -36,11 +37,12 @@ export default function DocsChannelsPage() {
           <tr><td>Signal</td><td>Admin-assisted</td><td>Phone number registration</td></tr>
         </tbody>
       </table>
+      </div>
 
       <h2>Self-Service Channel Setup</h2>
       <p>
         The five self-service channels can be connected directly from the{" "}
-        <Link href="/docs/channels" className="text-primary hover:underline">Channels</Link>{" "}
+        <Link href="/docs/channels" className="text-[var(--accent)] hover:underline">Channels</Link>{" "}
         page in your dashboard. Click <strong>Connect Channel</strong>, select
         the platform, and follow the instructions below.
       </p>
@@ -54,13 +56,12 @@ export default function DocsChannelsPage() {
         <li>Click <strong>Connect</strong>. ClawHQ will verify the token by calling the Telegram <code>getMe</code> endpoint.</li>
       </ol>
 
-      <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-primary">Tip</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-emerald-500 bg-emerald-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed"><strong className="text-[var(--text-primary)]">Tip:</strong>{" "}
           You can customise your Telegram bot&apos;s profile picture and description
           directly through BotFather using the <code>/setuserpic</code> and{" "}
           <code>/setdescription</code> commands.
-        </p>
+        </div>
       </div>
 
       <h3>Discord</h3>
@@ -114,7 +115,7 @@ export default function DocsChannelsPage() {
         a pairing QR code will appear. Scan it with your WhatsApp app to link
         your number. If you encounter issues, you can request admin-assisted
         setup through the{" "}
-        <Link href="/docs/support" className="text-primary hover:underline">support system</Link>.
+        <Link href="/docs/support" className="text-[var(--accent)] hover:underline">support system</Link>.
       </p>
 
       <h3>Signal</h3>
@@ -122,7 +123,7 @@ export default function DocsChannelsPage() {
         Signal requires a dedicated phone number to be registered with the Signal
         service. Because this process involves phone number verification and
         cannot be completed entirely within the dashboard, please{" "}
-        <Link href="/docs/support" className="text-primary hover:underline">contact support</Link>{" "}
+        <Link href="/docs/support" className="text-[var(--accent)] hover:underline">contact support</Link>{" "}
         to arrange Signal channel setup.
       </p>
 
@@ -165,7 +166,7 @@ export default function DocsChannelsPage() {
       <p>
         Agent routing can be changed at any time without disconnecting the
         channel. See the{" "}
-        <Link href="/docs/agents" className="text-primary hover:underline">Agents documentation</Link>{" "}
+        <Link href="/docs/agents" className="text-[var(--accent)] hover:underline">Agents documentation</Link>{" "}
         for more on configuring agent behaviour.
       </p>
 
@@ -187,7 +188,7 @@ export default function DocsChannelsPage() {
         name, message content, and timestamp. This provides a quick way to
         verify that your bot is receiving and processing messages without
         navigating to the full{" "}
-        <Link href="/docs/chat" className="text-primary hover:underline">Chat</Link> view.
+        <Link href="/docs/chat" className="text-[var(--accent)] hover:underline">Chat</Link> view.
       </p>
 
       <h2>Channel Ordering &amp; Priority</h2>
@@ -210,22 +211,22 @@ export default function DocsChannelsPage() {
         channel configuration panel.
       </p>
 
-      <div className="not-prose bg-amber-500/5 border border-amber-500/20 rounded-lg p-4 my-6">
-        <p className="font-semibold text-amber-400">Warning</p>
-        <p className="text-sm text-muted-foreground mt-1">
+      <div className="not-prose border-l-2 border-amber-500 bg-amber-500/5 p-4 my-6 flex gap-3">
+        <div className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+          <strong className="text-[var(--warning)]">Warning:</strong>{" "}
           Disconnecting a channel will stop all message processing for that
           platform immediately. Any in-flight messages may be lost. If you need
           to temporarily pause a channel, consider removing the agent assignment
           instead.
-        </p>
+        </div>
       </div>
 
       <h2>Next Steps</h2>
       <ul>
-        <li><Link href="/docs/agents" className="text-primary hover:underline">Configure agents</Link> to handle incoming channel messages.</li>
-        <li><Link href="/docs/chat" className="text-primary hover:underline">View conversations</Link> across all connected channels.</li>
-        <li><Link href="/dashboard/monitoring" className="text-primary hover:underline">Monitor channel health</Link> from the monitoring dashboard.</li>
-        <li><Link href="/docs/support" className="text-primary hover:underline">Contact support</Link> for WhatsApp or Signal setup assistance.</li>
+        <li><Link href="/docs/agents" className="text-[var(--accent)] hover:underline">Configure agents</Link> to handle incoming channel messages.</li>
+        <li><Link href="/docs/chat" className="text-[var(--accent)] hover:underline">View conversations</Link> across all connected channels.</li>
+        <li><Link href="/docs/vps" className="text-[var(--accent)] hover:underline">Monitor channel health</Link> from the VPS management page.</li>
+        <li><Link href="/docs/support" className="text-[var(--accent)] hover:underline">Contact support</Link> for WhatsApp or Signal setup assistance.</li>
       </ul>
     </article>
   );

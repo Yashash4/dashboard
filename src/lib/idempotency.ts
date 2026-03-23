@@ -35,7 +35,7 @@ export async function storeIdempotency(
 ): Promise<void> {
   const admin = createAdminClient();
 
-  await admin
+  const { error } = await admin
     .from("idempotency_cache")
     .upsert({
       key,
@@ -43,6 +43,10 @@ export async function storeIdempotency(
       status_code: statusCode,
       response_body: body,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
-    .then(() => {}, () => {});
+    });
+
+  if (error) {
+    console.error(`[idempotency] Failed to store cache for key="${key}" user="${userId}":`, error.message);
+    throw new Error(`Idempotency cache write failed: ${error.message}`);
+  }
 }

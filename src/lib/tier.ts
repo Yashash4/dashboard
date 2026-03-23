@@ -32,7 +32,7 @@ export const PLAN_CONFIG: Record<
   ultra: {
     label: "Ultra",
     badgeClass:
-      "bg-violet-500/15 text-violet-400 border border-violet-500/30",
+      "bg-[var(--tier-ultra)]/15 text-[var(--tier-ultra)] border border-[var(--tier-ultra)]/30",
   },
   enterprise: {
     label: "Enterprise",

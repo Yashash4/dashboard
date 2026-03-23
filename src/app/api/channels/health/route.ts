@@ -60,6 +60,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
+  // ST_CRIT_02: Null check before decrypting ssh_password
+  if (!vps.ssh_password) {
+    return NextResponse.json(
+      { error: "VPS credentials not available" },
+      { status: 400 }
+    );
+  }
+
   // SSH into VPS and read OpenClaw config to check channel statuses
   const ssh = new NodeSSH();
   try {
@@ -83,8 +91,11 @@ export async function POST(request: NextRequest) {
       const raw = result.stdout.trim();
       if (raw) {
         try {
+          // ST_HIGH_02: Old regex `//.*$` corrupted URLs containing `//`.
+          // Only strip comments that start with `//` preceded by whitespace at line start
+          // (not inside string values like URLs).
           const cleaned = raw
-            .replace(/\/\/.*$/gm, "")
+            .replace(/^\s*\/\/.*$/gm, "")
             .replace(/,\s*([\]}])/g, "$1");
           config = JSON.parse(cleaned);
           break;
@@ -110,6 +121,12 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     const results: { id: string; health_status: string; error_message: string | null }[] = [];
 
+    // ST_MED_02: Check OpenClaw process once instead of per-channel
+    const processCheck = await ssh.execCommand(
+      "pgrep -f 'openclaw' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
+    );
+    const isOpenClawRunning = processCheck.stdout.trim() === "running";
+
     for (const channel of channels) {
       const configKey = configKeyMap[channel.channel_type] || channel.channel_type;
       const chConf = channelConfig[configKey];
@@ -123,17 +140,11 @@ export async function POST(request: NextRequest) {
       } else if (chConf.enabled === false) {
         healthStatus = "down";
         errorMessage = "Channel is disabled in config";
+      } else if (!isOpenClawRunning) {
+        healthStatus = "down";
+        errorMessage = "OpenClaw process is not running";
       } else {
-        // Config exists and is enabled — check if OpenClaw process is running
-        const processCheck = await ssh.execCommand(
-          "pgrep -f 'openclaw' > /dev/null 2>&1 && echo 'running' || echo 'stopped'"
-        );
-        if (processCheck.stdout.trim() !== "running") {
-          healthStatus = "down";
-          errorMessage = "OpenClaw process is not running";
-        } else {
-          healthStatus = "healthy";
-        }
+        healthStatus = "healthy";
       }
 
       // Update DB

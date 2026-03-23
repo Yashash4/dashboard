@@ -67,6 +67,18 @@ async function runStep(
   return output;
 }
 
+// ADMIN_CRIT_02: Strict subdomain/hostname validation to prevent command injection
+function validateHostname(hostname: string): boolean {
+  // Only allow alphanumeric, hyphens, and dots (for subdomains like user.clawhq.tech)
+  // No leading/trailing hyphens, no consecutive dots, max 253 chars
+  return /^(?!-)[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*(?<!-)$/.test(hostname) && hostname.length <= 253;
+}
+
+// Shell-safe: escape single quotes for shell arguments
+function shellEscape(value: string): string {
+  return value.replace(/'/g, "'\\''");
+}
+
 export async function provisionVPS(
   config: ProvisionConfig,
   onProgress: OnProgress
@@ -74,6 +86,10 @@ export async function provisionVPS(
   let ssh: NodeSSH | null = null;
 
   try {
+    // ADMIN_CRIT_02: Validate hostname before interpolating into shell commands
+    if (!validateHostname(config.hostname)) {
+      return { success: false, error: `Invalid hostname: ${config.hostname}. Only alphanumeric characters, hyphens, and dots allowed.` };
+    }
     // Step 2: Test SSH
     onProgress({ step: 2, label: STEPS[0], status: "running" });
     ssh = new NodeSSH();
@@ -357,8 +373,9 @@ export async function provisionVPS(
     const nginxConfB64 = Buffer.from(nginxConf).toString("base64");
 
     // Build htpasswd for Basic Auth
+    // ADMIN_MED_04: Sanitize username and password for shell via shellEscape
     const htpasswdCmd = config.dashboardUsername && config.dashboardPassword
-      ? `htpasswd -cb /etc/nginx/.htpasswd '${config.dashboardUsername.replace(/'/g, "'\\''")}' '${config.dashboardPassword.replace(/'/g, "'\\''")}'`
+      ? `htpasswd -cb /etc/nginx/.htpasswd '${shellEscape(config.dashboardUsername)}' '${shellEscape(config.dashboardPassword)}'`
       : "echo 'No auth credentials — skipping htpasswd'";
 
     const nginxConfigScript = [
@@ -414,7 +431,7 @@ export async function provisionVPS(
       '    res.writeHead(200); res.end("ok");',
       '  } else { res.writeHead(404); res.end("not found"); }',
       '});',
-      'loadModel().then(() => server.listen(5555, "0.0.0.0", () => console.log("Embedding service on :5555")));',
+      'loadModel().then(() => server.listen(5555, "127.0.0.1", () => console.log("Embedding service on 127.0.0.1:5555")));',
     ].join("\n");
     const embeddingServerB64 = Buffer.from(embeddingServerJs).toString("base64");
 

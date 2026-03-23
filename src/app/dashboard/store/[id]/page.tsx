@@ -73,7 +73,7 @@ export default async function AgentDetailPage({
                     <Sparkles className="mr-1 h-3 w-3" />Premium
                   </Badge>
                 ) : isFree ? (
-                  <Badge className="bg-green-600/15 text-green-500 border-green-600/30">
+                  <Badge className="bg-[color-mix(in_srgb,var(--success),transparent_85%)] text-[var(--success)] border-[color-mix(in_srgb,var(--success),transparent_70%)]">
                     Free — Limited Time
                   </Badge>
                 ) : null}
@@ -174,7 +174,7 @@ export default async function AgentDetailPage({
               <div className="text-center">
                 <p className="text-3xl font-bold">
                   {isFree ? (
-                    <span className="text-green-500">Free</span>
+                    <span className="text-[var(--success)]">Free</span>
                   ) : (
                     <span className="text-primary">Premium</span>
                   )}

@@ -84,7 +84,8 @@ export async function POST(
   const ip = getClientIp(request);
   logAudit({ adminId: user.id, action: "ticket_replied", entityType: "ticket", entityId: ticketId, ip });
 
-  return NextResponse.json({ success: true });
+  // ADMIN_MED_01: Return the inserted message ID for optimistic update
+  return NextResponse.json({ success: true, messageId: msgData?.id });
 }
 
 // PATCH: Update ticket status or priority

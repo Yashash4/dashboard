@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
         file_id: f.id,
         filename: f.name,
         size: f.file_size,
-        type: f.type,
+        mime_type: f.type,
         status: f.status === "indexed" ? "processed" : f.status,
         created_at: f.created_at,
       })),
@@ -129,8 +129,8 @@ export async function POST(request: NextRequest) {
       .upload(storagePath, fileBuffer, { contentType: file.type });
 
     if (uploadError) {
-      // Storage bucket may not exist — try without storage, just store text content
-      console.warn("[v1/files] Storage upload failed:", uploadError.message);
+      console.error("[v1/files] Storage upload failed:", uploadError.message);
+      return apiError("internal_error", "Failed to upload file to storage", ctx);
     }
 
     // For KB files, create a document record and trigger indexing
@@ -143,24 +143,41 @@ export async function POST(request: NextRequest) {
         textContent = new TextDecoder().decode(fileBuffer);
       }
 
+      // Determine initial status: PDFs and binary types without text extraction get "error"
+      const hasTextContent = !!textContent;
+      const initialStatus = hasTextContent ? "processing" : "error";
+      const statusMessage = hasTextContent ? null : "Text extraction not available for this file type. Only plain text, markdown, CSV, and JSON files are supported for knowledge base indexing.";
+
       const { error } = await admin.from("kb_documents").insert({
         id: fileId,
         user_id: apiKey.user_id,
         name: file.name,
         type: fileType,
         file_size: file.size,
-        status: textContent ? "processing" : "processing",
+        status: initialStatus,
         storage_path: storagePath,
+        ...(statusMessage ? { error_message: statusMessage } : {}),
       });
 
       if (error) return apiError("internal_error", "Failed to save file record", ctx);
 
-      // Index text files immediately
-      if (textContent) {
+      // Index text files immediately with proper error handling
+      if (hasTextContent) {
         const { indexDocument } = await import("@/lib/knowledge-base");
-        indexDocument(fileId, apiKey.user_id, textContent, fileType || "txt").catch(() => {});
+        indexDocument(fileId, apiKey.user_id, textContent, fileType || "txt").catch(async (indexErr) => {
+          console.error(`[v1/files] indexDocument failed for ${fileId}:`, indexErr?.message);
+          await admin.from("kb_documents")
+            .update({ status: "failed", error_message: "Indexing failed" })
+            .eq("id", fileId)
+            .then(() => {}, () => {});
+        });
       }
     }
+
+    // Determine final status to report — if we're in KB mode with no text, status is already "error"
+    const reportStatus = purpose === "knowledge_base" && !["text/plain", "text/markdown", "text/csv", "application/json"].includes(mimeType)
+      ? "error"
+      : "processing";
 
     return apiSuccess({
       file_id: fileId,
@@ -168,7 +185,7 @@ export async function POST(request: NextRequest) {
       size: file.size,
       mime_type: mimeType,
       purpose,
-      status: "processing",
+      status: reportStatus,
       created_at: new Date().toISOString(),
     }, ctx, rateLimitInfo);
   } catch {

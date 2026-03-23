@@ -32,9 +32,10 @@ function CodeBlock({ children, className }: { children: string; className?: stri
       )}
       <button
         onClick={handleCopy}
-        className="absolute top-1 right-1 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground bg-background/80"
+        aria-label={copied ? "Copied" : "Copy code"}
+        className="absolute top-1 right-1 p-1.5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-foreground focus:text-foreground bg-background/80 focus:outline-none focus:ring-1 focus:ring-primary"
       >
-        {copied ? <CheckIcon className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+        {copied ? <CheckIcon className="h-3 w-3 text-[var(--success)]" /> : <Copy className="h-3 w-3" />}
       </button>
       <pre className="bg-background p-3 overflow-x-auto text-xs font-mono border border-border">
         <code>{children}</code>
@@ -374,10 +375,16 @@ export function AgentChat({ agents }: { agents: Agent[] }) {
 
       case "/retry": {
         if (lastUserMessage) {
-          // Remove the last error/response and retry
+          // Remove the last user message and any assistant/error responses after it, preserving system messages before it
           setMessages((prev) => {
-            const idx = prev.findLastIndex((m) => m.role === "user");
-            if (idx >= 0) return prev.slice(0, idx);
+            const lastUserIdx = prev.findLastIndex((m) => m.role === "user");
+            if (lastUserIdx >= 0) {
+              // Keep everything before the last user message
+              const before = prev.slice(0, lastUserIdx);
+              // Keep any system messages that came after the user message
+              const afterSystem = prev.slice(lastUserIdx + 1).filter((m) => m.role === "system");
+              return [...before, ...afterSystem];
+            }
             return prev;
           });
           const tempMsg: Message = {

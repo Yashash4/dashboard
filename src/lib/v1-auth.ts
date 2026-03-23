@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { rateLimit, getRateLimitStatus, type RateLimitInfo } from "@/lib/rate-limit";
+import { rateLimitAsync, getRateLimitStatus, type RateLimitInfo } from "@/lib/rate-limit";
 import { createRequestContext, apiError, type RequestContext } from "@/lib/api-errors";
 
 export type { RateLimitInfo };
@@ -99,28 +99,29 @@ export async function validateV1Auth(
     return apiError("plan_required", "API access requires a Pro plan or higher", ctx);
   }
 
-  // 6. Rate limit
+  // 6. Rate limit (durable — backed by Supabase)
   let rateLimitInfo: RateLimitInfo;
   if (rateLimitOverride) {
-    const rl = rateLimit(
-      `${apiKey.user_id}:${rateLimitTag || "v1"}`,
-      rateLimitOverride.limit,
-      rateLimitOverride.windowMs ?? 60_000
-    );
-    if (!rl.success) {
-      return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx);
-    }
     const windowMs = rateLimitOverride.windowMs ?? 60_000;
-    const { remaining, reset } = getRateLimitStatus(`${apiKey.user_id}:${rateLimitTag || "v1"}`, rateLimitOverride.limit, windowMs);
+    const identifier = `${apiKey.user_id}:${rateLimitTag || "v1"}`;
+    const rl = await rateLimitAsync(identifier, rateLimitOverride.limit, windowMs);
+    if (!rl.success) {
+      const { reset } = getRateLimitStatus(identifier, rateLimitOverride.limit, windowMs);
+      const retryAfterSeconds = Math.max(1, Math.ceil((reset * 1000 - Date.now()) / 1000));
+      return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx, { retryAfterSeconds });
+    }
+    const { remaining, reset } = getRateLimitStatus(identifier, rateLimitOverride.limit, windowMs);
     rateLimitInfo = { limit: rateLimitOverride.limit, remaining, reset };
   } else {
     const rpm = apiKey.rate_limit_per_min || 60;
     const identifier = rateLimitTag
       ? `${apiKey.user_id}:${rateLimitTag}`
       : `apikey:${apiKey.id}`;
-    const rl = rateLimit(identifier, rpm, 60_000);
+    const rl = await rateLimitAsync(identifier, rpm, 60_000);
     if (!rl.success) {
-      return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx);
+      const { reset } = getRateLimitStatus(identifier, rpm, 60_000);
+      const retryAfterSeconds = Math.max(1, Math.ceil((reset * 1000 - Date.now()) / 1000));
+      return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx, { retryAfterSeconds });
     }
     const { remaining, reset } = getRateLimitStatus(identifier, rpm, 60_000);
     rateLimitInfo = { limit: rpm, remaining, reset };

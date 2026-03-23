@@ -5,7 +5,7 @@ export default function DocsTaskBoardPage() {
     <article className="prose prose-invert max-w-none">
       <h1>
         Task Board{" "}
-        <span className="text-xs bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded font-mono">ULTRA</span>
+        <span className="text-xs bg-[color-mix(in_srgb,var(--tier-ultra),transparent_90%)] text-[var(--tier-ultra)] px-2 py-0.5 rounded font-mono">ULTRA</span>
       </h1>
       <p className="lead text-lg text-muted-foreground">
         The Task Board is a Kanban-style management interface for orchestrating AI agent work. It supports
@@ -271,7 +271,7 @@ export default function DocsTaskBoardPage() {
           <strong className="text-white">Tip:</strong> The Task Board is the heart of Mission Control.
           Spend time configuring your columns, setting up automation rules, and learning the keyboard
           shortcuts to get the most out of it. Check the{" "}
-          <Link href="/docs/ultra/agent-roster" className="text-amber-500 hover:underline">
+          <Link href="/docs/ultra/agent-roster" className="text-[var(--tier-ultra)] hover:underline">
             Agent Roster
           </Link>{" "}
           docs to understand how agent status affects task assignment.
