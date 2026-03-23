@@ -34,7 +34,7 @@ export async function GET(
         },
         deployed_at: userAgent.deployed_at,
       },
-    }, ctx);
+    }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -79,7 +79,7 @@ export async function DELETE(
 
     await admin.from("user_agents").update({ deployed: false, deployed_at: null }).eq("id", userAgent.id);
 
-    return apiSuccess({ undeployed: true }, ctx);
+    return apiSuccess({ undeployed: true }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

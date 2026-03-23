@@ -15,6 +15,20 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock monitoring stats
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      cpu_percent: 12.4,
+      ram_used_mb: 1247,
+      ram_total_mb: 4096,
+      disk_used_gb: 18,
+      disk_total_gb: 80,
+      uptime_seconds: 1296000,
+      net_rx_bytes: 5_438_291_456,
+      net_tx_bytes: 2_187_654_321,
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_monitoring`, 30, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

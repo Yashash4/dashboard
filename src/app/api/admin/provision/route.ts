@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
   const jobId = crypto.randomUUID();
   createJob(jobId);
 
+  const ip_addr = getClientIp(request);
+
   // Run provisioning in background (not awaited)
   runProvisioning(jobId, {
     userId,
@@ -81,10 +83,11 @@ export async function POST(request: NextRequest) {
     sshPort: sshPort || 22,
     subdomain,
     email,
+    adminId: user.id,
+    requestIp: ip_addr,
   });
 
-  const ip_addr = getClientIp(request);
-  logAudit({ adminId: user.id, action: "vps_provisioned", entityType: "vps", entityId: userId, details: { subdomain, ip, jobId }, ip: ip_addr });
+  logAudit({ adminId: user.id, action: "vps_provisioning_started", entityType: "vps", entityId: userId, details: { subdomain, ip, jobId }, ip: ip_addr });
 
   return NextResponse.json({ jobId });
 }
@@ -149,6 +152,8 @@ async function runProvisioning(
     sshPort: number;
     subdomain: string;
     email: string;
+    adminId: string;
+    requestIp: string;
   }
 ) {
   try {
@@ -184,9 +189,11 @@ async function runProvisioning(
     // Ensure SSL/TLS mode is "Full" + always redirect HTTP→HTTPS (zone-level, idempotent)
     const ssl = await ensureSslFull();
     if (!ssl.success) {
+      console.warn("[provision] SSL mode setup failed: " + (ssl.error || "unknown"));
     }
     const https = await ensureAlwaysHttps();
     if (!https.success) {
+      console.warn("[provision] Always HTTPS setup failed: " + (https.error || "unknown"));
     }
 
     // Step 1: Open firewall ports (provider-level)
@@ -269,6 +276,7 @@ async function runProvisioning(
         openclaw_dashboard_url: dashboardUrl,
         openclaw_auth_token: null,
         gateway_token: null,
+        data_api_token: result.dataApiToken ? encryptField(result.dataApiToken) : null,
         status: "running",
         dashboard_username: dashboardUsername,
         dashboard_password: encryptField(dashboardPassword),
@@ -283,29 +291,46 @@ async function runProvisioning(
         .eq("user_id", config.userId)
         .single();
 
+      let dbError: string | null = null;
       if (existing) {
-        await admin
+        const { error } = await admin
           .from("vps_instances")
           .update(dbRecord)
           .eq("user_id", config.userId);
+        if (error) dbError = error.message;
       } else {
-        await admin.from("vps_instances").insert({
+        const { error } = await admin.from("vps_instances").insert({
           user_id: config.userId,
           ...dbRecord,
         });
+        if (error) dbError = error.message;
+      }
+
+      if (dbError) {
+        completeJob(jobId, {
+          success: false,
+          error: `Provisioning succeeded but DB save failed: ${dbError}`,
+        });
+        logAudit({ adminId: config.adminId, action: "vps_provisioning_db_save_failed", entityType: "vps", entityId: config.userId, details: { subdomain: config.subdomain, ip: config.ip, jobId, dbError }, ip: config.requestIp });
+        return;
       }
 
       completeJob(jobId, {
         success: true,
         dashboardUrl,
       });
+
+      // ADMIN_HIGH_07: Log completion separately so audit trail reflects actual outcome
+      logAudit({ adminId: config.adminId, action: "vps_provisioning_completed", entityType: "vps", entityId: config.userId, details: { subdomain: config.subdomain, ip: config.ip, jobId, dashboardUrl }, ip: config.requestIp });
     } else {
       completeJob(jobId, { success: false, error: result.error });
+      logAudit({ adminId: config.adminId, action: "vps_provisioning_failed", entityType: "vps", entityId: config.userId, details: { subdomain: config.subdomain, ip: config.ip, jobId, error: result.error }, ip: config.requestIp });
     }
   } catch (err: any) {
     completeJob(jobId, {
       success: false,
       error: err.message || "Provisioning failed",
     });
+    logAudit({ adminId: config.adminId, action: "vps_provisioning_failed", entityType: "vps", entityId: config.userId, details: { subdomain: config.subdomain, ip: config.ip, jobId, error: err.message || "Provisioning failed" }, ip: config.requestIp });
   }
 }

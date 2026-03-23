@@ -384,7 +384,7 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [services, setServices] = useState<ServiceStatus | null>(null);
   const [servicesLoading, setServicesLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [checkPendingRef = { current: false }, setActionLoading] = useState<string | null>(null);
   const [logsData, setLogsData] = useState<string | null>(null);
   const [logsOpen, setLogsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -758,9 +758,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_openclaw")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "restart_openclaw" ? (
+                {checkPendingRef = { current: false } === "restart_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -771,9 +771,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_nginx")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "restart_nginx" ? (
+                {checkPendingRef = { current: false } === "restart_nginx" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -784,9 +784,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_embeddings")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "restart_embeddings" ? (
+                {checkPendingRef = { current: false } === "restart_embeddings" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -797,9 +797,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("restart_data_api")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "restart_data_api" ? (
+                {checkPendingRef = { current: false } === "restart_data_api" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <RotateCw className="h-3 w-3 mr-1" />
@@ -810,9 +810,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("stop_openclaw")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "stop_openclaw" ? (
+                {checkPendingRef = { current: false } === "stop_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Square className="h-3 w-3 mr-1" />
@@ -823,9 +823,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("start_openclaw")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "start_openclaw" ? (
+                {checkPendingRef = { current: false } === "start_openclaw" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Play className="h-3 w-3 mr-1" />
@@ -836,9 +836,9 @@ export function AdminCustomerDetail({ userId }: { userId: string }) {
                 variant="outline"
                 size="sm"
                 onClick={() => runAction("view_logs")}
-                disabled={!!actionLoading}
+                disabled={!!checkPendingRef = { current: false }}
               >
-                {actionLoading === "view_logs" ? (
+                {checkPendingRef = { current: false } === "view_logs" ? (
                   <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                 ) : (
                   <Terminal className="h-3 w-3 mr-1" />

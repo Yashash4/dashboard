@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
-  const { subject, description, priority } = body as {
+  const { subject, description, priority, category } = body as {
     subject?: string;
     description?: string;
     priority?: string;
+    category?: string;
   };
 
   if (!subject?.trim()) {
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const validCategories = ["technical", "billing", "account", "feature_request", "other"];
+  const ticketCategory = validCategories.includes(category || "") ? category : "other";
+
   const validPriorities = ["low", "medium", "high"];
   const ticketPriority = validPriorities.includes(priority || "")
     ? priority
@@ -73,6 +77,7 @@ export async function POST(request: NextRequest) {
       subject: subject.trim(),
       description: description.trim(),
       priority: ticketPriority,
+      category: ticketCategory,
       status: "open",
     })
     .select("id")

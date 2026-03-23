@@ -31,6 +31,14 @@ export async function POST(request: NextRequest) {
 
   const { name, trigger_type, trigger_value, action_type, action_value } = body;
 
+  // 350_LOW_07: Validate trigger_type and action_type against whitelist
+  if (trigger_type && !["task_enters_column", "task_priority_changes", "task_status_changed"].includes(trigger_type)) {
+    return NextResponse.json({ error: "Invalid trigger_type" }, { status: 400 });
+  }
+  if (action_type && !["assign_agent", "move_to_column", "create_task", "send_notification"].includes(action_type)) {
+    return NextResponse.json({ error: "Invalid action_type" }, { status: 400 });
+  }
+
   if (!name || !trigger_type || !action_type) {
     return NextResponse.json({ error: "name, trigger_type, action_type required" }, { status: 400 });
   }

@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params;
     const auth = await validateV1Auth(request, "files_detail", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     const { data: file } = await admin.from("kb_documents")
       .select("id, name, type, file_size, status, chunk_count, created_at")
@@ -27,7 +27,7 @@ export async function GET(
       status: file.status === "indexed" ? "processed" : file.status,
       chunks: file.chunk_count,
       created_at: file.created_at,
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -44,14 +44,26 @@ export async function DELETE(
     const { id } = await params;
     const auth = await validateV1Auth(request, "files_delete", { limit: 20 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
+
+    // Get file record to find storage_path for cleanup
+    const { data: file } = await admin.from("kb_documents")
+      .select("id, storage_path")
+      .eq("id", id).eq("user_id", apiKey.user_id).single();
+
+    if (!file) return apiError("invalid_request", "File not found", ctx);
+
+    // Delete from Supabase Storage if storage_path exists
+    if (file.storage_path) {
+      await admin.storage.from("kb-files").remove([file.storage_path]).then(() => {}, () => {});
+    }
 
     const { data: deleted } = await admin.from("kb_documents")
       .delete().eq("id", id).eq("user_id", apiKey.user_id).select("id").single();
 
     if (!deleted) return apiError("invalid_request", "File not found", ctx);
 
-    return apiSuccess({ deleted: true }, ctx);
+    return apiSuccess({ deleted: true }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

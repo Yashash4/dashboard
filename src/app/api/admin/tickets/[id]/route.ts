@@ -58,12 +58,12 @@ export async function POST(
     );
   }
 
-  // Insert admin reply
-  const { error: msgError } = await admin.from("ticket_messages").insert({
+  // Insert admin reply (ADMIN_MED_09: return inserted ID for optimistic update)
+  const { error: msgError, data: msgData } = await admin.from("ticket_messages").insert({
     ticket_id: ticketId,
     sender_role: "admin",
     message: message.trim(),
-  });
+  }).select("id").single();
 
   if (msgError) {
     return NextResponse.json(
@@ -72,20 +72,13 @@ export async function POST(
     );
   }
 
-  // Update ticket to in_progress if it was open
+  // ADMIN_MED_10: Combined single UPDATE (status always -> in_progress, updated_at always set)
   await admin
     .from("support_tickets")
     .update({
       status: "in_progress",
       updated_at: new Date().toISOString(),
     })
-    .eq("id", ticketId)
-    .eq("status", "open");
-
-  // Always update updated_at
-  await admin
-    .from("support_tickets")
-    .update({ updated_at: new Date().toISOString() })
     .eq("id", ticketId);
 
   const ip = getClientIp(request);

@@ -16,6 +16,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock valid SSL cert info
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      valid: true,
+      issuer: "Let's Encrypt",
+      validFrom: "Mar  1 00:00:00 2026 GMT",
+      validTo: "May 30 23:59:59 2026 GMT",
+      daysRemaining: 69,
+    });
+  }
+
   const rl = rateLimit(`${user.id}:ssl_check`, 10, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
-import { hasVPSDataAPI, vpsDataFetch } from "@/lib/vps-data-api";
+import { vpsDataFetch } from "@/lib/vps-data-api";
 
 export async function GET(request: NextRequest) {
   const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 } });
@@ -15,8 +15,6 @@ export async function GET(request: NextRequest) {
 
     // 4.21: VPS-first pattern for mc_events reads
     let recentErrorCount = 0;
-    const useVPS = await hasVPSDataAPI(user.id).catch(() => false);
-
     const [
       { count: totalAgents },
       { count: busyAgents },
@@ -27,19 +25,15 @@ export async function GET(request: NextRequest) {
       supabase.from("mc_tasks").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("column_id", "planning"),
     ]);
 
-    if (useVPS) {
-      try {
-        const vpsResult = await vpsDataFetch<{ events?: { id: string }[]; total?: number }>(
-          user.id,
-          `/api/events?severity=error&since=${encodeURIComponent(fiveMinAgo)}&limit=50`
-        );
-        recentErrorCount = vpsResult.total ?? vpsResult.events?.length ?? 0;
-      } catch {
-        // Fallback to Supabase
-        const { data: recentErrors } = await supabase.from("mc_events").select("id").eq("user_id", user.id).eq("severity", "error").gte("created_at", fiveMinAgo);
-        recentErrorCount = recentErrors?.length || 0;
-      }
-    } else {
+    // 4.21: VPS-first pattern for mc_events reads — try VPS first, fallback to Supabase
+    try {
+      const vpsResult = await vpsDataFetch<{ events?: { id: string }[]; total?: number }>(
+        user.id,
+        `/api/events?severity=error&since=${encodeURIComponent(fiveMinAgo)}&limit=50`
+      );
+      recentErrorCount = vpsResult.total ?? vpsResult.events?.length ?? 0;
+    } catch {
+      // Fallback to Supabase when VPS is unavailable or fails
       const { data: recentErrors } = await supabase.from("mc_events").select("id").eq("user_id", user.id).eq("severity", "error").gte("created_at", fiveMinAgo);
       recentErrorCount = recentErrors?.length || 0;
     }

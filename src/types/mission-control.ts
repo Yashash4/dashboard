@@ -109,7 +109,6 @@ export interface MCSession {
   duration_ms: number | null;
   tokens_input: number;
   tokens_output: number;
-  cost_usd: number;
   success: boolean;
   error_message: string | null;
   trace_data: {
@@ -118,7 +117,6 @@ export interface MCSession {
       action: string;
       result: string;
       duration_ms?: number;
-      cost_usd?: number;
     }>;
     [key: string]: unknown;
   };

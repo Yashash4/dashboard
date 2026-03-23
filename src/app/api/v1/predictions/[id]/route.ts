@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params;
     const auth = await validateV1Auth(request, "predictions", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     const { data: prediction } = await admin.from("api_predictions")
       .select("id, status, response_body, processing_time_ms, created_at, completed_at")
@@ -26,7 +26,7 @@ export async function GET(
       processing_time_ms: prediction.processing_time_ms,
       created_at: prediction.created_at,
       completed_at: prediction.completed_at,
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

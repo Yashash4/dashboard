@@ -86,17 +86,27 @@ export async function GET(request: NextRequest) {
 
     pathsByConversation = new Map();
 
-    // Fetch messages for each conversation and classify
-    for (const conv of conversations) {
-      const { data: messages } = await admin
-        .from("chat_messages")
-        .select("role, content")
-        .eq("conversation_id", conv.id)
-        .eq("role", "user")
-        .order("created_at")
-        .limit(20);
+    // Fix H2: Batch-fetch all messages in single query instead of per-conversation
+    const convIds = conversations.map(c => c.id);
+    const { data: allMessages } = await admin
+      .from("chat_messages")
+      .select("conversation_id, role, content, created_at")
+      .in("conversation_id", convIds)
+      .eq("role", "user")
+      .order("created_at", { ascending: true });
 
-      if (!messages || messages.length === 0) continue;
+    // Group messages by conversation
+    const messagesByConv: Record<string, typeof allMessages[number][]> = {};
+    for (const msg of (allMessages || [])) {
+      if (!messagesByConv[msg.conversation_id]) {
+        messagesByConv[msg.conversation_id] = [];
+      }
+      messagesByConv[msg.conversation_id].push(msg);
+    }
+
+    for (const conv of conversations) {
+      const messages = messagesByConv[conv.id] || [];
+      if (messages.length === 0) continue;
 
       const intents = messages.map((m) => classifyIntent(m.content));
       // Deduplicate consecutive identical intents for cleaner paths

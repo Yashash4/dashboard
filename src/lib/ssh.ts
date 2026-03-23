@@ -70,7 +70,7 @@ export async function getProcessStatus(creds: VPSCredentials) {
     const serviceName = await findSystemdService(ssh);
     if (serviceName) {
       const result = await ssh.execCommand(
-        `systemctl is-active ${serviceName} 2>/dev/null`
+        `systemctl is-active "${serviceName}" 2>/dev/null`
       );
       return result.stdout.trim() === "active" ? "running" : "stopped";
     }
@@ -154,11 +154,11 @@ export async function startOpenClaw(creds: VPSCredentials) {
     // Try systemd first
     const serviceName = await findSystemdService(ssh);
     if (serviceName) {
-      await ssh.execCommand(`systemctl start ${serviceName}`);
+      await ssh.execCommand(`systemctl start "${serviceName}"`);
       await ssh.execCommand("sleep 2");
 
       const check = await ssh.execCommand(
-        `systemctl is-active ${serviceName} 2>/dev/null`
+        `systemctl is-active "${serviceName}" 2>/dev/null`
       );
       if (check.stdout.trim() === "active") {
         return { success: true };
@@ -214,11 +214,11 @@ export async function stopOpenClaw(creds: VPSCredentials) {
     // Try systemd first — this properly stops AND prevents auto-restart
     const serviceName = await findSystemdService(ssh);
     if (serviceName) {
-      await ssh.execCommand(`systemctl stop ${serviceName}`);
+      await ssh.execCommand(`systemctl stop "${serviceName}"`);
       await ssh.execCommand("sleep 2");
 
       const check = await ssh.execCommand(
-        `systemctl is-active ${serviceName} 2>/dev/null`
+        `systemctl is-active "${serviceName}" 2>/dev/null`
       );
       if (check.stdout.trim() !== "active") {
         return { success: true };
@@ -266,11 +266,11 @@ export async function restartOpenClaw(creds: VPSCredentials) {
     // Try systemd restart
     const serviceName = await findSystemdService(ssh);
     if (serviceName) {
-      await ssh.execCommand(`systemctl restart ${serviceName}`);
+      await ssh.execCommand(`systemctl restart "${serviceName}"`);
       await ssh.execCommand("sleep 2");
 
       const check = await ssh.execCommand(
-        `systemctl is-active ${serviceName} 2>/dev/null`
+        `systemctl is-active "${serviceName}" 2>/dev/null`
       );
       if (check.stdout.trim() === "active") {
         return { success: true };
@@ -369,6 +369,11 @@ function sanitizeAgentName(name: string): string {
     .replace(/^_|_$/g, "");
 }
 
+function sanitizeFilename(name: string): string {
+  // Remove path traversal attempts and dangerous characters
+  return name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.\./g, "_");
+}
+
 export async function deployAgent(
   creds: VPSCredentials,
   agentName: string,
@@ -389,9 +394,10 @@ export async function deployAgent(
 
       // Write each config file via base64 (safe for all characters)
       for (const [filename, content] of Object.entries(configFiles)) {
+        const safeFilename = sanitizeFilename(filename);
         const contentB64 = Buffer.from(content).toString("base64");
         await ssh.execCommand(
-          `echo '${contentB64}' | base64 -d | docker exec -i openclaw sh -c 'cat > ${agentDir}/${filename}'`
+          `echo '${contentB64}' | base64 -d | docker exec -i openclaw sh -c 'cat > ${agentDir}/${safeFilename}'`
         );
       }
 
@@ -402,16 +408,17 @@ export async function deployAgent(
       await ssh.execCommand(`mkdir -p ${agentDir}`);
 
       for (const [filename, content] of Object.entries(configFiles)) {
+        const safeFilename = sanitizeFilename(filename);
         const safeContent = content.replace(/'/g, "'\\''");
         await ssh.execCommand(
-          `cat > ${agentDir}/${filename} << 'AGENTEOF'\n${safeContent}\nAGENTEOF`
+          `cat > ${agentDir}/${safeFilename} << 'AGENTEOF'\n${safeContent}\nAGENTEOF`
         );
       }
 
       // Restart OpenClaw
       const serviceName = await findSystemdService(ssh);
       if (serviceName) {
-        await ssh.execCommand(`systemctl restart ${serviceName}`);
+        await ssh.execCommand(`systemctl restart "${serviceName}"`);
       }
     }
 
@@ -442,7 +449,7 @@ export async function undeployAgent(
 
       const serviceName = await findSystemdService(ssh);
       if (serviceName) {
-        await ssh.execCommand(`systemctl restart ${serviceName}`);
+        await ssh.execCommand(`systemctl restart "${serviceName}"`);
       }
     }
 
@@ -851,9 +858,11 @@ export async function updateDashboardPassword(
       "command -v htpasswd >/dev/null || apt-get install -y apache2-utils 2>/dev/null"
     );
 
-    // Update htpasswd file (-cb = create file + batch mode)
+    // Update htpasswd file via base64 (safe for all characters)
+    const usernameB64 = Buffer.from(username).toString("base64");
+    const passwordB64 = Buffer.from(password).toString("base64");
     const result = await ssh.execCommand(
-      `htpasswd -cb /etc/nginx/.htpasswd '${username.replace(/'/g, "'\\''")}' '${password.replace(/'/g, "'\\''")}'`
+      `htpasswd -cb /etc/nginx/.htpasswd "$(echo '${usernameB64}' | base64 -d)" "$(echo '${passwordB64}' | base64 -d)"`
     );
 
     if (result.code !== null && result.code !== 0) {

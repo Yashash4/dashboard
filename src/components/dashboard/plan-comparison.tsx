@@ -28,8 +28,8 @@ const CORE_FEATURES: FeatureRow[] = [
   {
     label: "VPS Specs",
     starter: "2 vCPU, 8GB RAM, 100GB",
-    pro: "8 vCPU, 32GB RAM, 400GB",
-    ultra: "16 vCPU, 64GB RAM, 800GB",
+    pro: "4 vCPU, 16GB RAM, 200GB",
+    ultra: "8 vCPU, 32GB RAM, 400GB",
     enterprise: "Custom",
   },
   {

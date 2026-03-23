@@ -95,6 +95,17 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Protect /checkout — require login, redirect to register with plan params
+  if (path === "/checkout") {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/register";
+      // Preserve plan/cycle params
+      url.search = request.nextUrl.search;
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Logged-in users trying to access auth pages → redirect to home
   // /reset-password is accessible to anyone (recovery token in URL fragment)
   if (path === "/reset-password") {
@@ -195,6 +206,8 @@ export const config = {
     "/model-playground/:path*",
     "/agent-builder/:path*",
     "/pricing",
+    "/checkout",
+    "/thank-you",
     "/docs/:path*",
     "/terms",
     "/privacy",

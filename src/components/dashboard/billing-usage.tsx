@@ -34,7 +34,7 @@ function StatItem({
         <Icon className="h-4 w-4 text-primary" />
       </div>
       <div>
-        <p className="text-lg font-bold">{value.toLocaleString()}</p>
+        <p className="text-lg font-bold">{(value ?? 0).toLocaleString()}</p>
         <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </div>

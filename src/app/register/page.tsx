@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -52,7 +52,7 @@ function GoogleIcon() {
   );
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -86,7 +86,7 @@ export default function RegisterPage() {
     if (cycle) params.set("cycle", cycle);
     const qs = params.toString();
 
-    router.push(qs ? `/pricing?${qs}` : "/pricing");
+    router.push(qs ? `/checkout?${qs}` : "/pricing");
     router.refresh();
   }
 
@@ -251,5 +251,19 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="relative flex min-h-svh flex-col items-center justify-center bg-[#111111] p-4">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

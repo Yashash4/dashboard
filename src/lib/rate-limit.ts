@@ -54,6 +54,23 @@ function cleanup(windowMs: number) {
  * security-critical paths. This function is kept for backward compatibility
  * and as a cheap pre-filter.
  */
+/**
+ * Get current rate limit status for an identifier — returns remaining count and reset time.
+ */
+export function getRateLimitStatus(
+  identifier: string,
+  limit: number,
+  windowMs: number = 60_000
+): { remaining: number; reset: number } {
+  const now = Date.now();
+  const windowStart = now - windowMs;
+  const timestamps = store.get(identifier) || [];
+  const validTimestamps = timestamps.filter((t) => t > windowStart);
+  const remaining = Math.max(0, limit - validTimestamps.length);
+  const reset = Math.floor(now / windowMs) * windowMs + windowMs;
+  return { remaining, reset };
+}
+
 export function rateLimit(
   identifier: string,
   limit: number,
@@ -63,18 +80,17 @@ export function rateLimit(
 
   const now = Date.now();
   const windowStart = now - windowMs;
-
   const timestamps = store.get(identifier) || [];
   const validTimestamps = timestamps.filter((t) => t > windowStart);
 
-  if (validTimestamps.length >= limit) {
-    return { success: false, remaining: 0 };
+  const success = validTimestamps.length < limit;
+  if (success) {
+    validTimestamps.push(now);
   }
-
-  validTimestamps.push(now);
   store.set(identifier, validTimestamps);
 
-  return { success: true, remaining: limit - validTimestamps.length };
+  const remaining = Math.max(0, limit - validTimestamps.length);
+  return { success, remaining };
 }
 
 /* ---------- Supabase-backed (durable) ---------- */

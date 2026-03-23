@@ -16,6 +16,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock log lines
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      logs: [
+        "2026-03-22T08:00:01Z [INFO] OpenClaw Gateway started on port 18789",
+        "2026-03-22T08:00:02Z [INFO] Loading agent: customer-support",
+        "2026-03-22T08:00:02Z [INFO] Loading agent: sales-assistant",
+        "2026-03-22T08:00:03Z [INFO] All agents loaded successfully",
+        "2026-03-22T08:00:03Z [INFO] Trusted proxy auth enabled for 127.0.0.1",
+        "2026-03-22T08:12:45Z [INFO] Incoming message from telegram channel",
+        "2026-03-22T08:12:46Z [INFO] Routed to agent: customer-support",
+        "2026-03-22T08:12:48Z [INFO] Response sent (model: gpt-4o, tokens: 342)",
+        "2026-03-22T08:25:11Z [INFO] Health check passed — gateway responsive",
+        "2026-03-22T08:30:00Z [INFO] Scheduled config reload completed",
+      ],
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_logs`, 20, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

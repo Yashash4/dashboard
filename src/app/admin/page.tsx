@@ -55,7 +55,7 @@ export default async function AdminOverviewPage() {
     admin.from("support_tickets").select("*", { count: "exact", head: true }).in("status", ["open", "in_progress"]),
     admin.from("vps_instances").select("*", { count: "exact", head: true }).eq("status", "running"),
     admin.from("vps_instances").select("*", { count: "exact", head: true }),
-    admin.from("subscriptions").select("*", { count: "exact", head: true }).in("plan", ["pro", "enterprise"]).eq("status", "active"),
+    admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "pro").eq("status", "active"),
     admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "starter").eq("status", "active"),
     admin.from("subscriptions").select("*", { count: "exact", head: true }).eq("plan", "ultra").eq("status", "active"),
     admin.from("support_tickets").select("id, subject, status, priority, created_at, user_id, users!inner(email)").order("created_at", { ascending: false }).limit(5),
@@ -65,7 +65,12 @@ export default async function AdminOverviewPage() {
     admin.from("audit_logs").select("id, action, entity_type, created_at, details, users!admin_id(name, email)").order("created_at", { ascending: false }).limit(10),
   ]);
 
-  const monthlyRevenue = activeSubsData?.reduce((sum, sub) => sum + (Number(sub.price) || 0), 0) ?? 0;
+  // ADMIN_MED_12: ARR calculation accounts for annual billing cycles (price / 12)
+  const monthlyRevenue = activeSubsData?.reduce((sum, sub) => {
+    const price = Number(sub.price) || 0;
+    const cycle = sub.billing_cycle === "annual" ? price / 12 : price;
+    return sum + cycle;
+  }, 0) ?? 0;
 
   // MRR by plan
   const mrrByPlan: Record<string, number> = {};

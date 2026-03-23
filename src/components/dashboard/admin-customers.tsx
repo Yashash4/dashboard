@@ -410,6 +410,8 @@ export function AdminCustomers({ customers }: { customers: Customer[] }) {
                   <tr
                     key={customer.id}
                     className="border-b border-border last:border-b-0 hover:bg-muted/50 transition-colors"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter") router.push("/admin/customers/" + customer.id); }}
                   >
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <Checkbox

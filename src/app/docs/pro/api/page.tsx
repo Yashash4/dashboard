@@ -140,7 +140,7 @@ data: {"chunk": "", "done": true, "usage": {"prompt_tokens": 45, "completion_tok
 
       <h3>JavaScript / Node.js</h3>
 
-      <pre><code>{`const response = await fetch("https://yourname.clawhq.tech/api/v1/chat", {
+      <pre><code>{`const response = await fetch("https://app.clawhq.tech/api/v1/chat", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -160,7 +160,7 @@ console.log(data.reply);`}</code></pre>
       <pre><code>{`import requests
 
 response = requests.post(
-    "https://yourname.clawhq.tech/api/v1/chat",
+    "https://app.clawhq.tech/api/v1/chat",
     headers={
         "Content-Type": "application/json",
         "Authorization": "Bearer clw_your_api_key_here"
@@ -176,7 +176,7 @@ print(data["reply"])`}</code></pre>
 
       <h3>cURL</h3>
 
-      <pre><code>{`curl -X POST https://yourname.clawhq.tech/api/v1/chat \\
+      <pre><code>{`curl -X POST https://app.clawhq.tech/api/v1/chat \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer clw_your_api_key_here" \\
   -d '{"message": "What are your business hours?", "agent": "support-bot"}'`}</code></pre>
@@ -190,7 +190,7 @@ print(data["reply"])`}</code></pre>
 body, _ := json.Marshal(payload)
 
 req, _ := http.NewRequest("POST",
-    "https://yourname.clawhq.tech/api/v1/chat",
+    "https://app.clawhq.tech/api/v1/chat",
     bytes.NewBuffer(body))
 req.Header.Set("Content-Type", "application/json")
 req.Header.Set("Authorization", "Bearer clw_your_api_key_here")

@@ -127,7 +127,7 @@ export async function POST(
     return NextResponse.json({ success: true });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "SSH connection failed" },
+      { error: "SSH operation failed" },
       { status: 500 }
     );
   } finally {

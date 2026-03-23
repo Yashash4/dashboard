@@ -7,6 +7,7 @@ import { apiError } from "@/lib/api-errors";
 import { decryptField } from "@/lib/credential-utils";
 import { moderateApiInput } from "@/lib/moderation";
 import { validateV1Auth } from "@/lib/v1-auth";
+import { checkIdempotency, storeIdempotency } from "@/lib/idempotency";
 
 /** Max streaming duration in seconds (Next.js edge/serverless limit) */
 export const maxDuration = 60;
@@ -26,7 +27,19 @@ function sanitizeAgentName(name: string): string {
 export async function POST(request: NextRequest) {
   const auth = await validateV1Auth(request);
   if (auth instanceof NextResponse) return auth;
-  const { apiKey, admin, ctx } = auth;
+  const { apiKey, admin, ctx, rateLimitInfo } = auth;
+
+  // Idempotency check — use X-Idempotency-Key header if present
+  const idempotencyKey = request.headers.get("x-idempotency-key");
+  if (idempotencyKey && idempotencyKey.length <= 64) {
+    const cached = await checkIdempotency(apiKey.user_id, idempotencyKey);
+    if (cached) {
+      return NextResponse.json(cached.body, {
+        status: cached.statusCode,
+        headers: { "X-Request-Id": ctx.requestId, "X-Idempotency-Replayed": "true" },
+      });
+    }
+  }
 
   // Body size check
   const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
@@ -56,7 +69,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (message.length > 100_000) {
-    return apiError("invalid_request", "Message too long (max 100KB)", ctx);
+    return apiError("invalid_request", "Message too long (max 100,000 characters)", ctx);
   }
 
   // Content moderation — block harmful inputs before sending to model
@@ -318,6 +331,9 @@ export async function POST(request: NextRequest) {
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "X-Request-Id": ctx.requestId,
+        "X-RateLimit-Limit": String(rateLimitInfo.limit),
+        "X-RateLimit-Remaining": String(Math.max(0, rateLimitInfo.remaining)),
+        "X-RateLimit-Reset": String(rateLimitInfo.reset),
       };
       if (ctx.clientRequestId) {
         sseHeaders["X-Client-Request-Id"] = ctx.clientRequestId;
@@ -370,14 +386,26 @@ export async function POST(request: NextRequest) {
       response_time_ms: responseTimeMs,
     }).catch(() => {});
 
-    const successHeaders: Record<string, string> = { "X-Request-Id": ctx.requestId };
+    const successHeaders: Record<string, string> = {
+      "X-Request-Id": ctx.requestId,
+      "X-RateLimit-Limit": String(rateLimitInfo.limit),
+      "X-RateLimit-Remaining": String(Math.max(0, rateLimitInfo.remaining)),
+      "X-RateLimit-Reset": String(rateLimitInfo.reset),
+    };
     if (ctx.clientRequestId) successHeaders["X-Client-Request-Id"] = ctx.clientRequestId;
 
-    return NextResponse.json({
+    const successBody = {
       response: assistantContent,
       agent: agentSlug,
       request_id: ctx.requestId,
-    }, { headers: successHeaders });
+    };
+
+    // Store in idempotency cache if key provided
+    if (idempotencyKey) {
+      storeIdempotency(apiKey.user_id, idempotencyKey, 200, successBody).catch(() => {});
+    }
+
+    return NextResponse.json(successBody, { headers: successHeaders });
   } catch (err) {
     // Track error analytics
     admin

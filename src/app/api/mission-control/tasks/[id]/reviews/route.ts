@@ -103,7 +103,7 @@ export async function POST(
       .insert({
         user_id: user.id,
         task_id: taskId,
-        reviewer: reviewer || profile?.name || user.email || "reviewer",
+        reviewer: profile?.name || user.email || "reviewer",
         status,
         notes: notes?.trim() || null,
       })
@@ -126,6 +126,28 @@ export async function POST(
 
     // FIX-09: Auto-move task to Done on approval
     if (status === "approved") {
+      // 350_HIGH_07: Check dependency completion before allowing move to done
+      const { data: deps } = await supabase
+        .from("mc_task_dependencies")
+        .select("depends_on_task_id")
+        .eq("task_id", taskId);
+
+      if (deps && deps.length > 0) {
+        const { data: undone } = await supabase
+          .from("mc_tasks")
+          .select("id")
+          .in("id", deps.map((d) => d.depends_on_task_id))
+          .neq("column_id", "done")
+          .limit(1);
+
+        if (undone && undone.length > 0) {
+          return NextResponse.json({
+            error: "Cannot approve review: task has unfinished dependencies",
+            blocked_by: deps.map((d) => d.depends_on_task_id),
+          }, { status: 409 });
+        }
+      }
+
       const now = new Date().toISOString();
       await supabase
         .from("mc_tasks")

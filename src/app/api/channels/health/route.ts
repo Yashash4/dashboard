@@ -17,6 +17,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock healthy channels
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      results: [
+        { id: "demo-ch-telegram", health_status: "healthy", error_message: null },
+        { id: "demo-ch-discord", health_status: "healthy", error_message: null },
+        { id: "demo-ch-webchat", health_status: "healthy", error_message: null },
+      ],
+    });
+  }
+
   const rl = rateLimit(`${user.id}:channels_health`, 10, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

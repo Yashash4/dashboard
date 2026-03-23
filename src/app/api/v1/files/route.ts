@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase-admin";
 import { apiError, apiSuccess } from "@/lib/api-errors";
 import { validateV1Auth } from "@/lib/v1-auth";
 
@@ -8,41 +9,73 @@ const ALLOWED_TYPES = [
   "application/json", "image/png", "image/jpeg", "image/gif", "image/webp",
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const STALE_PROCESSING_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
-/** GET /api/v1/files — List uploaded files (cursor-based pagination) */
+async function markStaleProcessingFiles(admin: ReturnType<typeof createAdminClient>, userId: string) {
+  const cutoff = new Date(Date.now() - STALE_PROCESSING_THRESHOLD_MS).toISOString();
+  await admin.from("kb_documents")
+    .update({ status: "failed" })
+    .eq("user_id", userId)
+    .eq("status", "processing")
+    .lt("created_at", cutoff);
+}
+
+// Magic bytes for file signature validation
+const MAGIC_BYTES: Record<string, { signatures: Array<{ bytes: number[]; offset?: number }>; mime: string }> = {
+  "application/pdf": { signatures: [{ bytes: [0x25, 0x50, 0x44, 0x46] }], mime: "application/pdf" },
+  "image/png": { signatures: [{ bytes: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] }], mime: "image/png" },
+  "image/jpeg": { signatures: [{ bytes: [0xFF, 0xD8, 0xFF] }], mime: "image/jpeg" },
+  "image/gif": { signatures: [{ bytes: [0x47, 0x49, 0x46, 0x38] }], mime: "image/gif" },
+  "image/webp": { signatures: [{ bytes: [0x57, 0x45, 0x42, 0x50], offset: 8 }], mime: "image/webp" },
+  "text/plain": { signatures: [], mime: "text/plain" },
+  "text/markdown": { signatures: [], mime: "text/markdown" },
+  "text/csv": { signatures: [], mime: "text/csv" },
+  "application/json": { signatures: [], mime: "application/json" },
+};
+
+function validateMagicBytes(buffer: Buffer, declaredMime: string): boolean {
+  const magic = MAGIC_BYTES[declaredMime];
+  if (!magic) return false;
+  if (magic.signatures.length === 0) return true; // text types have no magic bytes
+  return magic.signatures.some(({ bytes, offset = 0 }) => {
+    return bytes.every((b, i) => buffer[offset + i] === b);
+  });
+}
+
+/** GET /api/v1/files — List uploaded files (offset-based pagination) */
 export async function GET(request: NextRequest) {
   try {
     const auth = await validateV1Auth(request, "files", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
+
+    // Mark stale processing files as failed
+    await markStaleProcessingFiles(admin, apiKey.user_id);
 
     const url = new URL(request.url);
-    const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20") || 20));
-    const cursor = url.searchParams.get("cursor"); // ISO timestamp cursor
+    const rawLimit = parseInt(url.searchParams.get("limit") || "20", 10);
+    const limit = isNaN(rawLimit) ? 20 : Math.min(100, Math.max(1, rawLimit));
+    const rawOffset = parseInt(url.searchParams.get("offset") || "0", 10);
+    const offset = isNaN(rawOffset) ? 0 : Math.max(0, rawOffset);
 
     let query = admin.from("kb_documents")
-      .select("id, name, type, file_size, status, created_at")
+      .select("id, name, type, file_size, status, created_at", { count: "exact" })
       .eq("user_id", apiKey.user_id)
       .order("created_at", { ascending: false })
-      .limit(limit + 1);
+      .range(offset, offset + limit - 1);
 
-    if (cursor) {
-      query = query.lt("created_at", cursor);
-    }
-
-    const { data: files, error } = await query;
+    const { data: files, error, count } = await query;
 
     if (error) {
       return apiError("internal_error", "Failed to fetch files", ctx);
     }
 
     const results = files || [];
-    const hasMore = results.length > limit;
-    const page = hasMore ? results.slice(0, limit) : results;
-    const nextCursor = hasMore ? page[page.length - 1]?.created_at : null;
+    const total = count ?? 0;
+    const hasMore = offset + results.length < total;
 
     return apiSuccess({
-      files: page.map((f) => ({
+      files: results.map((f) => ({
         file_id: f.id,
         filename: f.name,
         size: f.file_size,
@@ -51,8 +84,8 @@ export async function GET(request: NextRequest) {
         created_at: f.created_at,
       })),
       has_more: hasMore,
-      next_cursor: nextCursor,
-    }, ctx);
+      total,
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -64,7 +97,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await validateV1Auth(request, "file_upload", { limit: 10 });
   if (auth instanceof NextResponse) return auth;
-  const { apiKey, admin, ctx } = auth;
+  const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
   try {
     const formData = await request.formData();
@@ -80,9 +113,15 @@ export async function POST(request: NextRequest) {
 
     const fileId = `file_${crypto.randomUUID().replace(/-/g, "")}`;
 
-    // Store file content in Supabase Storage
+    // Read file content for storage and magic byte validation
     const arrayBuffer = await file.arrayBuffer();
     const fileBuffer = Buffer.from(arrayBuffer);
+
+    // Magic byte validation to prevent mime-type spoofing
+    if (!validateMagicBytes(fileBuffer, mimeType)) {
+      return apiError("unsupported_file_type", `File content does not match declared MIME type ${mimeType}`, ctx);
+    }
+
     const storagePath = `${apiKey.user_id}/${fileId}/${file.name}`;
 
     const { error: uploadError } = await admin.storage
@@ -131,7 +170,7 @@ export async function POST(request: NextRequest) {
       purpose,
       status: "processing",
       created_at: new Date().toISOString(),
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     return apiError("invalid_request", "Invalid multipart form data", ctx);
   }

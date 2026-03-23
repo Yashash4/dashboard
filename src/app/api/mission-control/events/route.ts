@@ -15,6 +15,8 @@ const VALID_EVENT_TYPES = [
 ] as const;
 
 const VALID_SEVERITIES = ["success", "info", "warning", "error"] as const;
+const VALID_TRIGGER_TYPES = ["task_enters_column", "task_priority_changes", "task_status_changed"] as const;
+const VALID_ACTION_TYPES = ["assign_agent", "move_to_column", "create_task", "send_notification"] as const;
 
 // GET /api/mission-control/events — paginated, filterable
 export async function GET(request: NextRequest) {

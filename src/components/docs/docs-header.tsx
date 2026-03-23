@@ -6,8 +6,8 @@ import { ArrowLeft } from "lucide-react";
 
 const DOC_PAGES = [
   { label: "Chat API", href: "/docs" },
-  { label: "Webhooks", href: "/docs/webhooks" },
-  { label: "Knowledge Base", href: "/docs/knowledge-base" },
+  { label: "Webhooks", href: "/docs/api/webhooks" },
+  { label: "Knowledge Base", href: "/docs/pro/knowledge-base" },
 ];
 
 export function DocsHeader({ children }: { children?: React.ReactNode }) {

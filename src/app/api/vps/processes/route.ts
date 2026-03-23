@@ -16,6 +16,19 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock process list
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      processes: [
+        { user: "root", pid: 1, cpu: 0.0, mem: 0.1, command: "/sbin/init" },
+        { user: "root", pid: 1842, cpu: 2.3, mem: 4.5, command: "openclaw-gateway --config /root/.openclaw/openclaw.json" },
+        { user: "root", pid: 1901, cpu: 1.1, mem: 2.8, command: "nginx: master process /usr/sbin/nginx" },
+        { user: "www-data", pid: 1902, cpu: 0.4, mem: 1.2, command: "nginx: worker process" },
+        { user: "root", pid: 2105, cpu: 0.8, mem: 3.1, command: "node /opt/clawhq/embeddings/server.js" },
+      ],
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_processes`, 20, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

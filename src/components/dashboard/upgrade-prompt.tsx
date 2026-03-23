@@ -7,7 +7,7 @@ import { type Plan } from "@/lib/tier";
 
 const PLAN_FEATURES: Record<string, string[]> = {
   pro: [
-    "Mission Control — advanced VPS management",
+    "Advanced VPS Controls — full server management",
     "Multi-model support & model playground",
     "No-code agent builder & workflows",
     "Real-time monitoring with alerts",

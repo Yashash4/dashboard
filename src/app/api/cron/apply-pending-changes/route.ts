@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const results: { userId: string; model: string; status: string }[] = [];
+  const results: { idx: number; model: string; status: string }[] = [];
 
   for (const change of pendingChanges) {
     try {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
       if (!modelInfo) {
         results.push({
-          userId: change.user_id,
+          idx: results.length + 1,
           model: change.requested_model,
           status: "skipped: model no longer available",
         });
@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
       if (!vps) {
         results.push({
-          userId: change.user_id,
+          idx: results.length + 1,
           model: change.requested_model,
           status: "skipped: no active VPS",
         });
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
       if (!apiKeys?.length) {
         results.push({
-          userId: change.user_id,
+          idx: results.length + 1,
           model: change.requested_model,
           status: "skipped: no API keys configured",
         });
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
         },
         apiKeys.map((k) => ({
           provider: k.provider,
-          apiKey: k.api_key,
+          apiKey: decryptField(k.api_key),
           baseUrl: k.base_url,
         })),
         {
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
 
       if (!sshResult.success) {
         results.push({
-          userId: change.user_id,
+          idx: results.length + 1,
           model: change.requested_model,
           status: `failed: ${sshResult.error}`,
         });
@@ -136,13 +136,13 @@ export async function GET(request: NextRequest) {
         .eq("id", change.id);
 
       results.push({
-        userId: change.user_id,
+        idx: results.length + 1,
         model: change.requested_model,
         status: "applied",
       });
     } catch (err: any) {
       results.push({
-        userId: change.user_id,
+        idx: results.length + 1,
         model: change.requested_model,
         status: `error: ${err.message}`,
       });

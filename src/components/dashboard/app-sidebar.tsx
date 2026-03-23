@@ -56,12 +56,12 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 
-function getCustomerNavGroups(plan: string) {
+export function getCustomerNavGroups(plan: string) {
   const isPro = hasAccess(plan, "pro");
   return {
     main: [
-      { title: "Overview", href: "/", icon: LayoutDashboard },
-      { title: isPro ? "Advanced VPS Controls" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
+      { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { title: isPro ? "VPS Management" : "VPS", href: "/vps", icon: isPro ? Radar : Server },
       { title: "Models", href: "/models", icon: Brain },
     ],
     agents: [
@@ -85,9 +85,10 @@ function getCustomerNav(plan: string) {
   return [...groups.main, ...groups.agents, ...groups.account];
 }
 
-const proNav = [
+export const proNav = [
   { title: "Model Playground", href: "/model-playground", icon: FlaskConical },
   { title: "Agent Builder", href: "/agent-builder", icon: Wand2 },
+  { title: "Monitoring", href: "/monitoring", icon: Activity },
   { title: "Logs", href: "/logs", icon: FileText },
   { title: "Analytics", href: "/analytics", icon: TrendingUp },
   { title: "Knowledge Base", href: "/knowledge-base", icon: BookOpen },
@@ -96,7 +97,7 @@ const proNav = [
   { title: "Audit Log", href: "/audit-log", icon: ClipboardList },
 ];
 
-const ultraNav = [
+export const ultraNav = [
   { title: "Mission Control", href: "/mission-control", icon: Radar },
   { title: "Tasks", href: "/mission-control/tasks", icon: KanbanSquare },
   { title: "Agents", href: "/mission-control/agents", icon: UsersRound },
@@ -121,9 +122,11 @@ interface AppSidebarProps {
     role: string;
   };
   plan?: string;
+  basePath?: string;
+  queryString?: string;
 }
 
-export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
+export function AppSidebar({ user, plan = "starter", basePath = "", queryString = "" }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [pendingPath, setPendingPath] = useState<string | null>(null);
@@ -145,7 +148,8 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
   ];
 
   const isActive = (href: string) => {
-    const checkPath = pendingPath || pathname;
+    const rawPath = pendingPath || pathname;
+    const checkPath = basePath ? rawPath.replace(basePath, "") || "/" : rawPath;
 
     // Exact-only routes (root pages that also have children)
     if (href === "/" || href === "/admin") {
@@ -176,7 +180,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-3">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href={`${basePath}/${queryString}`} className="flex items-center gap-2.5">
             <div className="w-7 h-7 bg-primary flex items-center justify-center">
               <span className="text-primary-foreground text-xs font-bold font-mono">
                 C
@@ -212,7 +216,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                    <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -235,7 +239,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                    <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -258,7 +262,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                     isActive={isActive(item.href)}
                     tooltip={item.title}
                   >
-                    <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                    <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                       <item.icon />
                       <span>{item.title}</span>
                     </Link>
@@ -283,7 +287,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                         isActive={isActive(item.href)}
                         tooltip={item.title}
                       >
-                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                        <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                           <item.icon />
                           <span>{item.title}</span>
                         </Link>
@@ -310,7 +314,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                         isActive={isActive(item.href)}
                         tooltip={item.title}
                       >
-                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                        <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                           <item.icon />
                           <span>{item.title}</span>
                         </Link>
@@ -337,7 +341,7 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
                         isActive={isActive(item.href)}
                         tooltip={item.title}
                       >
-                        <Link href={item.href} onClick={() => setPendingPath(item.href)}>
+                        <Link href={`${basePath}${item.href}${queryString}`} onClick={() => setPendingPath(item.href)}>
                           <item.icon />
                           <span>{item.title}</span>
                         </Link>
@@ -366,13 +370,15 @@ export function AppSidebar({ user, plan = "starter" }: AppSidebarProps) {
               {user.email}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="p-1.5 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          {!basePath && (
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              title="Sign out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>

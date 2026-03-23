@@ -7,13 +7,16 @@ import { isPrivateUrl } from "@/lib/knowledge-base";
 import { validateV1Auth } from "@/lib/v1-auth";
 
 const MAX_BODY_SIZE = 102_400; // 100 KB
+const MAX_DURATION = 300; // 5 minutes for batch processing
+
+export const maxDuration = MAX_DURATION;
 
 /** POST /api/v1/chat/batch — Submit batch of chat requests */
 export async function POST(request: NextRequest) {
   try {
     const auth = await validateV1Auth(request, "batch", { limit: 5 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     // Body size check
     const contentLength = parseInt(request.headers.get("content-length") || "0", 10);
@@ -37,6 +40,26 @@ export async function POST(request: NextRequest) {
 
     if (batchRequests.length > 50)
       return apiError("batch_too_large", "Maximum 50 requests per batch", ctx);
+
+    // Validate each batch item
+    for (const item of batchRequests) {
+      if (!item.custom_id || typeof item.custom_id !== "string" || item.custom_id.length > 128 || !/^[a-zA-Z0-9_-]+$/.test(item.custom_id)) {
+        return apiError("invalid_parameter", "custom_id must be alphanumeric with underscores/hyphens, max 128 chars", ctx, { param: "requests" });
+      }
+      if (!item.message || typeof item.message !== "string" || item.message.length === 0 || item.message.length > 10000) {
+        return apiError("invalid_parameter", "message must be a non-empty string, max 10000 characters", ctx, { param: "requests" });
+      }
+    }
+
+    // Per-user concurrent batch limit (check active batches)
+    const { data: activeBatches } = await admin.from("api_batches")
+      .select("id")
+      .eq("user_id", apiKey.user_id)
+      .in("status", ["processing", "pending"]);
+
+    if (activeBatches && activeBatches.length >= 3) {
+      return apiError("rate_limited", "Maximum 3 concurrent batches per user. Wait for existing batches to complete.", ctx);
+    }
 
     // SSRF protection: validate webhook_url is not a private/internal IP
     if (webhook_url) {
@@ -63,8 +86,8 @@ export async function POST(request: NextRequest) {
 
     if (error) return apiError("internal_error", "Failed to create batch", ctx);
 
-    // Process in background (fire-and-forget)
-    processBatch(admin, batchId, apiKey.user_id, batchRequests).catch(() => {});
+    // Process in background (awaited to prevent serverless kill mid-execution)
+    await processBatch(admin, batchId, apiKey.user_id, batchRequests);
 
     return apiSuccess({
       batch_id: batchId,
@@ -73,7 +96,7 @@ export async function POST(request: NextRequest) {
       completed: 0,
       failed: 0,
       created_at: new Date().toISOString(),
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -140,6 +163,8 @@ async function processBatch(
             .replace(/\[thinking\][\s\S]*?\[\/thinking\]/gi, "")
             .replace(/<reflection>[\s\S]*?<\/reflection>/gi, "")
             .replace(/<inner_monologue>[\s\S]*?<\/inner_monologue>/gi, "")
+            .replace(/<reasoning>[\s\S]*?<\/reasoning>/gi, "")
+            .replace(/<\|think_start\|>[\s\S]*?<\|think_end\|>/gi, "")
             .trim() || "No response";
 
           return { custom_id: req.custom_id, status: "completed", response: content };

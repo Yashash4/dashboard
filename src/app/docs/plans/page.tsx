@@ -71,7 +71,7 @@ export default function DocsPlansPricingPage() {
           </thead>
           <tbody className="text-foreground">
             <tr className="border-b border-border/50"><td colSpan={5} className="py-2 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-widest bg-muted/20">Infrastructure</td></tr>
-            <tr className="border-b border-border/30"><td className="py-2.5 px-4">Dedicated VPS</td><td className="text-center">2 vCPU / 8 GB</td><td className="text-center">8 vCPU / 32 GB</td><td className="text-center">16 vCPU / 64 GB</td><td className="text-center">Custom</td></tr>
+            <tr className="border-b border-border/30"><td className="py-2.5 px-4">Dedicated VPS</td><td className="text-center">2 vCPU / 8 GB</td><td className="text-center">4 vCPU / 16 GB</td><td className="text-center">8 vCPU / 32 GB</td><td className="text-center">Custom</td></tr>
             <tr className="border-b border-border/30"><td className="py-2.5 px-4">Storage</td><td className="text-center">100 GB</td><td className="text-center">200 GB</td><td className="text-center">400 GB</td><td className="text-center">Custom</td></tr>
             <tr className="border-b border-border/30"><td className="py-2.5 px-4">Bandwidth</td><td className="text-center">8 TB</td><td className="text-center">16 TB</td><td className="text-center">32 TB</td><td className="text-center">Unlimited</td></tr>
             <tr className="border-b border-border/30"><td className="py-2.5 px-4">Custom Domains</td><td className="text-center">3</td><td className="text-center">3</td><td className="text-center">3</td><td className="text-center">Unlimited</td></tr>
@@ -141,7 +141,7 @@ export default function DocsPlansPricingPage() {
         <li><strong>Audit Log</strong> — Tamper-proof logging, SIEM streaming, export</li>
         <li><strong>Agent Builder</strong> — Create agents with AI assistance or manual configuration</li>
         <li><strong>Model Playground</strong> — Side-by-side model comparison</li>
-        <li><strong>Upgraded VPS</strong> — 8 vCPU, 32 GB RAM, 200 GB storage</li>
+        <li><strong>Upgraded VPS</strong> — 4 vCPU, 16 GB RAM, 200 GB storage</li>
       </ul>
 
       <h2>Ultra — $350/mo</h2>
@@ -155,7 +155,7 @@ export default function DocsPlansPricingPage() {
         <li><strong>Agent Roster</strong> — Real-time status, performance metrics, agent controls</li>
         <li><strong>Event Feed</strong> — Live activity stream with SSE</li>
         <li><strong>Session Tracker</strong> — Execution traces with timeline views</li>
-        <li><strong>Upgraded VPS</strong> — 16 vCPU, 64 GB RAM, 400 GB storage</li>
+        <li><strong>Upgraded VPS</strong> — 8 vCPU, 32 GB RAM, 400 GB storage</li>
       </ul>
 
       <h2>Enterprise — $999+/mo</h2>

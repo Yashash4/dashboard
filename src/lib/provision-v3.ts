@@ -475,9 +475,6 @@ export async function provisionVPS(
       onProgress
     );
 
-    // Save data API token to database
-    // (Caller in route.ts should save this — we return it in the result)
-
     // Step 13: Verify — test gateway, nginx (Basic Auth), and embed cookie bypass
     await runStep(
       ssh,
@@ -493,7 +490,7 @@ export async function provisionVPS(
       onProgress
     );
 
-    return { success: true };
+    return { success: true, dataApiToken };
   } catch (err: any) {
     return { success: false, error: err.message || "Provisioning failed" };
   } finally {

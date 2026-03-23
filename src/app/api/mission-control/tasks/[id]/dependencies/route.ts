@@ -56,15 +56,28 @@ export async function POST(
     const { data: tasks } = await supabase.from("mc_tasks").select("id").eq("user_id", user.id).in("id", [taskId, depends_on_task_id]);
     if (!tasks || tasks.length < 2) return NextResponse.json({ error: "Task not found" }, { status: 404 });
 
-    // Simple circular dependency check: does depends_on_task_id already depend on taskId?
-    const { data: reverse } = await supabase
-      .from("mc_task_dependencies")
-      .select("id")
-      .eq("task_id", depends_on_task_id)
-      .eq("depends_on_task_id", taskId);
-
-    if (reverse && reverse.length > 0) {
-      return NextResponse.json({ error: "Circular dependency detected" }, { status: 400 });
+    // Recursive circular dependency check: walk the full dependency chain from depends_on_task_id
+    // to see if taskId appears anywhere in it (depth N, not just depth 1)
+    const visited = new Set<string>();
+    const stack = [depends_on_task_id];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (current === taskId) {
+        return NextResponse.json({ error: "Circular dependency detected" }, { status: 400 });
+      }
+      if (visited.has(current)) continue;
+      visited.add(current);
+      const { data: transitive } = await supabase
+        .from("mc_task_dependencies")
+        .select("depends_on_task_id")
+        .eq("task_id", current);
+      if (transitive) {
+        for (const row of transitive) {
+          if (!visited.has(row.depends_on_task_id)) {
+            stack.push(row.depends_on_task_id);
+          }
+        }
+      }
     }
 
     const { data, error } = await supabase

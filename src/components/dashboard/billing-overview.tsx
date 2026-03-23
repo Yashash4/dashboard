@@ -87,7 +87,7 @@ const PLANS = [
     monthlyUsd: 129,
     annualUsd: 1299,
     features: [
-      "8 vCPU, 32GB RAM, 400GB storage",
+      "4 vCPU, 16GB RAM, 200GB storage",
       "Full context window (no cap)",
       "Instant & unlimited model changes",
       "Advanced monitoring & analytics",
@@ -102,7 +102,7 @@ const PLANS = [
     monthlyUsd: 350,
     annualUsd: 3499,
     features: [
-      "16 vCPU, 64GB RAM, 800GB storage",
+      "8 vCPU, 32GB RAM, 400GB storage",
       "5X credits — full context window",
       "Mission Control command center",
       "Agent Squad Builder & orchestration",

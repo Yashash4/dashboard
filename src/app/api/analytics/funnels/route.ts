@@ -34,12 +34,22 @@ export async function GET(request: NextRequest) {
   let engaged = 0, substantive = 0, resolved = 0, satisfied = 0;
 
   if (conversations && conversations.length > 0) {
-    for (const conv of conversations.slice(0, 200)) {
-      const { count } = await admin.from("chat_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("conversation_id", conv.id);
+    // Fix H1: Single grouped query instead of N separate COUNT queries
+    const convIds = conversations.slice(0, 200).map(c => c.id);
+    const { data: msgCounts } = await admin
+      .from("chat_messages")
+      .select("conversation_id")
+      .in("conversation_id", convIds);
 
-      const msgCount = count || 0;
+    // Count messages per conversation
+    const countByConv: Record<string, number> = {};
+    for (const msg of (msgCounts || [])) {
+      countByConv[msg.conversation_id] = (countByConv[msg.conversation_id] || 0) + 1;
+    }
+
+    // Classify based on message counts
+    for (const conv of conversations.slice(0, 200)) {
+      const msgCount = countByConv[conv.id] || 0;
       if (msgCount >= 2) engaged++;
       if (msgCount >= 4) substantive++;
       if (msgCount >= 6) resolved++; // Simplified — real detection would check message content

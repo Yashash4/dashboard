@@ -12,6 +12,18 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Demo user: return mock services status
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      services: [
+        { name: "OpenClaw Gateway", port: 18789, status: "running" },
+        { name: "Web Server", port: 443, status: "running" },
+        { name: "ClawHQ Embeddings", port: 5555, status: "running" },
+        { name: "ClawHQ Data API", port: 5556, status: "running" },
+      ],
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_services`, 10, 60_000);
   if (!rl.success) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 

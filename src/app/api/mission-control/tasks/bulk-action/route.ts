@@ -29,7 +29,14 @@ export async function POST(request: NextRequest) {
       const { error } = await supabase.from("mc_tasks").delete().eq("user_id", user.id).in("id", task_ids);
       if (error) throw error;
     } else if (action === "move" && value) {
-      const { error } = await supabase.from("mc_tasks").update({ column_id: value, updated_at: now }).eq("user_id", user.id).in("id", task_ids);
+      // 350_MED_10: Set completed_at when moving to done, clear it when moving out
+      const updates: Record<string, unknown> = { column_id: value, updated_at: now };
+      if (value === "done") {
+        updates.completed_at = now;
+      } else {
+        updates.completed_at = null;
+      }
+      const { error } = await supabase.from("mc_tasks").update(updates).eq("user_id", user.id).in("id", task_ids);
       if (error) throw error;
     } else if (action === "assign") {
       const { error } = await supabase.from("mc_tasks").update({ assigned_agent_id: value || null, updated_at: now }).eq("user_id", user.id).in("id", task_ids);

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
 import { emitMCEvent } from "@/lib/mc-event-bus";
 import { processAutomationRules } from "@/lib/mc-automation";
-import { hasVPSDataAPI, vpsDataFetch } from "@/lib/vps-data-api";
+import { vpsDataFetch } from "@/lib/vps-data-api";
 
 // POST /api/mission-control/agents/heartbeat — agent reports status, gets work items
 export async function POST(request: NextRequest) {
@@ -88,15 +88,13 @@ export async function POST(request: NextRequest) {
         },
       };
 
-      const useVPS = await hasVPSDataAPI(user.id).catch(() => false);
-      if (useVPS) {
-        vpsDataFetch(user.id, "/api/events", {
+      try {
+        await vpsDataFetch(user.id, "/api/events", {
           method: "POST",
           body: eventPayload,
-        }).catch(() => {
-          supabase.from("mc_events").insert(eventPayload).then(() => {});
         });
-      } else {
+      } catch {
+        // Fallback to Supabase when VPS is unavailable
         await supabase.from("mc_events").insert(eventPayload);
       }
 

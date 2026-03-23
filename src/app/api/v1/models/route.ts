@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         context_window: m.context_limit,
         description: m.description,
       })),
-    }, ctx);
+    }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

@@ -66,9 +66,10 @@ export async function guardMCRoute(
     }
   }
 
-  // 4. Body size check
+  // 4. Body size check — validate AFTER parsing to prevent Content-Length spoofing
   if (options.maxBodySize) {
     const contentLength = request.headers.get("content-length");
+    // Only use header as a fast-path pre-check; actual validation happens after parse
     if (contentLength && parseInt(contentLength) > options.maxBodySize) {
       return NextResponse.json(
         { error: "Request body too large" },

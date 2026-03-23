@@ -15,6 +15,11 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock success
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({ success: true });
+  }
+
   const rl = rateLimit(`${user.id}:vps_restart`, 10, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
@@ -46,13 +51,8 @@ export async function POST() {
   try {
     await restartVM(vps.hostinger_vm_id);
 
-    await admin
-      .from("vps_instances")
-      .update({ status: "running" })
-      .eq("id", vps.id);
-
     dispatchWebhooks(user.id, "vps.status_changed", {
-      status: "running",
+      status: "restarting",
       action: "restart",
     }).catch(() => {});
 

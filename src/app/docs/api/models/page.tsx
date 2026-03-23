@@ -33,38 +33,38 @@ export default function DocsModelsAPIPage() {
       <pre className="bg-zinc-900 rounded-lg p-4 text-sm overflow-x-auto"><code>{`{
   "models": [
     {
-      "id": "gpt-4o",
-      "name": "GPT-4o",
+      "id": "k2.5-standard",
+      "name": "K2.5 Standard",
       "context_window": 128000,
-      "description": "OpenAI's most capable model with vision and function calling support"
+      "description": "Most capable model with vision and function calling support"
     },
     {
-      "id": "gpt-4o-mini",
-      "name": "GPT-4o Mini",
+      "id": "m2.5-mini",
+      "name": "M2.5 Mini",
       "context_window": 128000,
-      "description": "Smaller, faster, and more cost-effective version of GPT-4o"
+      "description": "Smaller, faster, and more cost-effective version"
     },
     {
-      "id": "claude-3-5-sonnet",
-      "name": "Claude 3.5 Sonnet",
+      "id": "k2.5-reasoning",
+      "name": "K2.5 Reasoning",
       "context_window": 200000,
-      "description": "Anthropic's balanced model with strong reasoning and large context"
+      "description": "Balanced model with strong reasoning and large context"
     },
     {
-      "id": "claude-3-5-haiku",
-      "name": "Claude 3.5 Haiku",
+      "id": "m2.5-fast",
+      "name": "M2.5 Fast",
       "context_window": 200000,
       "description": "Fast and efficient model optimized for high-throughput tasks"
     },
     {
-      "id": "gemini-2.0-flash",
-      "name": "Gemini 2.0 Flash",
+      "id": "x3-flash",
+      "name": "X3 Flash",
       "context_window": 1000000,
-      "description": "Google's high-speed model with the largest available context window"
+      "description": "High-speed model with the largest available context window"
     },
     {
-      "id": "deepseek-r1",
-      "name": "DeepSeek R1",
+      "id": "r1-reasoner",
+      "name": "R1 Reasoner",
       "context_window": 64000,
       "description": "Open-weight reasoning model with strong analytical capabilities"
     }
@@ -174,10 +174,10 @@ models.forEach((model) => {
         for your use case:
       </p>
       <ul>
-        <li><strong>Customer support</strong> &mdash; GPT-4o or Claude 3.5 Sonnet for nuanced, empathetic responses</li>
-        <li><strong>High-volume automation</strong> &mdash; GPT-4o Mini or Claude 3.5 Haiku for fast, cost-effective processing</li>
-        <li><strong>Complex reasoning</strong> &mdash; DeepSeek R1 for analytical and logic-intensive tasks</li>
-        <li><strong>Large document analysis</strong> &mdash; Gemini 2.0 Flash for its million-token context window</li>
+        <li><strong>Customer support</strong> &mdash; K2.5 Standard or K2.5 Reasoning for nuanced, empathetic responses</li>
+        <li><strong>High-volume automation</strong> &mdash; M2.5 Mini or M2.5 Fast for fast, cost-effective processing</li>
+        <li><strong>Complex reasoning</strong> &mdash; R1 Reasoner for analytical and logic-intensive tasks</li>
+        <li><strong>Large document analysis</strong> &mdash; X3 Flash for its million-token context window</li>
       </ul>
 
       <div className="not-prose bg-primary/5 border border-primary/20 rounded-lg p-4 my-6">

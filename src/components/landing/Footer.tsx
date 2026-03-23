@@ -1,124 +1,78 @@
+import Image from "next/image";
+
 export default function Footer() {
   return (
-    <footer className="border-t border-border py-12 px-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
-          {/* Brand */}
+    <footer className="border-t border-[var(--border-primary)] py-14 px-6">
+      <div className="max-w-[1200px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-10 mb-14">
           <div className="md:col-span-2">
-            <span className="text-lg font-semibold tracking-tight">
-              Claw<span className="text-primary">HQ</span>
-            </span>
-            <p className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-xs">
-              Managed AI agent hosting. Dedicated VPS, bundled AI models, 7
-              messaging channels, and a full dashboard. One price. Everything
-              included.
+            <div className="flex items-center gap-2 mb-3">
+              <Image src="/logo.png" alt="ClawHQ" width={24} height={24} className="h-6 w-6" />
+              <span className="text-[17px] font-semibold tracking-tight">ClawHQ</span>
+            </div>
+            <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed max-w-xs">
+              Managed AI agent hosting built on OpenClaw. Dedicated VPS, bundled AI models, 7 channels, full dashboard. One price.
             </p>
           </div>
 
-          {/* Product */}
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-              Product
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Features
-                </a>
-              </li>
-              <li>
-                <a href="#pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Pricing
-                </a>
-              </li>
-              <li>
-                <a href="#product-tour" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Product Tour
-                </a>
-              </li>
-              <li>
-                <a href="#faq" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  FAQ
-                </a>
-              </li>
+            <p className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-4">Product</p>
+            <ul className="space-y-2.5">
+              {[
+                { label: "Features", href: "#features" },
+                { label: "Pricing", href: "#pricing" },
+                { label: "Product Tour", href: "#product-tour" },
+                { label: "FAQ", href: "#faq" },
+              ].map((link) => (
+                <li key={link.label}>
+                  <a href={link.href} className="text-[15px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">{link.label}</a>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Resources */}
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-              Resources
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a href="/docs" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Documentation
-                </a>
-              </li>
-              <li>
-                <a href="https://github.com/openclaw" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  OpenClaw on GitHub
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:hello@clawhq.tech"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  hello@clawhq.tech
-                </a>
-              </li>
+            <p className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-4">Resources</p>
+            <ul className="space-y-2.5">
+              {[
+                { label: "Documentation", href: "/docs" },
+                { label: "OpenClaw GitHub", href: "https://github.com/openclaw", external: true },
+                { label: "Contact", href: "mailto:hello@clawhq.tech" },
+              ].map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    {...('external' in link ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="text-[15px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Legal & Account */}
           <div>
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3">
-              Legal
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Terms of Service
-                </a>
-              </li>
-              <li>
-                <a href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Privacy Policy
-                </a>
-              </li>
-            </ul>
-
-            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-3 mt-6">
-              Account
-            </p>
-            <ul className="space-y-2">
-              <li>
-                <a href="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Log in
-                </a>
-              </li>
-              <li>
-                <a href="/register" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                  Get Started
-                </a>
-              </li>
+            <p className="text-[13px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] mb-4">Legal</p>
+            <ul className="space-y-2.5">
+              {[
+                { label: "Terms of Service", href: "/terms" },
+                { label: "Privacy Policy", href: "/privacy" },
+                { label: "Log in", href: "/login" },
+                { label: "Sign up", href: "/register" },
+              ].map((link) => (
+                <li key={link.label}>
+                  <a href={link.href} className="text-[15px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">{link.label}</a>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
-        {/* Open-source note */}
-        <p className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50 mb-8">
-          Built on open-source technology. No vendor lock-in. Your data stays on your server.
-        </p>
-
-        {/* Bottom bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-border">
-          <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} ClawHQ. All rights reserved.
-          </p>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-[var(--border-primary)]">
+          <p className="text-[14px] text-[var(--text-tertiary)]">&copy; {new Date().getFullYear()} ClawHQ. All rights reserved.</p>
+          <div className="flex items-center gap-1.5 text-[14px] text-[var(--text-tertiary)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--success)]" />
             All systems operational
           </div>
         </div>

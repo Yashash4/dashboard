@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { createOrder, resolveProvider } from "@/lib/payments";
 import type { PaymentType } from "@/lib/payments/types";
 import { rateLimit } from "@/lib/rate-limit";
+import { PLAN_PRICES } from "@/lib/payments/plans";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -41,6 +42,23 @@ export async function POST(request: NextRequest) {
       { error: "paymentType is required" },
       { status: 400 }
     );
+  }
+
+  // Validate amount matches server-side plan pricing for subscriptions
+  if (paymentType === "subscription_new" || paymentType === "subscription_upgrade") {
+    const plan = (metadata as Record<string, any>)?.plan as string | undefined;
+    if (!plan || !PLAN_PRICES[plan]) {
+      return NextResponse.json({ error: "Invalid or missing plan" }, { status: 400 });
+    }
+    const prices = PLAN_PRICES[plan];
+    const billingCycle = (metadata as Record<string, any>)?.billing_cycle as string | undefined;
+    const expectedAmount = billingCycle === "annual" ? prices.annual : prices.monthly;
+    if (amount !== expectedAmount) {
+      return NextResponse.json(
+        { error: "Amount does not match plan pricing" },
+        { status: 400 }
+      );
+    }
   }
 
   const admin = createAdminClient();

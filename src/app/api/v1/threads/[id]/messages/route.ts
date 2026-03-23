@@ -14,43 +14,40 @@ export async function GET(
     const { id } = await params;
     const auth = await validateV1Auth(request, "thread_messages", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     // Verify thread ownership
     const { data: thread } = await admin.from("api_threads").select("id").eq("id", id).eq("user_id", apiKey.user_id).single();
     if (!thread) return apiError("thread_not_found", "Thread not found", ctx);
 
     const url = new URL(request.url);
-    const limit = Math.min(200, Math.max(1, parseInt(url.searchParams.get("limit") || "50") || 50));
-    const cursor = url.searchParams.get("cursor"); // ISO timestamp cursor
+    const rawLimit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const limit = isNaN(rawLimit) ? 50 : Math.min(200, Math.max(1, rawLimit));
+    const rawOffset = parseInt(url.searchParams.get("offset") || "0", 10);
+    const offset = isNaN(rawOffset) ? 0 : Math.max(0, rawOffset);
 
     let query = admin.from("api_thread_messages")
-      .select("id, role, content, tool_calls, tool_results, created_at")
+      .select("id, role, content, tool_calls, tool_results, created_at", { count: "exact" })
       .eq("thread_id", id)
-      .order("created_at", { ascending: false })
-      .limit(limit + 1);
+      .order("created_at", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-    if (cursor) {
-      query = query.lt("created_at", cursor);
-    }
-
-    const { data: messages, error } = await query;
+    const { data: messages, error, count } = await query;
 
     if (error) {
       return apiError("internal_error", "Failed to fetch messages", ctx);
     }
 
     const results = messages || [];
-    const hasMore = results.length > limit;
-    const page = hasMore ? results.slice(0, limit) : results;
-    const nextCursor = hasMore ? page[page.length - 1]?.created_at : null;
+    const total = count ?? 0;
+    const hasMore = offset + results.length < total;
 
     return apiSuccess({
-      messages: page,
+      messages: results,
       thread_id: id,
       has_more: hasMore,
-      next_cursor: nextCursor,
-    }, ctx);
+      total,
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -68,7 +65,7 @@ export async function POST(
     // Use per-key rate limit (no override — uses apiKey's rate_limit_per_min)
     const auth = await validateV1Auth(request);
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     // Verify thread
     const { data: thread } = await admin.from("api_threads").select("id, agent").eq("id", id).eq("user_id", apiKey.user_id).single();
@@ -84,6 +81,7 @@ export async function POST(
 
     const { message } = body as { message?: string };
     if (!message?.trim()) return apiError("missing_parameter", "message is required", ctx, { param: "message" });
+    if (message.length > 10000) return apiError("invalid_request", "message must be 10000 characters or fewer", ctx, { param: "message" });
 
     // Store user message
     const userMsgId = `msg_${crypto.randomUUID().replace(/-/g, "")}`;
@@ -175,7 +173,7 @@ export async function POST(
       response: content,
       message_id: asstMsgId,
       thread_id: id,
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
       const { createRequestContext } = await import("@/lib/api-errors");

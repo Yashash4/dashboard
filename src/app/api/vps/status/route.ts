@@ -14,6 +14,21 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock VPS status
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      status: "running",
+      hostname: "demo.clawhq.tech",
+      ip_address: "203.0.113.42",
+      cpu_cores: 4,
+      ram_gb: 4,
+      storage_gb: 80,
+      bandwidth_tb: 2,
+      openclaw_dashboard_url: "https://demo.clawhq.tech",
+      created_at: "2025-11-15T10:30:00Z",
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_status`, 60, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

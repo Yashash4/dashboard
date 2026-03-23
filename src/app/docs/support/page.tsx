@@ -209,7 +209,7 @@ export default function DocsSupportPage() {
         <li>Include screenshots or error logs as attachments when reporting technical issues.</li>
         <li>Use the correct category and priority to ensure fast routing.</li>
         <li>Reference specific pages, agents, or channels by name to help the support team reproduce issues.</li>
-        <li>Check the <Link href="/docs/knowledge-base" className="text-primary hover:underline">Knowledge Base</Link> before opening a ticket &mdash; your question may already be answered.</li>
+        <li>Check the <Link href="/docs/faq" className="text-primary hover:underline">FAQ</Link> before opening a ticket &mdash; your question may already be answered.</li>
         <li>Reply to existing tickets rather than creating duplicates for the same issue.</li>
       </ul>
 
@@ -217,7 +217,7 @@ export default function DocsSupportPage() {
       <ul>
         <li><Link href="/docs/account" className="text-primary hover:underline">Manage notification preferences</Link> for ticket replies.</li>
         <li><Link href="/docs/billing" className="text-primary hover:underline">Compare plans</Link> to understand response time differences.</li>
-        <li><Link href="/docs/knowledge-base" className="text-primary hover:underline">Search the knowledge base</Link> for self-service answers.</li>
+        <li><Link href="/docs/faq" className="text-primary hover:underline">Search the FAQ</Link> for self-service answers.</li>
       </ul>
     </article>
   );

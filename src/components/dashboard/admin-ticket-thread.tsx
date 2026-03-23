@@ -124,10 +124,11 @@ export function AdminTicketThread({
         return;
       }
 
+      // ADMIN_MED_09: Use database ID from response instead of local UUID
       setMessages((prev) => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: data.messageId || crypto.randomUUID(),
           sender_role: "admin",
           message: reply.trim(),
           created_at: new Date().toISOString(),

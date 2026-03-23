@@ -19,7 +19,7 @@ export async function GET(
 
     if (!batch) return apiError("invalid_request", "Batch not found", ctx);
 
-    return apiSuccess({ batch }, ctx);
+    return apiSuccess({ batch }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

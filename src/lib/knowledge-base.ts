@@ -298,13 +298,20 @@ async function embedChunks(
 
     if (!chunkRows || chunkRows.length !== batch.length) return false;
 
-    for (let j = 0; j < chunkRows.length; j++) {
-      const embedding = `[${vectors[j].join(",")}]`;
-      await admin
-        .from("kb_chunks")
-        .update({ embedding })
-        .eq("id", chunkRows[j].id);
-    }
+    // Fix H4: Batch update all embeddings concurrently instead of sequential per-row UPDATE
+    const updates = chunkRows.map((chunk, j) => ({
+      id: chunk.id,
+      embedding: `[${vectors[j].join(",")}]`,
+    }));
+
+    await Promise.all(
+      updates.map((update) =>
+        admin
+          .from("kb_chunks")
+          .update({ embedding: update.embedding })
+          .eq("id", update.id)
+      )
+    );
   }
 
   return true;

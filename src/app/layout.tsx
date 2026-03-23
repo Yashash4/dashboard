@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ClawHQ — Managed AI Agent Hosting",
     description:
-      "Deploy AI agents on your own dedicated VPS. 30 models included, 7 channels, zero DevOps.",
+      "Deploy AI agents on your own dedicated VPS. AI models included, 7 channels, zero DevOps.",
     url: "https://app.clawhq.tech",
     siteName: "ClawHQ",
     images: [
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "ClawHQ — Managed AI Agent Hosting",
     description:
-      "Deploy AI agents on your own dedicated VPS. 30 models included, 7 channels, zero DevOps.",
+      "Deploy AI agents on your own dedicated VPS. AI models included, 7 channels, zero DevOps.",
     images: ["/logo-full.jpeg"],
   },
   icons: {

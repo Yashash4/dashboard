@@ -11,7 +11,7 @@ export async function GET(
     const { id } = await params;
     const auth = await validateV1Auth(request, "conversation_messages", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     // Verify conversation belongs to user
     const { data: conversation } = await admin
@@ -25,43 +25,40 @@ export async function GET(
       return apiError("invalid_request", "Conversation not found", ctx);
     }
 
-    // Parse query params — cursor-based pagination
+    // Parse query params — offset-based pagination
     const url = new URL(request.url);
-    const limit = Math.min(Math.max(1, parseInt(url.searchParams.get("limit") || "50") || 50), 200);
-    const cursor = url.searchParams.get("cursor"); // ISO timestamp cursor
+    const rawLimit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const limit = isNaN(rawLimit) ? 50 : Math.min(200, Math.max(1, rawLimit));
+    const rawOffset = parseInt(url.searchParams.get("offset") || "0", 10);
+    const offset = isNaN(rawOffset) ? 0 : Math.max(0, rawOffset);
 
     let query = admin
       .from("chat_messages")
-      .select("id, role, content, created_at")
+      .select("id, role, content, created_at", { count: "exact" })
       .eq("conversation_id", id)
-      .order("created_at", { ascending: false })
-      .limit(limit + 1);
+      .order("created_at", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-    if (cursor) {
-      query = query.lt("created_at", cursor);
-    }
-
-    const { data: messages, error } = await query;
+    const { data: messages, error, count } = await query;
 
     if (error) {
       return apiError("internal_error", "Failed to fetch messages", ctx);
     }
 
     const results = messages || [];
-    const hasMore = results.length > limit;
-    const page = hasMore ? results.slice(0, limit) : results;
-    const nextCursor = hasMore ? page[page.length - 1]?.created_at : null;
+    const total = count ?? 0;
+    const hasMore = offset + results.length < total;
 
     return apiSuccess({
-      messages: page.map((m) => ({
+      messages: results.map((m) => ({
         id: m.id,
         role: m.role,
         content: m.content,
         created_at: m.created_at,
       })),
       has_more: hasMore,
-      next_cursor: nextCursor,
-    }, ctx);
+      total,
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

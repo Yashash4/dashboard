@@ -19,8 +19,8 @@ interface Section {
 
 const DOC_PAGES = [
   { label: "Chat API", href: "/docs", icon: "01" },
-  { label: "Webhooks", href: "/docs/webhooks", icon: "02" },
-  { label: "Knowledge Base", href: "/docs/knowledge-base", icon: "03" },
+  { label: "Webhooks", href: "/docs/api/webhooks", icon: "02" },
+  { label: "Knowledge Base", href: "/docs/pro/knowledge-base", icon: "03" },
 ];
 
 export function DocsSidebar({

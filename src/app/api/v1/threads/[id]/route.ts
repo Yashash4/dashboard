@@ -19,7 +19,7 @@ export async function GET(
 
     if (!thread) return apiError("thread_not_found", "Thread not found", ctx);
 
-    return apiSuccess({ thread }, ctx);
+    return apiSuccess({ thread }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);
@@ -41,7 +41,7 @@ export async function DELETE(
     const { data: deleted } = await admin.from("api_threads").delete().eq("id", id).eq("user_id", apiKey.user_id).select("id").single();
     if (!deleted) return apiError("thread_not_found", "Thread not found", ctx);
 
-    return apiSuccess({ deleted: true }, ctx);
+    return apiSuccess({ deleted: true }, ctx, auth.rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

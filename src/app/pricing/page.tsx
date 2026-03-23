@@ -1,36 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, ArrowRight, Loader2, ArrowLeft } from "lucide-react";
-import { toast } from "sonner";
 import Link from "next/link";
 
 import Image from "next/image";
 import { createClient } from "@/lib/supabase";
-import { usePayment } from "@/hooks/use-payment";
-import { PLANS, PLAN_PRICES } from "@/lib/payments/plans";
+import { PLANS } from "@/lib/payments/plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 type AuthState = "loading" | "guest" | "no-sub" | "has-sub";
 
-export default function PricingPage() {
+function PricingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedPlan = searchParams.get("plan");
 
   const [annual, setAnnual] = useState(false);
   const [authState, setAuthState] = useState<AuthState>("loading");
-  const [processingPlan, setProcessingPlan] = useState<string | null>(null);
-
-  const { initiatePayment, isProcessing } = usePayment({
-    onSuccess: () => {
-      toast.success("Welcome to ClawHQ!");
-      router.push("/");
-    },
-  });
 
   useEffect(() => {
     const supabase = createClient();
@@ -56,28 +46,14 @@ export default function PricingPage() {
     }
   }, [authState, router]);
 
-  async function handleSubscribe(planName: string) {
+  function handleSubscribe(planName: string) {
+    const cycle = annual ? "annual" : "monthly";
     if (authState === "guest") {
-      router.push(`/register?plan=${planName}&cycle=${annual ? "annual" : "monthly"}`);
+      router.push(`/register?plan=${planName}&cycle=${cycle}`);
       return;
     }
 
-    const prices = PLAN_PRICES[planName];
-    if (!prices) return;
-
-    setProcessingPlan(planName);
-    const amount = annual ? prices.annual : prices.monthly;
-
-    await initiatePayment({
-      amount,
-      paymentType: "subscription_new",
-      metadata: {
-        plan: planName,
-        billing_cycle: annual ? "annual" : "monthly",
-      },
-    });
-
-    setProcessingPlan(null);
+    router.push(`/checkout?plan=${planName}&cycle=${cycle}`);
   }
 
   if (authState === "loading" || authState === "has-sub") {
@@ -248,16 +224,10 @@ export default function PricingPage() {
                           : ""
                       }`}
                       variant={plan.highlighted ? "default" : "outline"}
-                      disabled={processingPlan === plan.name}
                       onClick={() => handleSubscribe(plan.name)}
                     >
-                      {processingPlan === plan.name ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : null}
                       {authState === "guest" ? "Get Started" : "Subscribe"}
-                      {processingPlan !== plan.name && (
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      )}
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   )}
 
@@ -288,5 +258,19 @@ export default function PricingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-svh bg-background flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <PricingContent />
+    </Suspense>
   );
 }

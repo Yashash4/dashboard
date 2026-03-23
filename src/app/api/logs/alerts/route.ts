@@ -66,6 +66,10 @@ export async function DELETE(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const admin = createAdminClient();
+  const { data: sub } = await admin.from("subscriptions").select("plan").eq("user_id", user.id).single();
+  if (!hasAccess((sub?.plan as string) || "starter", "pro"))
+    return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
+
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   if (!id) return NextResponse.json({ error: "ID required" }, { status: 400 });

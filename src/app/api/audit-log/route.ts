@@ -49,7 +49,8 @@ export async function GET(request: NextRequest) {
   }
 
   if (search) {
-    const safe = search.replace(/[,%().\\/_*?+\[\]{}|^$!@#&~`'"<>;:]/g, "");
+    // Only escape LIKE wildcards %, _, and backslash — preserve underscores, periods, letters, numbers
+    const safe = search.replace(/[%_\\]/g, (c) => c === '\\' ? '\\\\' : c === '%' ? '\\%' : '\\_');
     if (safe.trim()) {
       query = query.or(
         `action.ilike.%${safe}%,entity_type.ilike.%${safe}%`

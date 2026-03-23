@@ -8,12 +8,9 @@ import Footer from "@/components/landing/Footer";
 
 // Lazy load below-fold sections
 const Features = dynamic(() => import("@/components/landing/Features"), { ssr: false });
-const ProductTour = dynamic(() => import("@/components/landing/ProductTour"), { ssr: false });
-const HowItWorks = dynamic(() => import("@/components/landing/HowItWorks"), { ssr: false });
-const WhyClawHQ = dynamic(() => import("@/components/landing/WhyClawHQ"), { ssr: false });
-const Comparison = dynamic(() => import("@/components/landing/Comparison"), { ssr: false });
 const Pricing = dynamic(() => import("@/components/landing/Pricing"), { ssr: false });
-const Stats = dynamic(() => import("@/components/landing/Stats"), { ssr: false });
+const HowItWorks = dynamic(() => import("@/components/landing/HowItWorks"), { ssr: false });
+const Comparison = dynamic(() => import("@/components/landing/Comparison"), { ssr: false });
 const FAQ = dynamic(() => import("@/components/landing/FAQ"), { ssr: false });
 const CTA = dynamic(() => import("@/components/landing/CTA"), { ssr: false });
 
@@ -29,12 +26,9 @@ export default function Home() {
       </div>
       <ChannelBar />
       <Features />
-      <ProductTour />
-      <HowItWorks />
-      <WhyClawHQ />
-      <Comparison />
       <Pricing />
-      <Stats />
+      <HowItWorks />
+      <Comparison />
       <FAQ />
       <CTA />
       <Footer />

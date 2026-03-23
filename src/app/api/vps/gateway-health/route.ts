@@ -15,6 +15,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock healthy gateway status
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      active: true,
+      httpOk: true,
+      version: "0.28.6",
+      pid: 1842,
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_gateway_health`, 30, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

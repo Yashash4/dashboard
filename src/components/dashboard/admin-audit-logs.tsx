@@ -99,7 +99,7 @@ export function AdminAuditLogs() {
 
       <div className="flex gap-3">
         <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[140px] sm:w-[200px]">
             <SelectValue placeholder="Filter by action" />
           </SelectTrigger>
           <SelectContent>
@@ -111,7 +111,7 @@ export function AdminAuditLogs() {
         </Select>
 
         <Select value={entityFilter} onValueChange={(v) => { setEntityFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-[140px] sm:w-[200px]">
             <SelectValue placeholder="Filter by entity" />
           </SelectTrigger>
           <SelectContent>
@@ -202,6 +202,7 @@ export function AdminAuditLogs() {
               size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
+              aria-label="Previous page"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -213,6 +214,7 @@ export function AdminAuditLogs() {
               size="sm"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page >= totalPages}
+              aria-label="Next page"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

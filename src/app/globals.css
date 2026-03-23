@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,52 +6,112 @@
 
 @layer base {
   :root {
-    /* Backgrounds (Caffeine) */
-    --background: #111111;
-    --foreground: #eeeeee;
-    --card: #191919;
-    --card-foreground: #eeeeee;
-    --popover: #191919;
-    --popover-foreground: #eeeeee;
-    --muted: #222222;
-    --muted-foreground: #b4b4b4;
-    --accent: #2a2a2a;
-    --accent-foreground: #eeeeee;
-    --border: #201e18;
-    --input: #484848;
-    --ring: oklch(0.6762 0.0567 132.4479);
+    /*
+     * ══════════════════════════════════════════════
+     *  60-30-10 COLOR SYSTEM
+     * ══════════════════════════════════════════════
+     *
+     *  60% DOMINANT  — backgrounds, large surfaces
+     *  30% SECONDARY — text, cards, borders, structure
+     *  10% ACCENT    — brand color, CTAs, highlights
+     *
+     *  To change the entire site's look:
+     *  - Swap --accent-* for brand color shift
+     *  - Swap --bg-* for background mood shift
+     *  - Swap --cta-* for button style shift
+     * ══════════════════════════════════════════════
+     */
 
-    /* Colors (Kodama Grove + Caffeine) */
-    --primary: oklch(0.6762 0.0567 132.4479);
-    --primary-foreground: oklch(0.2686 0.0105 61.0213);
-    --secondary: oklch(0.4448 0.0239 84.5498);
-    --secondary-foreground: #eeeeee;
-    --destructive: #e54d2e;
+    /* ── 60% DOMINANT — Backgrounds ── */
+    --bg-base: #0a0a0a;              /* deepest background */
+    --bg-raised: #111111;            /* cards, raised surfaces */
+    --bg-elevated: #191919;          /* modals, popovers, nested elements */
+    --bg-subtle: #1e1e1e;            /* inputs, hover states */
+
+    /* ── 30% SECONDARY — Text & Structure ── */
+    --text-primary: #eeeeee;         /* headings, important text */
+    --text-secondary: #a3a3a3;       /* body text, descriptions */
+    --text-tertiary: #666666;        /* muted labels, captions, placeholders */
+    --border-primary: #222222;       /* main borders, dividers */
+    --border-subtle: #1a1a1a;        /* faint separators */
+
+    /* ── 10% ACCENT — Brand Color (Sage Green) ── */
+    --accent: oklch(0.6762 0.0567 132.4479);         /* sage green — primary brand */
+    --accent-foreground: oklch(0.2686 0.0105 61.0213); /* dark text on accent */
+    --accent-muted: oklch(0.6762 0.0567 132.4479 / 0.12); /* subtle accent bg */
+    --accent-subtle: oklch(0.6762 0.0567 132.4479 / 0.06); /* very faint accent bg */
+    --accent-border: oklch(0.6762 0.0567 132.4479 / 0.2);  /* accent-tinted border */
+
+    /* ── CTA Button — Warm Cream ── */
+    --cta: #ffe0c2;
+    --cta-foreground: #1a1207;
+
+    /* ── Status Colors ── */
+    --success: #34d399;              /* emerald — online, connected, healthy */
+    --warning: #fbbf24;              /* amber — degraded, pending */
+    --error: #ef4444;                /* red — failed, offline, critical */
+    --info: #60a5fa;                 /* blue — informational */
+
+    /* ── Tier Colors (for Pro/Ultra badges & accents) ── */
+    --tier-pro: #c4a1ff;             /* soft violet */
+    --tier-ultra: #ffb86c;           /* warm amber */
+    --tier-enterprise: #ffd700;      /* gold */
+
+    /*
+     * ══════════════════════════════════════════════
+     *  SHADCN/UI MAPPING
+     *  Maps 60-30-10 variables to shadcn's system
+     * ══════════════════════════════════════════════
+     */
+
+    /* Backgrounds */
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --card: var(--bg-raised);
+    --card-foreground: var(--text-primary);
+    --popover: var(--bg-elevated);
+    --popover-foreground: var(--text-primary);
+    --muted: var(--bg-subtle);
+    --muted-foreground: var(--text-secondary);
+
+    /* Components */
+    --accent-ui: var(--bg-subtle);
+    --accent-ui-foreground: var(--text-primary);
+    --border: var(--border-primary);
+    --input: var(--bg-subtle);
+    --ring: var(--accent);
+
+    /* Brand */
+    --primary: var(--accent);
+    --primary-foreground: var(--accent-foreground);
+    --secondary: var(--bg-elevated);
+    --secondary-foreground: var(--text-primary);
+    --destructive: var(--error);
     --destructive-foreground: #ffffff;
 
-    /* Tier colors */
-    --chart-1: oklch(0.6762 0.0567 132.4479);
-    --chart-2: #ffe0c2;
-    --chart-3: oklch(0.7214 0.1337 49.9802);
-    --chart-4: oklch(0.5940 0.0443 196.0233);
-    --chart-5: oklch(0.5183 0.0390 137.1892);
+    /* Cream CTA */
+    --cream: var(--cta);
+    --cream-foreground: var(--cta-foreground);
+
+    /* Charts */
+    --chart-1: var(--accent);
+    --chart-2: var(--tier-pro);
+    --chart-3: var(--tier-ultra);
+    --chart-4: var(--success);
+    --chart-5: var(--info);
 
     /* Sidebar */
-    --sidebar-background: #18181b;
-    --sidebar-foreground: #eeeeee;
-    --sidebar-primary: oklch(0.6762 0.0567 132.4479);
-    --sidebar-primary-foreground: oklch(0.2686 0.0105 61.0213);
-    --sidebar-accent: #2a2a2a;
-    --sidebar-accent-foreground: #eeeeee;
-    --sidebar-border: #222222;
-    --sidebar-ring: oklch(0.6762 0.0567 132.4479);
+    --sidebar-background: #0e0e0e;
+    --sidebar-foreground: var(--text-primary);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: var(--accent-foreground);
+    --sidebar-accent: var(--bg-subtle);
+    --sidebar-accent-foreground: var(--text-primary);
+    --sidebar-border: var(--border-primary);
+    --sidebar-ring: var(--accent);
 
     /* Radius */
     --radius: 0.625rem;
-
-    /* Special accent — warm cream for CTAs */
-    --cream: #ffe0c2;
-    --cream-foreground: #1a1207;
   }
 }
 
@@ -77,61 +137,126 @@
   code, .font-mono {
     font-family: 'JetBrains Mono', monospace;
   }
-}
 
-/* Focus indicators for dark theme */
-:focus-visible {
-  outline: 2px solid oklch(0.6762 0.0567 132.4479);
-  outline-offset: 2px;
-}
-
-/* Respect reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
+  .font-serif-italic {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-style: italic;
   }
 }
 
-/* Smooth marquee for channel bar */
+/* ── Focus ── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-marquee { animation: none; }
+  .animate-ping, .animate-pulse, .animate-bounce { animation: none; }
+}
+
+/* ── Marquee ── */
 @keyframes marquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 @media (prefers-reduced-motion: no-preference) {
-  .animate-marquee {
-    animation: marquee 25s linear infinite;
-  }
-
-  .animate-marquee:hover {
-    animation-play-state: paused;
-  }
+  .animate-marquee { animation: marquee 30s linear infinite; }
+  .animate-marquee:hover { animation-play-state: paused; }
 }
 
-/* Features.tsx bar animations */
-.vps-bar { width: 8%; }
-.group:hover .vps-bar { width: var(--bar-target); }
-.chart-bar { height: 4px; }
-.group:hover .chart-bar { height: var(--bar-target); }
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
-    animation: none;
-  }
-
-  .animate-ping,
-  .animate-pulse,
-  .animate-bounce {
-    animation: none;
-  }
+/* ── Hero Gradient (uses accent color) ── */
+.hero-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-muted), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%, var(--accent-subtle), transparent),
+    radial-gradient(ellipse 60% 40% at 20% 60%, var(--accent-subtle), transparent);
 }
 
-/* Subtle noise texture overlay */
-.noise-bg::before {
+/* ── Card Glow (uses accent color) ── */
+.card-glow { position: relative; }
+.card-glow::before {
   content: '';
   position: absolute;
-  inset: 0;
-  opacity: 0.02;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  pointer-events: none;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--accent-muted), transparent 40%, transparent 60%, var(--accent-subtle));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
 }
+.card-glow:hover::before { opacity: 1; }
+
+/* ── Dot Grid ── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Scrollbar Hide ── */
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ── Shimmer (uses accent) ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer-text {
+  background: linear-gradient(90deg, var(--text-primary) 0%, var(--accent) 50%, var(--text-primary) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s linear infinite;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════
+ *  ALTERNATE THEMES — Uncomment one block to swap instantly
+ * ══════════════════════════════════════════════════════════
+ */
+
+/* ── THEME B: Cool Slate Blue ──
+:root {
+  --accent: #6c8cff;
+  --accent-foreground: #08090a;
+  --accent-muted: rgba(108, 140, 255, 0.12);
+  --accent-subtle: rgba(108, 140, 255, 0.06);
+  --accent-border: rgba(108, 140, 255, 0.2);
+  --cta: #f5f5f5;
+  --cta-foreground: #08090a;
+  --tier-pro: #c4a1ff;
+  --tier-ultra: #ffb86c;
+}
+*/
+
+/* ── THEME C: Violet + Gold ──
+:root {
+  --accent: #a78bfa;
+  --accent-foreground: #0f0a1a;
+  --accent-muted: rgba(167, 139, 250, 0.12);
+  --accent-subtle: rgba(167, 139, 250, 0.06);
+  --accent-border: rgba(167, 139, 250, 0.2);
+  --cta: #fbbf24;
+  --cta-foreground: #1a1207;
+  --tier-pro: #60a5fa;
+  --tier-ultra: #f472b6;
+}
+*/
+
+/* ── THEME D: Warm Ember ──
+:root {
+  --accent: #f97316;
+  --accent-foreground: #0a0500;
+  --accent-muted: rgba(249, 115, 22, 0.12);
+  --accent-subtle: rgba(249, 115, 22, 0.06);
+  --accent-border: rgba(249, 115, 22, 0.2);
+  --cta: #fef3c7;
+  --cta-foreground: #1a1207;
+  --tier-pro: #a78bfa;
+  --tier-ultra: #34d399;
+}
+*/

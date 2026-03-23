@@ -17,6 +17,17 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock uptime data
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({
+      uptime_percentage: 99.9,
+      total_checks: 720,
+      successful_checks: 719,
+      last_check: new Date().toISOString(),
+      recent_statuses: new Array(30).fill(true),
+    });
+  }
+
   const rl = rateLimit(`${user.id}:vps_uptime`, 20, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
@@ -132,7 +143,7 @@ export async function GET() {
       last_check: null,
       recent_statuses: [],
       error: "Failed to fetch uptime data.",
-    });
+    }, { status: 500 });
   } finally {
     if (ssh) ssh.dispose();
   }

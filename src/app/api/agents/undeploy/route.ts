@@ -16,6 +16,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Demo user: return mock success
+  if (user.email === "demo@clawhq.tech") {
+    return NextResponse.json({ success: true });
+  }
+
   const rl = rateLimit(`${user.id}:agent_undeploy`, 5, 60_000);
   if (!rl.success) {
     return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });

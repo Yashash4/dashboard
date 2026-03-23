@@ -154,7 +154,7 @@ export default async function OverviewPage() {
               <Server className="h-12 w-12 text-muted-foreground mx-auto mb-4 animate-pulse" />
               <h2 className="text-lg font-semibold mb-2">Setting Up Your Instance</h2>
               <p className="text-muted-foreground mb-3 max-w-md mx-auto">
-                Your <span className="capitalize font-medium">{subscription.plan}</span> plan is active. We&apos;re provisioning your VPS — this usually takes 15–30 minutes.
+                Your <span className="capitalize font-medium">{subscription.plan}</span> plan is active. Our team is setting up your dedicated VPS. You&apos;ll receive an email once your instance is live.
               </p>
               <p className="text-sm text-muted-foreground">
                 Questions? <Link href="/support" className="text-primary underline">Contact support</Link>

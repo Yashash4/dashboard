@@ -82,6 +82,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Idempotency: if already fulfilled, return success without re-processing
+  if (order.status === "fulfilled") {
+    return NextResponse.json({ success: true, verified: true, alreadyFulfilled: true });
+  }
+
+  // Only fulfill orders that are in "created" status
+  if (order.status !== "created") {
+    return NextResponse.json(
+      { error: `Order is in unexpected status: ${order.status}` },
+      { status: 400 }
+    );
+  }
+
   const meta: Record<string, any> = order.metadata || {};
   const serverAmount = order.amount || 0;
   const serverPaymentType = order.payment_type;

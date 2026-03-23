@@ -25,8 +25,9 @@ export function AdminDashboardAuth({ userId }: { userId: string }) {
         setUsername(data.username);
         setPassword(data.password);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      // ADMIN_MED_20: log error instead of ignoring
+      console.error("Failed to fetch dashboard credentials:", err);
     } finally {
       setLoading(false);
     }
@@ -54,8 +55,9 @@ export function AdminDashboardAuth({ userId }: { userId: string }) {
 
       setPassword(data.password);
       toast.success("Password regenerated and updated on VPS");
-    } catch {
-      toast.error("Network error");
+    } catch (err) {
+      // ADMIN_MED_20: pass error to toast
+      toast.error((err as Error)?.message || "Network error");
     } finally {
       setRegenerating(false);
     }

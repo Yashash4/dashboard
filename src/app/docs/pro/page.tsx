@@ -157,13 +157,13 @@ export default function DocsProFeaturesOverviewPage() {
           </tr>
           <tr>
             <td>Agent deployment</td>
-            <td>Up to 3 agents</td>
+            <td>Unlimited agents</td>
             <td>Unlimited agents</td>
           </tr>
           <tr>
             <td>Channels</td>
-            <td>2 channels</td>
-            <td>Unlimited channels</td>
+            <td>7 (all channels)</td>
+            <td>7 (all channels)</td>
           </tr>
           <tr>
             <td>Logs</td>

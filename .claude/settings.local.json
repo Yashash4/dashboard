@@ -94,7 +94,22 @@
       "WebFetch(domain:tweakcn.com)",
       "Bash(ls /d/openclaw/src/components/ui/*.tsx)",
       "WebFetch(domain:www.draftly.space)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(cd:*)",
+      "Bash(cd /d D:openclaw)",
+      "Bash(npm list:*)",
+      "Bash(sed 's/\\\\.md$//')",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -rn '\\\\$[0-9]' D:/openclaw/src/app/dashboard-demo/ --include=\"*.tsx\")",
+      "Bash(grep -v '\\\\$\\\\{')",
+      "Bash(find /d/openclaw -name *migration* -o -name *schema*)",
+      "Bash(find /d/openclaw -path */supabase/* -name *.sql -o -path */supabase/* -name *.ts)",
+      "Bash(grep -r \"payment_orders\\\\|subscriptions\\\\|payments\" /d/openclaw/supabase/migrations/*.sql)",
+      "Bash(grep -A 15 \"CREATE TABLE.*subscriptions\" /d/openclaw/supabase/migrations/*.sql)",
+      "Bash(grep -B 5 -A 15 \"subscriptions\" /d/openclaw/supabase/migrations/20260307*.sql)",
+      "Bash(grep -rn \"8 vCPU\\\\|32GB\\\\|32 GB\\\\|400 GB\\\\|400GB\\\\|16 vCPU\\\\|64GB\\\\|64 GB\\\\|800 GB\\\\|800GB\\\\|32 TB\\\\|32TB\\\\|64 TB\\\\|64TB\" D:/openclaw/src/ --include=*.tsx --include=*.ts)",
+      "Bash(node -e \":*)"
     ]
   }
 }

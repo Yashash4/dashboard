@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await validateV1Auth(request, "health", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, plan, admin, ctx } = auth;
+    const { apiKey, plan, admin, ctx, rateLimitInfo } = auth;
 
     // Get deployed agents for the user
     const { data: userAgents } = await admin
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       key_name: apiKey.name,
       rate_limit: apiKey.rate_limit_per_min || 60,
       agents,
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

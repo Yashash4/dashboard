@@ -17,6 +17,11 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const rl = rateLimit(`${user.id}:channel_routing_get`, 30, 60_000);
+  if (!rl.success) {
+    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
   const admin = createAdminClient();
 
   // Verify channel belongs to user

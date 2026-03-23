@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
   logAudit({ adminId: user.id, action: "api_key_configured", entityType: "api_key", entityId: userId, details: { provider }, ip });
 
-  return NextResponse.json({ success: true, configured: true, debug: result.debug });
+  return NextResponse.json({ success: true, configured: true });
 }
 
 // DELETE: Remove API key
@@ -201,12 +201,16 @@ export async function DELETE(request: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Delete from DB
-  await admin
+  // ADMIN_MED_06: Check DB delete result before re-pushing keys to VPS
+  const { error: delError } = await admin
     .from("user_api_keys")
     .delete()
     .eq("user_id", userId)
     .eq("provider", provider.toLowerCase());
+
+  if (delError) {
+    return NextResponse.json({ error: "Failed to delete key: " + delError.message }, { status: 500 });
+  }
 
   // Re-push remaining keys to VPS (or empty file if none left)
   const { data: vps } = await admin

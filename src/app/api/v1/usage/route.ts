@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await validateV1Auth(request, "usage", { limit: 60 });
     if (auth instanceof NextResponse) return auth;
-    const { apiKey, admin, ctx } = auth;
+    const { apiKey, admin, ctx, rateLimitInfo } = auth;
 
     const url = new URL(request.url);
     const days = Math.min(90, Math.max(1, parseInt(url.searchParams.get("days") || "7")));
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         total_errors: totalErrors,
         avg_response_time_ms: totalRequests > 0 ? Math.round(totalTime / totalRequests) : 0,
       },
-    }, ctx);
+    }, ctx, rateLimitInfo);
   } catch {
     const { createRequestContext } = await import("@/lib/api-errors");
     const ctx = createRequestContext(request);

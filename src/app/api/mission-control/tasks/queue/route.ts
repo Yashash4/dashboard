@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
-import { hasVPSDataAPI, vpsDataFetch } from "@/lib/vps-data-api";
+import { vpsDataFetch } from "@/lib/vps-data-api";
 
 const PRIORITY_ORDER = ["critical", "high", "medium", "low"];
 const MAX_RETRIES = 5;
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
       // 4.21: Log event with VPS-first pattern
       const eventPayload = {
         user_id: user.id,
-        event_type: "task_complete",
+        event_type: "task_assigned",
         severity: "info",
         agent_id: agentId,
         task_id: claimed.id,
@@ -113,16 +113,13 @@ export async function GET(request: NextRequest) {
         payload: { action: "queue_pickup", attempt: attempt + 1 },
       };
 
-      const useVPS = await hasVPSDataAPI(user.id).catch(() => false);
-      if (useVPS) {
-        vpsDataFetch(user.id, "/api/events", {
+      try {
+        await vpsDataFetch(user.id, "/api/events", {
           method: "POST",
           body: eventPayload,
-        }).catch(() => {
-          // Fallback to Supabase
-          supabase.from("mc_events").insert(eventPayload).then(() => {});
         });
-      } else {
+      } catch {
+        // Fallback to Supabase when VPS is unavailable
         await supabase.from("mc_events").insert(eventPayload);
       }
 

@@ -1,222 +1,221 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Check, X, Minus } from "lucide-react";
-
-type CellType = "bad" | "mid" | "good";
-
-interface Row {
-  feature: string;
-  selfHosted: { type: CellType; text: string };
-  budget: { type: CellType; text: string };
-  clawhq: { type: CellType; text: string };
-}
-
-const rows: Row[] = [
-  {
-    feature: "Setup Time",
-    selfHosted: { type: "bad", text: "Hours — Docker, DNS, SSL, reverse proxy" },
-    budget: { type: "mid", text: "Minutes, but you configure AI separately" },
-    clawhq: { type: "good", text: "Under 24 hours — we do everything" },
-  },
-  {
-    feature: "AI Models",
-    selfHosted: { type: "bad", text: "Find providers, manage API keys & billing" },
-    budget: { type: "mid", text: "BYOK — bring your own keys + pay $20-60/mo" },
-    clawhq: { type: "good", text: "Bundled. No API keys. Flat rate." },
-  },
-  {
-    feature: "Total Monthly Cost",
-    selfHosted: { type: "bad", text: "VPS $20 + AI API $40+ = $60+ and your time" },
-    budget: { type: "mid", text: "$19-29 hosting + $20-60 AI = $40-89 total" },
-    clawhq: { type: "good", text: "$59/mo. That's it. Everything included." },
-  },
-  {
-    feature: "Infrastructure",
-    selfHosted: { type: "bad", text: "Whatever VPS you rent, you manage it" },
-    budget: { type: "mid", text: "Shared container — 2 vCPU, 2-4 GB RAM typical" },
-    clawhq: { type: "good", text: "Dedicated VPS — 2-16 vCPU, 8-64 GB RAM" },
-  },
-  {
-    feature: "Channels",
-    selfHosted: { type: "bad", text: "Read docs, configure each one manually" },
-    budget: { type: "mid", text: "2-3 channels, extras cost more" },
-    clawhq: { type: "good", text: "All 7 channels. Every plan. $0 extra." },
-  },
-  {
-    feature: "Dashboard",
-    selfHosted: { type: "bad", text: "Terminal + raw OpenClaw UI" },
-    budget: { type: "mid", text: "Basic hosting panel" },
-    clawhq: { type: "good", text: "Full management dashboard — VPS, agents, monitoring, billing" },
-  },
-  {
-    feature: "Agent Store",
-    selfHosted: { type: "bad", text: "Build everything from scratch" },
-    budget: { type: "bad", text: "Not offered" },
-    clawhq: { type: "good", text: "Browse, buy, deploy with one click" },
-  },
-  {
-    feature: "Monitoring",
-    selfHosted: { type: "bad", text: "Set up Grafana / Prometheus yourself" },
-    budget: { type: "mid", text: "Docker logs, maybe basic metrics" },
-    clawhq: { type: "good", text: "Real-time CPU, RAM, disk, network + health checks" },
-  },
-  {
-    feature: "Crash Recovery",
-    selfHosted: { type: "bad", text: "Configure systemd, hope it works" },
-    budget: { type: "mid", text: "Container restart flag — basic" },
-    clawhq: { type: "good", text: "Auto-restart + health checks every 2 minutes" },
-  },
-  {
-    feature: "Updates & Backups",
-    selfHosted: { type: "bad", text: "SSH in, pull, rebuild, pray" },
-    budget: { type: "mid", text: "Manual rebuild or wait for host" },
-    clawhq: { type: "good", text: "Automatic updates. Daily backups." },
-  },
-  {
-    feature: "Domain + SSL",
-    selfHosted: { type: "bad", text: "Configure DNS, generate certs, renew manually" },
-    budget: { type: "mid", text: "Sometimes included, often an add-on" },
-    clawhq: { type: "good", text: "Custom domain + auto-SSL on every plan" },
-  },
-  {
-    feature: "Hidden Costs",
-    selfHosted: { type: "bad", text: "Your time — the most expensive cost" },
-    budget: { type: "bad", text: "API fees, channel fees, overage charges" },
-    clawhq: { type: "good", text: "None. One price. One bill." },
-  },
-];
-
-function CellIcon({ type }: { type: CellType }) {
-  if (type === "bad")
-    return <X size={14} className="text-destructive shrink-0 mt-0.5" />;
-  if (type === "mid")
-    return <Minus size={14} className="text-muted-foreground/60 shrink-0 mt-0.5" />;
-  return <Check size={14} className="text-primary shrink-0 mt-0.5" />;
-}
+import { X, Check, Terminal, CreditCard, AlertTriangle, Settings, Clock, Shield } from "lucide-react";
 
 export default function Comparison() {
   return (
-    <section className="py-24 px-6">
-      <div className="max-w-5xl mx-auto">
+    <section className="py-24 md:py-32 px-6">
+      <div className="max-w-[1200px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="mb-12"
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
         >
-          <p className="text-xs text-primary uppercase tracking-widest mb-3">
-            Comparison
-          </p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-            Why not just self-host?
+          <p className="text-[15px] text-[var(--accent)] font-medium mb-4">Before &amp; After</p>
+          <h2 className="text-3xl md:text-[2.75rem] font-bold tracking-tight mb-5">
+            Stop managing infrastructure.
+            <br />
+            <span className="font-serif-italic font-normal text-[var(--text-secondary)]">Start shipping.</span>
           </h2>
-          <p className="text-muted-foreground max-w-2xl">
-            You could. But here&apos;s what the total picture actually looks
-            like.
-          </p>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="rounded-lg border border-border overflow-hidden relative"
-        >
-          {/* Mobile scroll indicator */}
-          <div className="md:hidden flex items-center justify-end gap-1 px-4 py-2 text-[10px] text-muted-foreground border-b border-border/50">
-            Scroll <span aria-hidden="true">&rarr;</span>
-          </div>
-          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-card">
-                  <th className="text-left py-4 px-5 text-xs uppercase tracking-widest text-muted-foreground font-medium min-w-[120px]">
-                    Feature
-                  </th>
-                  <th className="text-left py-4 px-5 text-xs uppercase tracking-widest text-muted-foreground font-medium min-w-[200px]">
-                    Self-Hosted
-                  </th>
-                  <th className="text-left py-4 px-5 text-xs uppercase tracking-widest text-muted-foreground font-medium min-w-[200px]">
-                    Budget Hosts ($19-29)
-                  </th>
-                  <th className="text-left py-4 px-5 text-xs uppercase tracking-widest font-medium min-w-[220px] text-[var(--cream)]">
-                    ClawHQ
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr
-                    key={row.feature}
-                    className={`border-t border-border/50 ${
-                      i % 2 === 0 ? "" : "bg-card/50"
-                    }`}
-                  >
-                    <td className="py-3.5 px-5 font-medium text-foreground whitespace-nowrap">
-                      {row.feature}
-                    </td>
-                    <td className="py-3.5 px-5 text-muted-foreground">
-                      <div className="flex items-start gap-2">
-                        <CellIcon type={row.selfHosted.type} />
-                        <span className="leading-snug">{row.selfHosted.text}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-5 text-muted-foreground">
-                      <div className="flex items-start gap-2">
-                        <CellIcon type={row.budget.type} />
-                        <span className="leading-snug">{row.budget.text}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-start gap-2">
-                        <CellIcon type={row.clawhq.type} />
-                        <span className="leading-snug font-medium text-foreground">
-                          {row.clawhq.text}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </motion.div>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-xs text-muted-foreground text-center mt-8 tracking-wide"
-        >
-          Still comparing? Add up hosting + AI API + channel plugins +
-          maintenance time. Then compare that to one ClawHQ plan.
-        </motion.p>
-
-        {/* Mini CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="text-center py-12"
-        >
-          <p className="text-muted-foreground mb-4">Ready to stop stitching together tools?</p>
-          <a
-            href="/register"
-            className="inline-flex items-center gap-2 px-6 py-3 font-medium text-sm transition-opacity hover:opacity-90"
-            style={{
-              borderRadius: "var(--radius)",
-              backgroundColor: "var(--cream)",
-              color: "var(--cream-foreground)",
-            }}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* ═══ WITHOUT CLAWHQ ═══ */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="rounded-2xl border border-[var(--error)]/20 bg-[var(--bg-raised)] overflow-hidden"
           >
-            Get Started — $59/mo
-          </a>
-        </motion.div>
+            <div className="px-6 py-4 border-b border-[var(--error)]/10 bg-[var(--error)]/[0.03]">
+              <div className="flex items-center gap-2">
+                <X size={18} className="text-[var(--error)]" />
+                <h3 className="text-lg font-bold text-[var(--error)]">Without ClawHQ</h3>
+              </div>
+              <p className="text-[15px] text-[var(--text-tertiary)] mt-1">What self-hosting actually looks like</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Terminal mess */}
+              <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-base)] overflow-hidden">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--border-subtle)]">
+                  <div className="w-2 h-2 rounded-full bg-[var(--error)]/50" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--warning)]/50" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--text-tertiary)]/30" />
+                  <span className="text-[9px] text-[var(--text-tertiary)] ml-2 font-mono">terminal</span>
+                </div>
+                <div className="p-3 font-mono text-[10px] space-y-1 text-[var(--text-tertiary)]">
+                  <p>$ sudo apt install nginx certbot docker.io</p>
+                  <p>$ sudo certbot --nginx -d mysite.com</p>
+                  <p className="text-[var(--error)]">ERROR: Could not bind to port 443</p>
+                  <p>$ sudo kill -9 $(lsof -t -i:443)</p>
+                  <p>$ docker pull openclaw/openclaw:latest</p>
+                  <p>$ docker-compose up -d</p>
+                  <p className="text-[var(--warning)]">WARNING: gateway not responding on :18789</p>
+                  <p>$ sudo nano /etc/nginx/sites-available/default</p>
+                  <p className="text-[var(--error)]">ERROR: SSL handshake failed</p>
+                  <p>$ sudo systemctl restart nginx</p>
+                  <p className="text-[var(--error)]">ERROR: trusted-proxy auth mode not configured</p>
+                  <p className="text-[var(--text-tertiary)]">$ # 3 hours later...</p>
+                </div>
+              </div>
+
+              {/* Pain points */}
+              <div className="space-y-3">
+                {[
+                  { icon: Terminal, text: "Hours debugging Docker, nginx, SSL, DNS, firewall configs" },
+                  { icon: CreditCard, text: "VPS $20 + AI API $40+ + channel plugins = $80+/mo and growing" },
+                  { icon: AlertTriangle, text: "Server crashes at 3am — nobody monitoring, no auto-restart" },
+                  { icon: Settings, text: "Every update requires SSH, manual config, and crossed fingers" },
+                  { icon: Clock, text: "Your time is the most expensive cost — and it never stops" },
+                ].map((pain) => {
+                  const Icon = pain.icon;
+                  return (
+                    <div key={pain.text} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-md bg-[var(--error)]/10 flex items-center justify-center shrink-0 mt-0.5">
+                        <Icon size={12} className="text-[var(--error)]" />
+                      </div>
+                      <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">{pain.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ═══ WITH CLAWHQ ═══ */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="rounded-2xl border border-[var(--accent-border)] bg-[var(--bg-raised)] overflow-hidden"
+          >
+            <div className="px-6 py-4 border-b border-[var(--accent-border)] bg-[var(--accent-subtle)]">
+              <div className="flex items-center gap-2">
+                <Check size={18} className="text-[var(--accent)]" />
+                <h3 className="text-lg font-bold text-[var(--accent)]">With ClawHQ</h3>
+              </div>
+              <p className="text-[15px] text-[var(--text-tertiary)] mt-1">What it actually looks like</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Clean dashboard — rich and tall */}
+              <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-base)] overflow-hidden">
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b border-[var(--border-subtle)]">
+                  <div className="w-2 h-2 rounded-full bg-[#ff5f57]" />
+                  <div className="w-2 h-2 rounded-full bg-[#ffbd2e]" />
+                  <div className="w-2 h-2 rounded-full bg-[#28c840]" />
+                  <span className="text-[9px] text-[var(--text-tertiary)] ml-2 font-mono">dashboard.clawhq.tech</span>
+                </div>
+                <div className="flex">
+                  {/* Mini sidebar */}
+                  <div className="w-24 border-r border-[var(--border-subtle)] p-2 hidden sm:block">
+                    <div className="flex items-center gap-1.5 px-1.5 mb-3">
+                      <div className="w-4 h-4 rounded bg-[var(--accent)] flex items-center justify-center">
+                        <span className="text-[7px] font-bold text-[var(--accent-foreground)]">C</span>
+                      </div>
+                      <span className="text-[8px] font-semibold">ClawHQ</span>
+                    </div>
+                    {["Overview", "VPS", "Agents", "Chat", "Channels", "Models", "Store"].map((s, i) => (
+                      <div key={s} className={`px-1.5 py-1 rounded text-[8px] mb-0.5 ${i === 0 ? "bg-[var(--accent-subtle)] text-[var(--text-primary)]" : "text-[var(--text-tertiary)]"}`}>{s}</div>
+                    ))}
+                    <div className="mt-2 pt-2 border-t border-[var(--border-subtle)]">
+                      <p className="text-[6px] text-[var(--text-tertiary)] uppercase tracking-wider px-1.5 mb-1">Pro Tools</p>
+                      {["Agent Builder", "Analytics", "API Access"].map((s) => (
+                        <div key={s} className="px-1.5 py-1 rounded text-[8px] mb-0.5 text-[var(--tier-pro)]/50">{s}</div>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Main content */}
+                  <div className="flex-1 p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] font-semibold">Overview</span>
+                      <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[var(--success)]/10 text-[var(--success)] flex items-center gap-1">
+                        <span className="w-1 h-1 rounded-full bg-[var(--success)]" />
+                        All systems operational
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5 mb-2">
+                      {[
+                        { l: "VPS", v: "Running", dot: true },
+                        { l: "Model", v: "Kimi K2.5" },
+                        { l: "Agents", v: "5 active" },
+                        { l: "Channels", v: "7/7" },
+                      ].map((s) => (
+                        <div key={s.l} className="border border-[var(--border-subtle)] rounded p-1.5">
+                          <p className="text-[6px] text-[var(--text-tertiary)]">{s.l}</p>
+                          <div className="flex items-center gap-1">
+                            {s.dot && <span className="w-1 h-1 rounded-full bg-[var(--success)]" />}
+                            <span className="text-[9px] font-semibold">{s.v}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Chart */}
+                    <div className="border border-[var(--border-subtle)] rounded p-2 mb-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[8px] text-[var(--text-tertiary)]">CPU & RAM (24h)</p>
+                        <div className="flex gap-2">
+                          <span className="flex items-center gap-0.5 text-[6px] text-[var(--text-tertiary)]"><span className="w-1 h-1 rounded-full bg-[var(--accent)]" />CPU</span>
+                          <span className="flex items-center gap-0.5 text-[6px] text-[var(--text-tertiary)]"><span className="w-1 h-1 rounded-full bg-emerald-500" />RAM</span>
+                        </div>
+                      </div>
+                      <div className="h-16 flex items-end gap-[3px]">
+                        {[45,55,50,65,60,70,55,75,65,80,70,75,65,85,75,70,60,78,68,72].map((h, i) => (
+                          <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${h}%`, background: i % 2 === 0 ? "var(--accent)" : "#34d399", opacity: 0.7 }}>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Recent activity */}
+                    <div className="border border-[var(--border-subtle)] rounded p-2">
+                      <p className="text-[8px] text-[var(--text-tertiary)] mb-1.5">Recent Activity</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { dot: "bg-[var(--success)]", text: "Agent deployed — Support Agent", time: "2m ago" },
+                          { dot: "bg-[var(--info)]", text: "Channel connected — WhatsApp", time: "15m ago" },
+                          { dot: "bg-[var(--tier-pro)]", text: "Model switched → Kimi K2.5", time: "1h ago" },
+                        ].map((a, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <span className={`w-1 h-1 rounded-full ${a.dot} shrink-0`} />
+                            <span className="text-[8px] text-[var(--text-secondary)] flex-1">{a.text}</span>
+                            <span className="text-[7px] text-[var(--text-tertiary)]">{a.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Benefits */}
+              <div className="space-y-3">
+                {[
+                  { icon: Clock, text: "Deploy in minutes — we handle DNS, SSL, nginx, OpenClaw, everything" },
+                  { icon: CreditCard, text: "One price, one bill — AI models, channels, VPS, dashboard all included" },
+                  { icon: Shield, text: "Health checks every 2 min, auto-restart on crash, 99.9% uptime" },
+                  { icon: Settings, text: "Updates, backups, scaling — managed by us, zero maintenance for you" },
+                  { icon: Terminal, text: "Full API access, webhooks, Knowledge Base — build and integrate anything" },
+                ].map((benefit) => {
+                  const Icon = benefit.icon;
+                  return (
+                    <div key={benefit.text} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-md bg-[var(--accent-muted)] flex items-center justify-center shrink-0 mt-0.5">
+                        <Icon size={12} className="text-[var(--accent)]" />
+                      </div>
+                      <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">{benefit.text}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </section>
   );

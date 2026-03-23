@@ -42,8 +42,8 @@ export default function DocsBillingPage() {
         <tbody>
           <tr><td>Price (monthly)</td><td>$59/mo</td><td>$129/mo</td><td>$350/mo</td><td>Custom</td></tr>
           <tr><td>Price (annual)</td><td>$50/mo</td><td>$110/mo</td><td>$298/mo</td><td>Custom</td></tr>
-          <tr><td>AI Agents</td><td>1</td><td>5</td><td>Unlimited</td><td>Unlimited</td></tr>
-          <tr><td>Channels</td><td>2</td><td>5</td><td>7 (all)</td><td>7 (all)</td></tr>
+          <tr><td>AI Agents</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
+          <tr><td>Channels</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td><td>7 (all)</td></tr>
           <tr><td>Knowledge Base documents</td><td>50</td><td>500</td><td>Unlimited</td><td>Unlimited</td></tr>
           <tr><td>Monthly messages</td><td>5,000</td><td>50,000</td><td>Unlimited</td><td>Unlimited</td></tr>
           <tr><td>API access</td><td>Basic</td><td>Full</td><td>Full</td><td>Full + dedicated</td></tr>
@@ -53,7 +53,7 @@ export default function DocsBillingPage() {
           <tr><td>Webhooks</td><td>2</td><td>10</td><td>Unlimited</td><td>Unlimited</td></tr>
           <tr><td>Mission Control</td><td>No</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
           <tr><td>Audit logging</td><td>7 days</td><td>30 days</td><td>90 days</td><td>365 days</td></tr>
-          <tr><td>VPS resources</td><td>2 vCPU / 4 GB</td><td>4 vCPU / 8 GB</td><td>8 vCPU / 16 GB</td><td>Custom</td></tr>
+          <tr><td>VPS resources</td><td>2 vCPU / 8 GB / 100 GB</td><td>4 vCPU / 16 GB / 200 GB</td><td>8 vCPU / 32 GB / 400 GB</td><td>Custom</td></tr>
         </tbody>
       </table>
 
@@ -174,7 +174,7 @@ export default function DocsBillingPage() {
       </p>
       <p>
         For deeper usage insights, visit the{" "}
-        <Link href="/docs/analytics" className="text-primary hover:underline">Analytics</Link>{" "}
+        <Link href="/docs/pro/analytics" className="text-primary hover:underline">Analytics</Link>{" "}
         page.
       </p>
 
@@ -202,7 +202,7 @@ export default function DocsBillingPage() {
       <h2>Next Steps</h2>
       <ul>
         <li><Link href="/docs/account" className="text-primary hover:underline">Manage your account</Link> settings and security.</li>
-        <li><Link href="/docs/analytics" className="text-primary hover:underline">View detailed analytics</Link> to understand your usage patterns.</li>
+        <li><Link href="/dashboard/analytics" className="text-primary hover:underline">View detailed analytics</Link> to understand your usage patterns.</li>
         <li><Link href="/docs/support" className="text-primary hover:underline">Contact support</Link> for billing questions or disputes.</li>
       </ul>
     </article>

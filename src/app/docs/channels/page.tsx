@@ -224,7 +224,7 @@ export default function DocsChannelsPage() {
       <ul>
         <li><Link href="/docs/agents" className="text-primary hover:underline">Configure agents</Link> to handle incoming channel messages.</li>
         <li><Link href="/docs/chat" className="text-primary hover:underline">View conversations</Link> across all connected channels.</li>
-        <li><Link href="/docs/monitoring" className="text-primary hover:underline">Monitor channel health</Link> from the monitoring dashboard.</li>
+        <li><Link href="/dashboard/monitoring" className="text-primary hover:underline">Monitor channel health</Link> from the monitoring dashboard.</li>
         <li><Link href="/docs/support" className="text-primary hover:underline">Contact support</Link> for WhatsApp or Signal setup assistance.</li>
       </ul>
     </article>

@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
         priority,
         assigned_agent_id: assigned_agent_id || null,
         due_date: due_date || null,
-        estimated_hours: estimated_hours ?? null,
+        estimated_hours: (estimated_hours ?? null),
         acceptance_criteria: acceptance_criteria?.trim() || null,
         position: count || 0,
         metadata,

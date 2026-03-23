@@ -70,6 +70,12 @@ export function AdminSubscriptionEditor({ userId, subscription }: Props) {
   };
 
   const handleSave = async () => {
+    // ADMIN_MED_08: Validate price >= 0
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      toast.error("Price must be 0 or greater");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/customers/${userId}/subscription`, {

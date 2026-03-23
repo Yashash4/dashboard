@@ -37,7 +37,7 @@ const PLAN_LABELS: Record<string, string> = {
 const FEATURES_GAINED: Record<string, Record<string, string[]>> = {
   starter: {
     pro: [
-      "8 vCPU, 32GB RAM, 400GB storage",
+      "4 vCPU, 16GB RAM, 200GB storage",
       "Full context window (no cap)",
       "Unlimited model changes",
       "Advanced monitoring & analytics",
@@ -46,7 +46,7 @@ const FEATURES_GAINED: Record<string, Record<string, string[]>> = {
       "API access & Audit Log",
     ],
     ultra: [
-      "16 vCPU, 64GB RAM, 800GB storage",
+      "8 vCPU, 32GB RAM, 400GB storage",
       "5X credits with full context window",
       "Mission Control command center",
       "Agent Squad Builder & orchestration",
@@ -58,7 +58,7 @@ const FEATURES_GAINED: Record<string, Record<string, string[]>> = {
   },
   pro: {
     ultra: [
-      "16 vCPU, 64GB RAM, 800GB storage",
+      "8 vCPU, 32GB RAM, 400GB storage",
       "5X credits with full context window",
       "Mission Control command center",
       "Agent Squad Builder & orchestration",

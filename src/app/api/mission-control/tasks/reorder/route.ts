@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { guardMCRoute } from "@/lib/mc-route-guard";
 
+const VALID_COLUMNS = ["planning", "inbox", "assigned", "in_progress", "testing", "review", "done"] as const;
+
 // PATCH /api/mission-control/tasks/reorder — bulk position update for drag-drop
 export async function PATCH(request: NextRequest) {
   const guard = await guardMCRoute(request, { rateLimit: { max: 20, window: 60 }, maxBodySize: 51200 });
@@ -30,6 +32,20 @@ export async function PATCH(request: NextRequest) {
       { error: "Max 100 items per reorder" },
       { status: 400 }
     );
+  }
+
+  // 350_MED_09: Validate each item individually
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  for (const u of updates) {
+    if (!UUID_RE.test(u.id)) {
+      return NextResponse.json({ error: `Invalid task ID format: ${u.id}` }, { status: 400 });
+    }
+    if (!VALID_COLUMNS.includes(u.column_id as typeof VALID_COLUMNS[number])) {
+      return NextResponse.json({ error: `Invalid column_id: ${u.column_id}` }, { status: 400 });
+    }
+    if (typeof u.position !== "number" || u.position < 0 || !Number.isFinite(u.position)) {
+      return NextResponse.json({ error: `Invalid position for task ${u.id}: must be a non-negative number` }, { status: 400 });
+    }
   }
 
   try {
@@ -63,7 +79,7 @@ export async function PATCH(request: NextRequest) {
           column_id: u.column_id,
           position: u.position,
           updated_at: now,
-          ...(u.column_id === "done" ? { completed_at: now } : {}),
+          ...(u.column_id === "done" ? { completed_at: now } : { completed_at: null }),
         })
         .eq("id", u.id)
         .eq("user_id", user.id)

@@ -112,6 +112,25 @@ These are hard-won lessons from manual debugging. Violating any of these will br
 11. **Write configs via base64 encoding** to avoid heredoc/escaping issues over SSH
 12. **Avoid `!` in passwords over SSH** — bash history expansion escapes it
 
+## Design System — 60-30-10 Color Rule (Critical)
+
+ALL colors MUST come from CSS variables in `src/app/globals.css`. NEVER hardcode colors in components.
+
+**60% Dominant** — `--bg-base`, `--bg-raised`, `--bg-elevated`, `--bg-subtle` (backgrounds, surfaces)
+**30% Secondary** — `--text-primary`, `--text-secondary`, `--text-tertiary`, `--border-primary`, `--border-subtle` (text, structure)
+**10% Accent** — `--accent`, `--accent-muted`, `--accent-subtle`, `--accent-border` (brand highlights, icons, badges)
+
+**Additional variables:**
+- `--cta` / `--cta-foreground` — CTA button colors
+- `--success`, `--warning`, `--error`, `--info` — status colors
+- `--tier-pro`, `--tier-ultra`, `--tier-enterprise` — plan tier accents
+
+**Rules:**
+- Use `var(--variable-name)` in Tailwind classes like `text-[var(--text-secondary)]` or `bg-[var(--accent-muted)]`
+- To change the entire site's color, only edit `globals.css` — components stay untouched
+- Alternate themes are pre-built as commented blocks in `globals.css`
+- The accent color should appear sparingly (10%) — only on key interactive elements, brand moments, active states
+
 ## Database Tables
 
 - `users` — id, name, email, role ("user" | "admin")

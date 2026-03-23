@@ -51,33 +51,46 @@ export async function GET() {
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Requests today
-    const { data: todayData } = await admin
+    // Fix H3: Single query to get all counts grouped by api_key_id
+    const { data: todayRows } = await admin
       .from("agent_analytics")
       .select("api_key_id")
       .in("api_key_id", activeKeyIds)
       .gte("created_at", todayStart);
 
-    // Requests this week
-    const { data: weekData } = await admin
+    const { data: weekRows } = await admin
       .from("agent_analytics")
       .select("api_key_id")
       .in("api_key_id", activeKeyIds)
       .gte("created_at", weekStart);
 
-    // Errors this week
-    const { data: errorData } = await admin
+    const { data: errorRows } = await admin
       .from("agent_analytics")
       .select("api_key_id")
       .in("api_key_id", activeKeyIds)
       .eq("metric_type", "error")
       .gte("created_at", weekStart);
 
+    // Build count maps with single pass over each array
+    const todayCount: Record<string, number> = {};
+    for (const row of (todayRows || [])) {
+      todayCount[row.api_key_id] = (todayCount[row.api_key_id] || 0) + 1;
+    }
+
+    const weekCount: Record<string, number> = {};
+    const errorCount: Record<string, number> = {};
+    for (const row of (weekRows || [])) {
+      weekCount[row.api_key_id] = (weekCount[row.api_key_id] || 0) + 1;
+    }
+    for (const row of (errorRows || [])) {
+      errorCount[row.api_key_id] = (errorCount[row.api_key_id] || 0) + 1;
+    }
+
     for (const keyId of activeKeyIds) {
       keyStats[keyId] = {
-        today: (todayData || []).filter((r) => r.api_key_id === keyId).length,
-        week: (weekData || []).filter((r) => r.api_key_id === keyId).length,
-        errors: (errorData || []).filter((r) => r.api_key_id === keyId).length,
+        today: todayCount[keyId] || 0,
+        week: weekCount[keyId] || 0,
+        errors: errorCount[keyId] || 0,
       };
     }
   }

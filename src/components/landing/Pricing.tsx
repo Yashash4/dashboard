@@ -1,53 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Check, Minus, ArrowRight, Shield } from "lucide-react";
+import { Check, ArrowRight, Minus } from "lucide-react";
+import { createBrowserClient } from "@supabase/ssr";
+
+/* ─── Plan Data ─── */
 
 const plans = [
   {
+    id: "starter" as const,
     name: "Starter",
     badge: null,
     monthly: 59,
     annual: 599,
     annualSavings: "$109",
-    tagline: "All-inclusive. One price. Zero hassle.",
+    tagline: "All-inclusive. Zero hassle.",
     cta: "Get Started",
     ctaHref: "/pricing",
     highlighted: false,
+    accentVar: "var(--accent)",
     features: [
       "Dedicated VPS (2 vCPU, 8GB RAM)",
-      "30 AI models included — no API keys",
+      "AI models included — no API keys",
       "All 7 messaging channels",
-      "Agent Store with 7 free pre-built agents",
-      "Professional chat with streaming",
+      "Agent Store (7 free agents)",
       "Custom domain + auto-SSL",
       "Health monitoring + auto-restart",
-      "Support with attachments",
+      "Professional chat interface",
+      "Ticket-based support",
     ],
   },
   {
+    id: "pro" as const,
     name: "Pro",
     badge: "Most Popular",
     monthly: 129,
     annual: 1299,
     annualSavings: "$249",
-    tagline: "For builders who ship.",
+    tagline: "For teams that build.",
     cta: "Get Pro",
     ctaHref: "/pricing",
     highlighted: true,
+    accentVar: "var(--tier-pro)",
     features: [
       "Everything in Starter +",
-      "Agent Builder (AI-assisted creation)",
-      "Model Playground (compare models)",
-      "Knowledge Base with AI search (RAG)",
+      "Agent Builder (AI-assisted)",
+      "Model Playground",
+      "Knowledge Base with RAG",
       "Webhooks (9 events, auto-retry)",
       "Full API Access with SDKs",
-      "Logs Explorer + Analytics + Audit Log",
-      "8 vCPU, 32GB RAM",
+      "Analytics + Logs + Audit Log",
+      "4 vCPU, 16GB RAM",
     ],
   },
   {
+    id: "ultra" as const,
     name: "Ultra",
     badge: "Most Powerful",
     monthly: 350,
@@ -57,17 +65,19 @@ const plans = [
     cta: "Go Ultra",
     ctaHref: "/pricing",
     highlighted: false,
+    accentVar: "var(--tier-ultra)",
     features: [
       "Everything in Pro +",
-      "Mission Control command center",
-      "Kanban task board for AI agents",
+      "Mission Control dashboard",
+      "Kanban task board",
       "Agent orchestration + automation",
       "Session replay with traces",
-      "Time tracking + calendar view",
-      "16 vCPU, 64GB RAM",
+      "Time tracking + calendar",
+      "8 vCPU, 32GB RAM",
     ],
   },
   {
+    id: "enterprise" as const,
     name: "Enterprise",
     badge: "White Glove",
     monthly: null,
@@ -77,108 +87,109 @@ const plans = [
     cta: "Talk to Us",
     ctaHref: "mailto:hello@clawhq.tech",
     highlighted: false,
+    accentVar: "var(--tier-enterprise)",
     features: [
       "Custom VPS specs",
       "Custom AI agents built for you",
-      "Bespoke integrations & workflows",
+      "Bespoke integrations",
       "Dedicated account manager",
       "25x rate limits",
-      "White-glove setup + ongoing support",
+      "White-glove setup + support",
       "Everything in Ultra included",
     ],
   },
 ];
 
+type PlanId = "starter" | "pro" | "ultra";
+
+/* ─── Comparison Table ─── */
+
 const comparisonRows = [
-  { label: "vCPU", starter: "2", pro: "8", ultra: "16", enterprise: "Custom" },
-  { label: "RAM", starter: "8 GB", pro: "32 GB", ultra: "64 GB", enterprise: "Custom" },
-  { label: "NVMe Storage", starter: "100 GB", pro: "400 GB", ultra: "800 GB", enterprise: "Custom" },
-  { label: "Bandwidth", starter: "8 TB", pro: "32 TB", ultra: "64 TB", enterprise: "Custom" },
-  { label: "AI models included", starter: true, pro: true, ultra: true, enterprise: true },
-  { label: "Context window", starter: "128K", pro: "Full", ultra: "Full", enterprise: "Full" },
-  { label: "Model switching", starter: "5/mo", pro: "Instant", ultra: "Instant", enterprise: "Instant" },
+  { label: "vCPU", starter: "2", pro: "4", ultra: "8", enterprise: "Custom" },
+  { label: "RAM", starter: "8 GB", pro: "16 GB", ultra: "32 GB", enterprise: "Custom" },
+  { label: "NVMe Storage", starter: "100 GB", pro: "200 GB", ultra: "400 GB", enterprise: "Custom" },
+  { label: "AI models", starter: true, pro: true, ultra: true, enterprise: true },
   { label: "All 7 channels", starter: true, pro: true, ultra: true, enterprise: true },
   { label: "Agent Store", starter: true, pro: true, ultra: true, enterprise: true },
-  { label: "Custom domain + SSL", starter: true, pro: true, ultra: true, enterprise: true },
-  { label: "Health monitoring", starter: true, pro: true, ultra: true, enterprise: true },
   { label: "Agent Builder", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Model Playground", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Knowledge Base (RAG)", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Webhooks", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "API Access + SDKs", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Logs Explorer", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Usage Analytics", starter: false, pro: true, ultra: true, enterprise: true },
-  { label: "Audit Log", starter: false, pro: true, ultra: true, enterprise: true },
+  { label: "Knowledge Base", starter: false, pro: true, ultra: true, enterprise: true },
+  { label: "API + Webhooks", starter: false, pro: true, ultra: true, enterprise: true },
+  { label: "Analytics + Logs", starter: false, pro: true, ultra: true, enterprise: true },
   { label: "Mission Control", starter: false, pro: false, ultra: true, enterprise: true },
   { label: "Task Board", starter: false, pro: false, ultra: true, enterprise: true },
-  { label: "Session Tracking", starter: false, pro: false, ultra: true, enterprise: true },
-  { label: "Custom agents built for you", starter: false, pro: false, ultra: false, enterprise: true },
   { label: "Rate limits", starter: "1x", pro: "5x", ultra: "10x", enterprise: "25x" },
   { label: "Support", starter: "Tickets", pro: "Priority", ultra: "Priority", enterprise: "Dedicated" },
 ];
 
 function CellValue({ value }: { value: boolean | string }) {
-  if (value === true) return <Check size={16} className="text-primary mx-auto" />;
-  if (value === false) return <Minus size={16} className="text-muted-foreground/40 mx-auto" />;
-  return <span className="text-sm">{value}</span>;
+  if (value === true) return <Check size={15} className="text-[var(--success)] mx-auto" />;
+  if (value === false) return <Minus size={15} className="text-[var(--text-tertiary)]/30 mx-auto" />;
+  return <span className="text-[15px]">{value}</span>;
 }
+
+/* ─── Main Component ─── */
 
 export default function Pricing() {
   const [annual, setAnnual] = useState(false);
+  const [previewPlan, setPreviewPlan] = useState<PlanId>("pro");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createBrowserClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    supabase.auth.getUser().then(({ data }) => setIsLoggedIn(!!data.user));
+  }, []);
+
+  function getCtaHref(planId: string) {
+    if (planId === "enterprise") return "mailto:hello@clawhq.tech";
+    const cycle = annual ? "annual" : "monthly";
+    if (isLoggedIn) return `/checkout?plan=${planId}&cycle=${cycle}`;
+    return `/register?plan=${planId}&cycle=${cycle}`;
+  }
 
   return (
-    <section id="pricing" className="py-24 px-6">
-      <div className="max-w-6xl mx-auto">
+    <section id="pricing" className="py-24 md:py-32 px-6">
+      <div className="max-w-[1200px] mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          transition={{ duration: 0.6 }}
+          className="text-center mb-14"
         >
-          <p className="text-xs text-primary uppercase tracking-widest mb-3">
-            Pricing
-          </p>
-          <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
-            One price. No surprises.
+          <p className="text-[15px] text-[var(--accent)] font-medium mb-4">Pricing</p>
+          <h2 className="text-3xl md:text-[2.75rem] font-bold tracking-tight mb-5">
+            Simple, transparent pricing
           </h2>
-          <p className="text-muted-foreground max-w-xl mx-auto mb-4">
-            Every plan includes AI models, all channels, dedicated VPS, managed
-            infrastructure, and full dashboard access. No hidden fees.
-          </p>
-          <p className="inline-flex items-center gap-2 text-xs text-primary border border-primary/20 bg-primary/5 px-3 py-1.5 rounded-full mb-8">
-            <Shield size={12} />
-            14-day money-back guarantee on all plans
+          <p className="text-[var(--text-secondary)] max-w-lg mx-auto text-[17px] mb-8">
+            Every plan includes AI models, all channels, dedicated VPS, and full dashboard access. No hidden fees.
           </p>
 
           {/* Monthly / Annual toggle */}
-          <div className="inline-flex items-center gap-1 p-1 rounded-lg bg-card border border-border">
+          <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-[var(--bg-raised)] border border-[var(--border-primary)]">
             <button
               onClick={() => setAnnual(false)}
-              className={`px-4 py-1.5 rounded-md text-sm transition-colors ${
-                !annual
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+              className={`px-4 py-2 rounded-lg text-[15px] transition-all ${
+                !annual ? "bg-[var(--cta)] text-[var(--cta-foreground)] font-medium" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setAnnual(true)}
-              className={`px-4 py-1.5 rounded-md text-sm transition-colors ${
-                annual
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+              className={`px-4 py-2 rounded-lg text-[15px] transition-all ${
+                annual ? "bg-[var(--cta)] text-[var(--cta-foreground)] font-medium" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
-              Annual{" "}
-              <span className="text-primary text-xs ml-1">Save up to 17%</span>
+              Annual <span className="text-[var(--accent)] text-[13px] ml-1">Save 17%</span>
             </button>
           </div>
         </motion.div>
 
-        {/* Pricing cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-20">
+        {/* Pricing Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-16">
           {plans.map((plan, i) => (
             <motion.div
               key={plan.name}
@@ -186,18 +197,18 @@ export default function Pricing() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className={`relative p-6 rounded-lg border ${
+              className={`relative p-6 rounded-2xl border brightness-125 hover:brightness-[1.75] transition-all duration-300 ${
                 plan.highlighted
-                  ? "border-[var(--cream)]/30 bg-card"
-                  : "border-border bg-card"
+                  ? "border-[var(--tier-pro)]/30 bg-[var(--bg-raised)]"
+                  : "border-[var(--border-primary)] bg-[var(--bg-raised)]"
               }`}
             >
               {plan.badge && (
                 <span
-                  className={`absolute -top-3 left-6 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  className={`absolute -top-3 left-6 px-3 py-0.5 rounded-full text-[13px] font-medium ${
                     plan.highlighted
-                      ? "bg-[var(--cream)] text-[var(--cream-foreground)]"
-                      : "bg-muted text-muted-foreground border border-border"
+                      ? "bg-[var(--tier-pro)] text-[var(--bg-base)]"
+                      : "bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-primary)]"
                   }`}
                 >
                   {plan.badge}
@@ -205,62 +216,43 @@ export default function Pricing() {
               )}
 
               <h3 className="text-lg font-semibold mb-1">{plan.name}</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                {plan.tagline}
-              </p>
+              <p className="text-[14px] text-[var(--text-secondary)] mb-5">{plan.tagline}</p>
 
-              {/* Price */}
               <div className="mb-6">
                 {plan.monthly ? (
                   <>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold">
-                        ${annual ? Math.round(plan.annual! / 12) : plan.monthly}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        /mo
-                      </span>
+                      <span className="text-4xl font-bold">${annual ? Math.round(plan.annual! / 12) : plan.monthly}</span>
+                      <span className="text-[15px] text-[var(--text-secondary)]">/mo</span>
                     </div>
                     {annual && (
-                      <p className="text-xs text-primary mt-1">
-                        ${plan.annual}/yr — Save {plan.annualSavings}
-                      </p>
+                      <p className="text-[14px] text-[var(--accent)] mt-1">${plan.annual}/yr — Save {plan.annualSavings}</p>
                     )}
                   </>
                 ) : (
                   <>
-                    <span className="text-3xl font-bold">Custom</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Starting at $999/mo
-                    </p>
+                    <span className="text-4xl font-bold">Custom</span>
+                    <p className="text-[14px] text-[var(--text-secondary)] mt-1">Starting at $999/mo</p>
                   </>
                 )}
               </div>
 
-              {/* CTA */}
               <a
-                href={plan.ctaHref}
-                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 mb-6 ${
+                href={getCtaHref(plan.id)}
+                className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[15px] font-medium transition-all mb-6 ${
                   plan.highlighted
-                    ? "bg-[var(--cream)] text-[var(--cream-foreground)]"
-                    : "bg-muted text-foreground border border-border"
+                    ? "bg-[var(--cta)] text-[var(--cta-foreground)] hover:opacity-90"
+                    : "bg-[var(--bg-subtle)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] border border-[var(--border-primary)]"
                 }`}
               >
                 {plan.cta}
-                <ArrowRight size={14} />
+                <ArrowRight size={13} />
               </a>
 
-              {/* Features */}
-              <ul className="space-y-3">
+              <ul className="space-y-2.5">
                 {plan.features.map((feature) => (
-                  <li
-                    key={feature}
-                    className="flex items-start gap-2 text-sm text-muted-foreground"
-                  >
-                    <Check
-                      size={14}
-                      className="text-primary mt-0.5 shrink-0"
-                    />
+                  <li key={feature} className="flex items-start gap-2.5 text-[15px] text-[var(--text-secondary)]">
+                    <Check size={14} className="text-[var(--success)] mt-0.5 shrink-0" />
                     {feature}
                   </li>
                 ))}
@@ -269,6 +261,50 @@ export default function Pricing() {
           ))}
         </div>
 
+        {/* Dashboard Preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+          className="mb-20"
+        >
+          <h3 className="text-xl font-semibold text-center mb-6">See what you get</h3>
+
+          {/* Plan switcher */}
+          <div className="flex justify-center gap-1 mb-8">
+            {(["starter", "pro", "ultra"] as PlanId[]).map((p) => {
+              const label = p === "starter" ? "Starter" : p === "pro" ? "Pro" : "Ultra";
+              const isActive = previewPlan === p;
+              const color = p === "starter" ? "var(--accent)" : p === "pro" ? "var(--tier-pro)" : "var(--tier-ultra)";
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPreviewPlan(p)}
+                  className={`px-5 py-2 rounded-lg text-[15px] font-medium transition-all ${
+                    isActive
+                      ? "text-[var(--bg-base)]"
+                      : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-transparent"
+                  }`}
+                  style={isActive ? { background: color } : {}}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Live Dashboard Demo */}
+          <div className="rounded-2xl border border-[var(--border-primary)] overflow-hidden shadow-[0_20px_60px_-15px_rgba(0,0,0,0.4)]">
+            <iframe
+              key={previewPlan}
+              src={`/dashboard-demo?plan=${previewPlan}`}
+              className="w-full h-[500px] md:h-[600px] bg-[var(--bg-base)]"
+              title={`ClawHQ ${previewPlan} dashboard preview`}
+            />
+          </div>
+        </motion.div>
+
         {/* Comparison table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -276,52 +312,29 @@ export default function Pricing() {
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
         >
-          <h3 className="text-xl font-semibold text-center mb-8">
-            Compare all plans
-          </h3>
-          {/* Mobile scroll indicator */}
-          <div className="md:hidden flex items-center justify-end gap-1 mb-2 text-[10px] text-muted-foreground">
-            Scroll <span aria-hidden="true">&rarr;</span>
+          <h3 className="text-xl font-semibold text-center mb-10">Compare all plans</h3>
+          <div className="md:hidden flex items-center justify-end gap-1 mb-2 text-[12px] text-[var(--text-tertiary)]">
+            Scroll &rarr;
           </div>
-          <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: "touch" }}>
-            <table className="w-full text-sm min-w-[600px]">
+          <div className="overflow-x-auto scrollbar-none rounded-2xl border border-[var(--border-primary)]">
+            <table className="w-full text-[15px] min-w-[600px]">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 pr-4 text-muted-foreground font-medium">
-                    Feature
-                  </th>
-                  <th className="text-center py-3 px-4 text-muted-foreground font-medium">
-                    Starter
-                  </th>
-                  <th className="text-center py-3 px-4 text-[var(--cream)] font-medium">
-                    Pro
-                  </th>
-                  <th className="text-center py-3 px-4 text-muted-foreground font-medium">
-                    Ultra
-                  </th>
-                  <th className="text-center py-3 px-4 text-muted-foreground font-medium">
-                    Enterprise
-                  </th>
+                <tr className="bg-[var(--bg-raised)]">
+                  <th className="text-left py-3.5 px-5 text-[var(--text-tertiary)] font-medium text-[13px] uppercase tracking-wider">Feature</th>
+                  <th className="text-center py-3.5 px-4 text-[var(--text-tertiary)] font-medium text-[13px] uppercase tracking-wider">Starter</th>
+                  <th className="text-center py-3.5 px-4 text-[var(--text-primary)] font-semibold text-[13px] uppercase tracking-wider">Pro</th>
+                  <th className="text-center py-3.5 px-4 text-[var(--text-tertiary)] font-medium text-[13px] uppercase tracking-wider">Ultra</th>
+                  <th className="text-center py-3.5 px-4 text-[var(--text-tertiary)] font-medium text-[13px] uppercase tracking-wider">Enterprise</th>
                 </tr>
               </thead>
               <tbody>
-                {comparisonRows.map((row) => (
-                  <tr key={row.label} className="border-b border-border/50">
-                    <td className="py-3 pr-4 text-muted-foreground">
-                      {row.label}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <CellValue value={row.starter} />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <CellValue value={row.pro} />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <CellValue value={row.ultra} />
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <CellValue value={row.enterprise} />
-                    </td>
+                {comparisonRows.map((row, i) => (
+                  <tr key={row.label} className={`border-t border-[var(--border-subtle)] ${i % 2 ? "bg-[var(--bg-raised)]/50" : ""}`}>
+                    <td className="py-3 px-5 text-[var(--text-secondary)]">{row.label}</td>
+                    <td className="py-3 px-4 text-center"><CellValue value={row.starter} /></td>
+                    <td className="py-3 px-4 text-center"><CellValue value={row.pro} /></td>
+                    <td className="py-3 px-4 text-center"><CellValue value={row.ultra} /></td>
+                    <td className="py-3 px-4 text-center"><CellValue value={row.enterprise} /></td>
                   </tr>
                 ))}
               </tbody>

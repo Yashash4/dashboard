@@ -38,8 +38,8 @@ export default function DocsAgentsAPIPage() {
       "description": "Handles customer support inquiries with access to the knowledge base",
       "status": "deployed",
       "model": {
-        "primary": "gpt-4o",
-        "fallback": "gpt-4o-mini"
+        "primary": "k2.5-standard",
+        "fallback": "m2.5-mini"
       },
       "deployed_at": "2026-03-10T14:30:00Z"
     },
@@ -50,7 +50,7 @@ export default function DocsAgentsAPIPage() {
       "description": "Qualifies leads and answers product questions",
       "status": "deployed",
       "model": {
-        "primary": "claude-3-5-sonnet",
+        "primary": "k2.5-reasoning",
         "fallback": null
       },
       "deployed_at": "2026-03-12T09:15:00Z"

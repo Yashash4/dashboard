@@ -231,7 +231,7 @@ export default function DocsAccountSettingsPage() {
         <li><Link href="/docs/billing" className="text-primary hover:underline">Manage your subscription</Link> and view payment history.</li>
         <li><Link href="/docs/support" className="text-primary hover:underline">Open a support ticket</Link> if you need account assistance.</li>
         <li><Link href="/docs/channels" className="text-primary hover:underline">Configure channels</Link> to connect your agents to messaging platforms.</li>
-        <li><Link href="/docs/monitoring" className="text-primary hover:underline">Monitor your VPS</Link> for status and performance details.</li>
+        <li><Link href="/dashboard/monitoring" className="text-primary hover:underline">Monitor your VPS</Link> for status and performance details.</li>
       </ul>
     </article>
   );

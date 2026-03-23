@@ -66,8 +66,9 @@ export function AdminApiKeys({
       const res = await fetch(`/api/admin/api-keys?userId=${userId}`);
       const data = await res.json();
       setKeys(data.keys || []);
-    } catch {
-      // ignore
+    } catch (err) {
+      // ADMIN_MED_20: log error instead of ignoring
+      console.error("Failed to fetch API keys:", err);
     } finally {
       setLoading(false);
     }
@@ -111,7 +112,9 @@ export function AdminApiKeys({
       setApiKey("");
       setBaseUrl("");
       fetchKeys();
-    } catch {
+    } catch (err) {
+      // ADMIN_MED_20: log error
+      console.error("Failed to save API key:", err);
       toast.error("Network error");
     } finally {
       setSaving(false);
@@ -136,7 +139,9 @@ export function AdminApiKeys({
 
       toast.success(`${prov} key removed`);
       fetchKeys();
-    } catch {
+    } catch (err) {
+      // ADMIN_MED_20: log error
+      console.error("Failed to delete API key:", err);
       toast.error("Network error");
     } finally {
       setDeleting(null);

@@ -1,8 +1,10 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-admin";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, getRateLimitStatus, type RateLimitInfo } from "@/lib/rate-limit";
 import { createRequestContext, apiError, type RequestContext } from "@/lib/api-errors";
+
+export type { RateLimitInfo };
 
 export interface V1AuthResult {
   user: { id: string };
@@ -17,6 +19,7 @@ export interface V1AuthResult {
   plan: string;
   admin: ReturnType<typeof createAdminClient>;
   ctx: RequestContext;
+  rateLimitInfo: RateLimitInfo;
 }
 
 /**
@@ -45,11 +48,17 @@ export async function validateV1Auth(
   // 1. Extract Bearer token
   const authHeader = request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "unknown";
+    const rawKey = authHeader?.slice(7).trim() || "";
+    const keyPrefix = rawKey.slice(0, 8) || "(missing)";
+    console.warn(`[v1-auth] Auth failure — missing/invalid header — IP: ${ip}, key_prefix: ${keyPrefix}, path: ${new URL(request.url).pathname}`);
     return apiError("invalid_api_key", "Missing Authorization: Bearer <api_key> header", ctx);
   }
 
   const rawKey = authHeader.slice(7).trim();
   if (!rawKey.startsWith("clw_") || rawKey.length !== 36) {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "unknown";
+    console.warn(`[v1-auth] Auth failure — invalid key format — IP: ${ip}, key_prefix: ${rawKey.slice(0, 8)}, path: ${new URL(request.url).pathname}`);
     return apiError("invalid_api_key", "Invalid API key format", ctx);
   }
 
@@ -65,11 +74,15 @@ export async function validateV1Auth(
     .single();
 
   if (keyError || !apiKey) {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "unknown";
+    console.warn(`[v1-auth] Auth failure — key not found — IP: ${ip}, key_hash: ${keyHash.slice(0, 16)}..., path: ${new URL(request.url).pathname}`);
     return apiError("invalid_api_key", "Invalid API key", ctx);
   }
 
   // 4. Check key is active
   if (apiKey.status !== "active") {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "unknown";
+    console.warn(`[v1-auth] Auth failure — revoked key — IP: ${ip}, user_id: ${apiKey.user_id}, key_id: ${apiKey.id}, path: ${new URL(request.url).pathname}`);
     return apiError("revoked_api_key", "API key has been revoked", ctx);
   }
 
@@ -81,10 +94,13 @@ export async function validateV1Auth(
     .single();
   const plan = (sub?.plan as string) || "starter";
   if (!["pro", "ultra", "enterprise"].includes(plan)) {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("cf-connecting-ip") || "unknown";
+    console.warn(`[v1-auth] Auth failure — insufficient plan — IP: ${ip}, user_id: ${apiKey.user_id}, plan: ${plan}, path: ${new URL(request.url).pathname}`);
     return apiError("plan_required", "API access requires a Pro plan or higher", ctx);
   }
 
   // 6. Rate limit
+  let rateLimitInfo: RateLimitInfo;
   if (rateLimitOverride) {
     const rl = rateLimit(
       `${apiKey.user_id}:${rateLimitTag || "v1"}`,
@@ -94,6 +110,9 @@ export async function validateV1Auth(
     if (!rl.success) {
       return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx);
     }
+    const windowMs = rateLimitOverride.windowMs ?? 60_000;
+    const { remaining, reset } = getRateLimitStatus(`${apiKey.user_id}:${rateLimitTag || "v1"}`, rateLimitOverride.limit, windowMs);
+    rateLimitInfo = { limit: rateLimitOverride.limit, remaining, reset };
   } else {
     const rpm = apiKey.rate_limit_per_min || 60;
     const identifier = rateLimitTag
@@ -103,6 +122,8 @@ export async function validateV1Auth(
     if (!rl.success) {
       return apiError("rate_limited", "Rate limit exceeded. Try again later.", ctx);
     }
+    const { remaining, reset } = getRateLimitStatus(identifier, rpm, 60_000);
+    rateLimitInfo = { limit: rpm, remaining, reset };
   }
 
   // 7. Return auth result
@@ -112,5 +133,6 @@ export async function validateV1Auth(
     plan,
     admin,
     ctx,
+    rateLimitInfo,
   };
 }

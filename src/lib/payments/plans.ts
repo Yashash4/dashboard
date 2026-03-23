@@ -21,7 +21,7 @@ export const PLANS: PlanDef[] = [
     tagline: "All-inclusive. One price. Zero hassle.",
     features: [
       "Dedicated VPS (2 vCPU, 8GB RAM)",
-      "30 AI models included — no API keys",
+      "AI models included — no API keys",
       "All 7 messaging channels",
       "Agent Store with free pre-built agents",
       "Professional chat with streaming",
@@ -47,7 +47,7 @@ export const PLANS: PlanDef[] = [
       "Webhooks (9 events, auto-retry)",
       "Full API Access with SDKs",
       "Logs Explorer + Analytics + Audit Log",
-      "8 vCPU, 32GB RAM, 400GB storage",
+      "4 vCPU, 16GB RAM, 200GB storage",
     ],
   },
   {
@@ -65,7 +65,7 @@ export const PLANS: PlanDef[] = [
       "Agent orchestration + automation",
       "Session replay with traces",
       "Time tracking + calendar view",
-      "16 vCPU, 64GB RAM, 800GB storage",
+      "8 vCPU, 32GB RAM, 400GB storage",
     ],
   },
   {
